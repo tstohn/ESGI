@@ -129,13 +129,15 @@ const char *bitap_fuzzy_bitwise_search(const char *text, const char *pattern, in
 struct levenshtein_value{
         int val = 0;
         int start = 0;
-        levenshtein_value(int a,int b):val(a), start(b){}
-        levenshtein_value():val(0), start(0){}
+        int end = 0;
+        levenshtein_value(int a,int b, int c):val(a), start(b), end(c){}
+        levenshtein_value():val(0), start(0), end(0){}
 };
-levenshtein_value min(levenshtein_value a, levenshtein_value b)
+levenshtein_value min(levenshtein_value a, levenshtein_value b, bool& first)
 {
-    if(a.val < b.val)
+    if(a.val <= b.val)
     {
+        first = true;
         return a;
     }
     return b;
@@ -150,12 +152,12 @@ bool levenshtein(const std::string seq, std::string anchor, int ma, int mb, int&
 
     //allow unlimited deletions in beginning; start is zero
     for(i=0;i<=ls;i++) {
-        levenshtein_value val(0,i);
+        levenshtein_value val(0,i,0);
         dist[i][0] = val;
     }
     //deletions in pattern is punished; start is zero
     for(j=0;j<=la;j++) {
-        levenshtein_value val(j,0);
+        levenshtein_value val(j,0,0);
         dist[0][j] = val;
     }
     bool solutionFound = false;
@@ -164,7 +166,6 @@ bool levenshtein(const std::string seq, std::string anchor, int ma, int mb, int&
 
     for (i=1;i<=ls;i++) 
     {
-        if(end) break;
         for(j=1;j<=la;j++) 
         {
             //Punishement for substitution
@@ -177,7 +178,7 @@ bool levenshtein(const std::string seq, std::string anchor, int ma, int mb, int&
                 substitutionValue = 1;
             }
             //punishement for deletion (allow deletions on beginnign and end)
-            if(j==1 | j==la) 
+            if( (j==1 | j==la) & (dist[i-1][j]).start) 
             {
                 deletionValue= 0;
             } 
@@ -194,13 +195,21 @@ bool levenshtein(const std::string seq, std::string anchor, int ma, int mb, int&
             levenshtein_value subst = dist[i-1][j-1];
             subst.val += substitutionValue;
 
-            levenshtein_value tmp1 = min(seq_del, seq_ins);
-            levenshtein_value tmp2 = min(tmp1, subst);
+            //if equal score, prefer: subst > ins > del
+            bool firstValueIsMin = false;
+            levenshtein_value tmp1 = min(seq_ins, seq_del, firstValueIsMin);
+            firstValueIsMin = false;
+            levenshtein_value tmp2 = min(subst, tmp1, firstValueIsMin);
             
             //safe the moment a start begins
-            if(tmp2.start == 0 & substitutionValue == 0)
+            if( (tmp2.start == 0) & (substitutionValue == 0))
             {
                 tmp2.start = i;
+                tmp2.end = i;
+            }
+            else if( (substitutionValue == 0) & firstValueIsMin)
+            {
+                tmp2.end = i;
             }
 
             dist[i][j] = tmp2;
@@ -209,15 +218,14 @@ bool levenshtein(const std::string seq, std::string anchor, int ma, int mb, int&
             {
                 end = i;
                 start = (dist[i][j]).start;
-                break;
             }
         }
     }
 
-    if(end)
+    if((dist[ls][la]).val <= ma)
     {
-        match_start = start;
-        match_end = end;
+        match_start = (dist[ls][la]).start;
+        match_end = (dist[ls][la]).end;
         return true;
     }
     return false;
@@ -238,11 +246,12 @@ bool split_sequence(const std::string seq, input* input, barcode& barcode, fastq
         int start = 0, end = 0;
         if(levenshtein(seq, input->anchor, input->ma, input->mb, start, end))
         {
-            //std::cout << "++++++++++++++++\n";
-            //std::cout << seq << "\n";
+            //new anchor start in 0-indexed string sequence is 'start'
+            //TODO: wrong sequence e.g. for start <-> ebd-start == ACGTGGTCAGTCAACAGATAAGCGA
             //std::cout << input->anchor << "\n";
-            //std::cout << start << "_" << end << "\n";
             //std::cout << seq.substr(start, end-start) << "\n";
+            //std::cout << seq.substr(start, input->anchor.length()) <<"\n#################"<< "\n";
+
             //minor mismatches that are allowed per mb and ma
             ++stats.moderateMatches;
             return true;
@@ -253,11 +262,10 @@ bool split_sequence(const std::string seq, input* input, barcode& barcode, fastq
             ++stats.noMatches;
             return false;
         }
-
     }
-    //perfect matches
     else
     {
+        //perfect matches
         assert(sm.size()==4);
         barcode.umi = sm[1];
         barcode.antibody = sm[2];
@@ -338,8 +346,10 @@ barcodeVector iterate_over_fastq(input& input)
         barcodeVectorFinal.insert(barcodeVectorFinal.end(), barcodesThreadList.at(i).begin(), barcodesThreadList.at(i).end());
         fastqStatsFinal.perfectMatches += statsThreadList.at(i).perfectMatches;
         fastqStatsFinal.noMatches += statsThreadList.at(i).noMatches;
+        fastqStatsFinal.moderateMatches += statsThreadList.at(i).moderateMatches;
     }
-    std::cout << "MATCHED: " << fastqStatsFinal.perfectMatches << " | MISMATCHED: " << fastqStatsFinal.noMatches << "\n";
+    std::cout << "MATCHED: " << fastqStatsFinal.perfectMatches << " | MODERATE MATCH: " << fastqStatsFinal.moderateMatches
+              << " | MISMATCHED: " << fastqStatsFinal.noMatches << "\n";
     kseq_destroy(ks);
     gzclose(fp);
     return barcodeVectorFinal;
