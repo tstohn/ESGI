@@ -4,6 +4,9 @@
 #include <regex>
 #include <thread>
 
+//#include <stdlib.h>
+//#include <limits.h>
+
 #include "seqtk/kseq.h"
 
 #include <boost/program_options.hpp>
@@ -35,6 +38,7 @@ struct input{
 struct fastqStats{
     int perfectMatches = 0;
     int noMatches = 0;
+    int moderateMatches = 0;
 };
 
 bool parse_arguments(char** argv, int argc, input& input)
@@ -75,6 +79,149 @@ bool parse_arguments(char** argv, int argc, input& input)
     return true;
 
 }
+ 
+const char *bitap_fuzzy_bitwise_search(const char *text, const char *pattern, int k)
+{
+    const char *result = NULL;
+    int m = strlen(pattern);
+    unsigned long *R;
+    unsigned long pattern_mask[CHAR_MAX+1];
+    int i, d;
+
+    if (pattern[0] == '\0') return text;
+    if (m > 31) return "The pattern is too long!";
+
+    /* Initialize the bit array R */
+    R = (unsigned long*) malloc((k+1) * sizeof *R);
+    for (i=0; i <= k; ++i)
+        R[i] = ~1;
+
+    /* Initialize the pattern bitmasks */
+    for (i=0; i <= CHAR_MAX; ++i)
+        pattern_mask[i] = ~0;
+    for (i=0; i < m; ++i)
+        pattern_mask[pattern[i]] &= ~(1UL << i);
+
+    for (i=0; text[i] != '\0'; ++i) {
+        /* Update the bit arrays */
+        unsigned long old_Rd1 = R[0];
+
+        R[0] |= pattern_mask[text[i]];
+        R[0] <<= 1;
+
+        for (d=1; d <= k; ++d) {
+            unsigned long tmp = R[d];
+            /* Substitution is all we care about */
+            R[d] = (old_Rd1 & (R[d] | pattern_mask[text[i]])) << 1;
+            old_Rd1 = tmp;
+        }
+
+        if (0 == (R[k] & (1UL << m))) {
+            result = (text+i - m) + 1;
+            break;
+        }
+    }
+
+    free(R);
+    return result;
+}
+
+struct levenshtein_value{
+        int val = 0;
+        int start = 0;
+        levenshtein_value(int a,int b):val(a), start(b){}
+        levenshtein_value():val(0), start(0){}
+};
+levenshtein_value min(levenshtein_value a, levenshtein_value b)
+{
+    if(a.val < b.val)
+    {
+        return a;
+    }
+    return b;
+}
+bool levenshtein(const std::string seq, std::string anchor, int ma, int mb, int& match_start, int& match_end)
+{
+    int i,j,ls,la,t,substitutionValue, deletionValue;
+    //stores the lenght of strings s1 and s2
+    ls = seq.length();
+    la = anchor.length();
+    levenshtein_value dist[ls+1][la+1];
+
+    //allow unlimited deletions in beginning; start is zero
+    for(i=0;i<=ls;i++) {
+        levenshtein_value val(0,i);
+        dist[i][0] = val;
+    }
+    //deletions in pattern is punished; start is zero
+    for(j=0;j<=la;j++) {
+        levenshtein_value val(j,0);
+        dist[0][j] = val;
+    }
+    bool solutionFound = false;
+    int end = 0;
+    int start = 0;
+
+    for (i=1;i<=ls;i++) 
+    {
+        if(end) break;
+        for(j=1;j<=la;j++) 
+        {
+            //Punishement for substitution
+            if(seq[i-1] == anchor[j-1]) 
+            {
+                substitutionValue= 0;
+            } 
+            else 
+            {
+                substitutionValue = 1;
+            }
+            //punishement for deletion (allow deletions on beginnign and end)
+            if(j==1 | j==la) 
+            {
+                deletionValue= 0;
+            } 
+            else 
+            {
+                deletionValue = 1;
+            }
+
+            //determine new value of cell
+            levenshtein_value seq_del = dist[i-1][j]; 
+            seq_del.val += deletionValue;
+            levenshtein_value seq_ins = dist[i][j-1];
+            seq_ins.val += 1;
+            levenshtein_value subst = dist[i-1][j-1];
+            subst.val += substitutionValue;
+
+            levenshtein_value tmp1 = min(seq_del, seq_ins);
+            levenshtein_value tmp2 = min(tmp1, subst);
+            
+            //safe the moment a start begins
+            if(tmp2.start == 0 & substitutionValue == 0)
+            {
+                tmp2.start = i;
+            }
+
+            dist[i][j] = tmp2;
+
+            if(j==la & (dist[i][j]).val<=ma & i>=la) 
+            {
+                end = i;
+                start = (dist[i][j]).start;
+                break;
+            }
+        }
+    }
+
+    if(end)
+    {
+        match_start = start;
+        match_end = end;
+        return true;
+    }
+    return false;
+}
 
 bool split_sequence(const std::string seq, input* input, barcode& barcode, fastqStats& stats)
 {
@@ -82,17 +229,31 @@ bool split_sequence(const std::string seq, input* input, barcode& barcode, fastq
     std::smatch sm;
     std::string expressionString = "[ACTGN]+([ACTGN]{15,15})([ACTGN]{10,10})" + input->anchor + "([ACTGN]{10,10})[ACTGN]+";
     std::regex expression(expressionString);
-
     std::string line = seq;
     std::regex_match(line,sm,expression);
 
     //check of mismatches
     if(sm.size()<4)
     {
-        //minor mismatches that are allowed per mb and ma
-        ++stats.noMatches;
-        //bigger mismatches
-        return false;
+        int start = 0, end = 0;
+        if(levenshtein(seq, input->anchor, input->ma, input->mb, start, end))
+        {
+            //std::cout << "++++++++++++++++\n";
+            //std::cout << seq << "\n";
+            //std::cout << input->anchor << "\n";
+            //std::cout << start << "_" << end << "\n";
+            //std::cout << seq.substr(start, end-start) << "\n";
+            //minor mismatches that are allowed per mb and ma
+            ++stats.moderateMatches;
+            return true;
+        }
+        else
+        {
+            //bigger mismatches
+            ++stats.noMatches;
+            return false;
+        }
+
     }
     //perfect matches
     else
@@ -105,6 +266,8 @@ bool split_sequence(const std::string seq, input* input, barcode& barcode, fastq
 
         return true;
     }
+
+    return false;
 }
 
 void write_file(std::string output, barcodeVector barcodes)
