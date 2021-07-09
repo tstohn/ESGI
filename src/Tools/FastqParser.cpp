@@ -1,11 +1,16 @@
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <zlib.h>
 #include <regex>
 #include <thread>
 
-//#include <stdlib.h>
-//#include <limits.h>
+/** @param:
+ *  sequence pattern: could be a sequence of constant and variable nucleotides: e.g.: [xxxxx][AGCGTACGCGAGT][xxxxx][AAGCGtAGCTTC][xxxxx] 
+ *  mismatches per sequence in bracket: e.g.: 1,2,1,2,1
+ * 
+ * 
+ **/
 
 #include "seqtk/kseq.h"
 
@@ -55,7 +60,7 @@ bool parse_arguments(char** argv, int argc, input& input)
             ("antibody,ab", value<std::string>(&(input.abBarcodes))->required(), "antibody barcodes")
 
             ("mb", value<int>(&(input.mb))->default_value(1), "mismatches allowed in barcodes")
-            ("ma", value<int>(&(input.ma))->default_value(2), "mismatches allowed in anchor sequence")
+            ("mismatchesInAnchor,m", value<int>(&(input.ma))->default_value(2), "mismatches allowed in anchor sequence")
             ("threat,t", value<int>(&(input.threads))->default_value(5), "number of threads")
 
             ("help,h", "help message");
@@ -79,52 +84,6 @@ bool parse_arguments(char** argv, int argc, input& input)
     return true;
 
 }
- 
-const char *bitap_fuzzy_bitwise_search(const char *text, const char *pattern, int k)
-{
-    const char *result = NULL;
-    int m = strlen(pattern);
-    unsigned long *R;
-    unsigned long pattern_mask[CHAR_MAX+1];
-    int i, d;
-
-    if (pattern[0] == '\0') return text;
-    if (m > 31) return "The pattern is too long!";
-
-    /* Initialize the bit array R */
-    R = (unsigned long*) malloc((k+1) * sizeof *R);
-    for (i=0; i <= k; ++i)
-        R[i] = ~1;
-
-    /* Initialize the pattern bitmasks */
-    for (i=0; i <= CHAR_MAX; ++i)
-        pattern_mask[i] = ~0;
-    for (i=0; i < m; ++i)
-        pattern_mask[pattern[i]] &= ~(1UL << i);
-
-    for (i=0; text[i] != '\0'; ++i) {
-        /* Update the bit arrays */
-        unsigned long old_Rd1 = R[0];
-
-        R[0] |= pattern_mask[text[i]];
-        R[0] <<= 1;
-
-        for (d=1; d <= k; ++d) {
-            unsigned long tmp = R[d];
-            /* Substitution is all we care about */
-            R[d] = (old_Rd1 & (R[d] | pattern_mask[text[i]])) << 1;
-            old_Rd1 = tmp;
-        }
-
-        if (0 == (R[k] & (1UL << m))) {
-            result = (text+i - m) + 1;
-            break;
-        }
-    }
-
-    free(R);
-    return result;
-}
 
 struct levenshtein_value{
         int val = 0;
@@ -142,7 +101,7 @@ levenshtein_value min(levenshtein_value a, levenshtein_value b, bool& first)
     }
     return b;
 }
-bool levenshtein(const std::string seq, std::string anchor, int ma, int mb, int& match_start, int& match_end)
+bool levenshtein(const std::string seq, std::string anchor, int ma, int mb, int& match_start, int& match_end, int& score)
 {
     int i,j,ls,la,t,substitutionValue, deletionValue;
     //stores the lenght of strings s1 and s2
@@ -160,7 +119,7 @@ bool levenshtein(const std::string seq, std::string anchor, int ma, int mb, int&
         levenshtein_value val(j,0,j-1);
         dist[0][j] = val;
     }
-    levenshtein_value val(0,0,0);
+    levenshtein_value val(0,-1,-1);
     dist[0][0] = val;
     for (i=1;i<=ls;i++) 
     {
@@ -206,22 +165,27 @@ bool levenshtein(const std::string seq, std::string anchor, int ma, int mb, int&
             levenshtein_value tmp2 = min(subst, tmp1, firstValueIsMin);
             
             dist[i][j] = tmp2;
-            //std::cout << dist[i][j].val << "[" << dist[i][j].i << ","<< dist[i][j].j << "] ";
         }
-        //std::cout << "\n";
     }
 
+    //backtracking to find match start and end
+    // start and end are defined as first and last match of bases 
+    //(deletion, insertion and substitution are not considered, since they could also be part of the adjacent sequences)
     int start;
     int end;
     i = ls;
     j =la;
     bool noEnd = true;
-    //std::cout << "STARTA\n";
     while(j != 1)
     {
 
         int iNew = dist[i][j].i;
         int jNew = dist[i][j].j;
+
+        if(dist[i][j].val == dist[iNew][jNew].val & i!=iNew & j!=jNew)
+        {
+            start = iNew;
+        }
 
         if( (jNew<la) & noEnd)
         {
@@ -231,15 +195,13 @@ bool levenshtein(const std::string seq, std::string anchor, int ma, int mb, int&
 
         i = iNew;
         j = jNew;
-        //std::cout << i << " " << j << "\n";
         assert(j!=0);
     }
-    i>0 ? start = i : start = i+1;
-    //std::cout << "ENDB\n";
+    if(start==0){start = i+1;}
 
     if((dist[ls][la]).val <= ma)
     {
-        //std::cout << start << " " << end << "\n";
+        score = (dist[ls][la]).val;
         match_start = start;
         match_end = end;
         return true;
@@ -259,16 +221,12 @@ bool split_sequence(const std::string seq, input* input, barcode& barcode, fastq
     //check of mismatches
     if(sm.size()<4)
     {
-        int start = 0, end = 0;
-        if(levenshtein(seq, input->anchor, input->ma, input->mb, start, end))
+        int start = 0, end = 0, score = 0;
+        // start in seq is at: start-1, end-start+1
+        if(levenshtein(seq, input->anchor, input->ma, input->mb, start, end, score))
         {
-            //new anchor start in 0-indexed string sequence is 'start'
-            //TODO: wrong sequence e.g. for start <-> ebd-start == ACGTGGTCAGTCAACAGATAAGCGA
-            //std::cout << input->anchor << "\n";
-            //std::cout << seq << "\n";
-            //std::cout << seq.substr(start-1, (end-start)+1) << "\n";
-            //std::cout <<"#################"<< "\n";
-
+            int startIdx = start-1;
+            int endIdx = end; // inclusive
             //minor mismatches that are allowed per mb and ma
             ++stats.moderateMatches;
             return true;
@@ -297,7 +255,11 @@ bool split_sequence(const std::string seq, input* input, barcode& barcode, fastq
 
 void write_file(std::string output, barcodeVector barcodes)
 {
-
+    std::ofstream outputFile;
+    outputFile.open (output);
+    //write header line
+    outputFile << "header\n";
+    outputFile.close();
 }
 
 void generate_barcodes(std::vector<std::string> fastqLines, input* input, barcodeVector& barcodes, fastqStats& stats)
@@ -372,11 +334,21 @@ barcodeVector iterate_over_fastq(input& input)
     return barcodeVectorFinal;
 }
 
+void call_barcode_splitting_for_each_fastq(input input, barcodeVector& barcodes)
+{
+    //if directory iterate over all fastqs
+    barcodes = iterate_over_fastq(input);
+
+    //add plate number and combine all barcodes
+
+}
+
 int main(int argc, char** argv)
 {
     input input;
+    barcodeVector barcodes;
     parse_arguments(argv, argc, input);
-    barcodeVector barcodes = iterate_over_fastq(input);
+    call_barcode_splitting_for_each_fastq(input, barcodes);
     write_file(input.outFile, barcodes);
  
     return EXIT_SUCCESS;
