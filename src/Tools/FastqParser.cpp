@@ -181,21 +181,18 @@ BarcodeMappingVector iterate_over_fastq(input& input)
     return barcodeVectorFinal;
 }
 
-BarcodePatternVectorPtr generate_barcode_patterns(input input)
+void parseBarcodeData(const input& input, std::vector<std::pair<std::string, bool> >& patterns, std::vector<int>& mismatches, std::vector<std::vector<std::string> >& varyingBarcodes)
 {
-    BarcodePatternVectorPtr barcodePatternVector;
-
-    std::vector<std::string> patterns; // vector of all string patterns
-    std::vector<int> mismatches; // vector of all string patterns
-
-    try{
+        try{
         // parse the pattern, mismatches, and barcode file (perform quality check as well)
-        //PARSE PATTERN
+        int numberOfNonConstantBarcodes = 0;
         std::string pattern = input.patternLine;
         std::string delimiter = "]";
         const char delimiter2 = '[';
         size_t pos = 0;
         std::string seq;
+        //PARSE PATTERN
+        std::pair<std::string, bool> seqPair;
         while ((pos = pattern.find(delimiter)) != std::string::npos) {
             seq = pattern.substr(0, pos);
             pattern.erase(0, pos + 1);
@@ -205,7 +202,23 @@ BarcodePatternVectorPtr generate_barcode_patterns(input input)
                 exit(1);
             }
             seq.erase(0, 1);
-            patterns.push_back(seq);
+            bool nonConstantSeq = true;
+            for (char const &c: seq) {
+                if(!(c=='A' | c=='T' | c=='G' |c=='C' |
+                    c=='a' | c=='t' | c=='g' | c=='c' |
+                    c=='N' ))
+                {
+                    std::cerr << "PARAMETER ERROR: a barcode sequence in barcode file is not a base (A,T,G,C,N)\n";
+                    if(c==' ' | c=='\t' | c=='\n')
+                    {
+                        std::cerr << "PARAMETER ERROR: Detected a whitespace in sequence; remove it to continue!\n";
+                    }
+                    exit(1);
+                }
+                if(c!='N'){nonConstantSeq=false;}
+            }
+            if(nonConstantSeq){++numberOfNonConstantBarcodes;}
+            patterns.push_back(std::make_pair(seq, nonConstantSeq));
         }
         //PARSE mismatches
         pattern = input.mismatchLine;
@@ -223,6 +236,51 @@ BarcodePatternVectorPtr generate_barcode_patterns(input input)
             exit(1);
         }
         //PARSE barcode file
+        std::ifstream barcodeFile(input.barcodeFile);
+        for(std::string line; std::getline(barcodeFile, line);)
+        {
+            delimiter = ",";
+            pos = 0;
+            std::vector<std::string> seqVector;
+            while ((pos = line.find(delimiter)) != std::string::npos) {
+                seq = line.substr(0, pos);
+                line.erase(0, pos + 1);
+                for (char const &c: seq) {
+                    if(!(c=='A' | c=='T' | c=='G' |c=='C' |
+                         c=='a' | c=='t' | c=='g' | c=='c'))
+                         {
+                            std::cerr << "PARAMETER ERROR: a barcode sequence in barcode file is not a base (A,T,G,C)\n";
+                            if(c==' ' | c=='\t' | c=='\n')
+                            {
+                                std::cerr << "PARAMETER ERROR: Detected a whitespace in sequence; remove it to continue!\n";
+                            }
+                            exit(1);
+                         }
+                }
+                seqVector.push_back(seq);
+            }
+            seq = line;
+            for (char const &c: seq) {
+                if(!(c=='A' | c=='T' | c=='G' |c=='C' |
+                        c=='a' | c=='t' | c=='g' | c=='c'))
+                        {
+                        std::cerr << "PARAMETER ERROR: a barcode sequence in barcode file is not a base (A,T,G,C)\n";
+                        if(c==' ' | c=='\t' | c=='\n')
+                        {
+                            std::cerr << "PARAMETER ERROR: Detected a whitespace in sequence; remove it to continue!\n";
+                        }
+                        exit(1);
+                        }
+            }
+            seqVector.push_back(seq);
+            varyingBarcodes.push_back(seqVector);
+            seqVector.clear();
+        }
+        if(numberOfNonConstantBarcodes != varyingBarcodes.size())
+        {
+            std::cerr << "PARAMETER ERROR: Number of barcode patterns for non-constant sequences [N*] and lines in barcode file are not equal\n";
+            exit(1);
+        }
         
     }
     catch(std::exception& e)
@@ -231,15 +289,58 @@ BarcodePatternVectorPtr generate_barcode_patterns(input input)
         std::cerr << e.what() << std::endl;
         exit(1);
     }
+}
 
+BarcodePatternVectorPtr generate_barcode_patterns(input input)
+{
+    std::vector<std::pair<std::string, bool> > patterns; // vector of all string patterns, 
+                                                         //bool is TRUE if it is a varying sequence with an entry in the barcode file
+    std::vector<int> mismatches; // vector of all string patterns
+    std::vector<std::vector<std::string> > varyingBarcodes; // a vector storing for all non-constant barcode patterns in the order of occurence
+                                                            // in the barcode pattern string the possible barcode sequences
+    //fill the upper three vectors and handle as many errors as possible
+    parseBarcodeData(input, patterns, mismatches, varyingBarcodes);
 
+/*
+//DEBUG OUTPUT TO CHECK PARSED PARAMETERS TO BUILD BARCODE PATTERNS
+    int x = 0;
+    for(int i=0; i< patterns.size(); ++i)
+    {
+        std::cout << patterns.at(i).first << "_"<< patterns.at(i).second << "\n";
+        std::cout << mismatches.at(i) << "\n";
+        if(patterns.at(i).second)
+        {
+            for(int j =0; j<varyingBarcodes.at(x).size(); ++j)
+            {
+                std::cout << varyingBarcodes.at(x).at(j);
+            }
+            std::cout << "\n";
+            ++x;
+        }
+    }
+*/
+    //iterate over patterns and fill BarcodePatternVector instance
+    BarcodePatternVector barcodeVector;
+    int variableBarcodeIdx = 0; // index for variable barcode sequences is shorter than the vector of patterns in total
     for(int i=0; i < patterns.size(); ++i)
     {
-        //std::cout << patterns.at(i) << mismatches.at(i)<< " \n";
+        if(patterns.at(i).second)
+        {
+            VariableBarcode barcode(varyingBarcodes.at(variableBarcodeIdx), mismatches.at(i));
+            std::shared_ptr<VariableBarcode> barcodePtr(std::make_shared<VariableBarcode>(barcode));
+            barcodeVector.emplace_back(barcodePtr);
+            ++variableBarcodeIdx;
+        }
+        else
+        {
+            ConstantBarcode barcode(patterns.at(i).first, mismatches.at(i));
+            std::shared_ptr<ConstantBarcode> barcodePtr(std::make_shared<ConstantBarcode>(barcode));
+            barcodeVector.emplace_back(barcodePtr);
+        }
     }
+    BarcodePatternVectorPtr barcodePatternVector = std::make_shared<BarcodePatternVector>(barcodeVector);
 
     return barcodePatternVector;
-
 }
 
 
