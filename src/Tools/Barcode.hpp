@@ -4,17 +4,23 @@
 #include <zlib.h>
 #include <thread>
 
+#include "helper.hpp"
+
+class Barcode;
+typedef std::shared_ptr<Barcode> BarcodePatternPtr;
+typedef std::vector<BarcodePatternPtr> BarcodePatternVector; 
+typedef std::shared_ptr<BarcodePatternVector> BarcodePatternVectorPtr; 
+
 //new datatypes
 class Barcode
 {
     public:
     Barcode(int inMismatches) : mismatches(inMismatches) {}
-
-    private:
     int mismatches;
 
+    private:
     //overwritten function to match sequence pattern(s)
-    virtual std::string match_pattern(std::string sequence) = 0;
+    virtual bool match_pattern(std::string sequence, int offset, int seq_start, int seq_end, fastqStats& stats) = 0;
 
 };
 
@@ -22,8 +28,8 @@ class ConstantBarcode : public Barcode
 {
 
     public:
-    ConstantBarcode(std::string inSequence, int inMismatches) : Barcode(inMismatches),pattern(inSequence) {}
-    std::string match_pattern();
+    ConstantBarcode(std::string inPattern, int inMismatches) : Barcode(inMismatches),pattern(inPattern) {}
+    bool match_pattern(std::string sequence, int offset, int seq_start, int seq_end, fastqStats& stats);
 
     private:
     std::string pattern;
@@ -32,13 +38,10 @@ class VariableBarcode : public Barcode
 {
 
     public:
-    VariableBarcode(std::vector<std::string> inSequences, int inMismatches) : Barcode(inMismatches),patterns(inSequences) {}
-    std::string match_pattern();
+    VariableBarcode(std::vector<std::string> inPatterns, int inMismatches) : Barcode(inMismatches),patterns(inPatterns) {}
+    bool match_pattern(std::string sequence, int offset, int seq_start, int seq_end, fastqStats& stats);
 
     private:
     std::vector<std::string> patterns;
 
 };
-
-typedef std::shared_ptr<Barcode> barcodePtr;
-typedef std::vector<barcodePtr> barcodePtrVector; 

@@ -4,7 +4,6 @@
 #include <zlib.h>
 #include <regex>
 #include <thread>
-
 #include "Barcode.hpp"
 
 /** @param:
@@ -46,45 +45,24 @@ typedef std::vector<std::string> BarcodeMapping;
 typedef std::vector<BarcodeMapping> BarcodeMappingVector;
 using namespace boost::program_options;
 
-
-struct input{
-    std::string inFile;
-    std::string outFile;
-
-    std::string wellBarcodes;
-    std::string abBarcodes;
-
-    std::string anchor;
-    int mb = 1;
-    int ma = 2;
-    int threads = 5;
-};
-
-struct fastqStats{
-    int perfectMatches = 0;
-    int noMatches = 0;
-    int moderateMatches = 0;
-};
-
 bool parse_arguments(char** argv, int argc, input& input)
 {
     try
     {
-        std::string mismatchesString;
         options_description desc("Options");
         desc.add_options()
             ("input,i", value<std::string>(&(input.inFile))->required(), "directory of files or single file in fastq(.gz) format")
             ("output,o", value<std::string>(&(input.outFile))->required(), "output file with all split barcodes")
-            ("sequencePattern,p", value<std::string>(&(input.anchor))->required(), "pattern for the sequence to match, \
+            
+            ("sequencePattern,p", value<std::string>(&(input.patternLine))->required(), "pattern for the sequence to match, \
             every substring that should be matched is enclosed with square brackets. N is a wild card match, a substring \
             should not be a combination of wild card chars and constant chars : [AGCTATCACGTAGC][NNNNNN][AGAGCATGCCTTCAG][NNNNNN]")
-
-            ("barcodeList,b", value<std::string>(&(input.wellBarcodes)), "file with a list of all allowed well barcodes (comma seperated barcodes across several rows)\
+            ("barcodeList,b", value<std::string>(&(input.barcodeFile)), "file with a list of all allowed well barcodes (comma seperated barcodes across several rows)\
             the row refers to the correponding bracket enclosed sequence substring. E.g. for two bracket enclosed substrings in out sequence a possible list could be:\
             AGCTTCGAG,ACGTTCAGG\nACGTCTAGACT,ATCGGCATACG,ATCGCGATC,ATCGCGCATAC")
-
-            ("mismatches,m", value<std::string>(&(mismatchesString))->default_value("1"), "list of mismatches allowed for each bracket enclosed sequence substring. \
+            ("mismatches,m", value<std::string>(&(input.mismatchLine))->default_value("1"), "list of mismatches allowed for each bracket enclosed sequence substring. \
             This should be a comma seperated list of numbers for each substring of the sequence enclosed in squared brackets. E.g.: 2,1,2,1,2")
+           
             ("threat,t", value<int>(&(input.threads))->default_value(5), "number of threads")
 
             ("help,h", "help message");
@@ -110,172 +88,15 @@ bool parse_arguments(char** argv, int argc, input& input)
 
 }
 
-struct levenshtein_value{
-        int val = 0;
-        int i = 0;
-        int j = 0;
-        levenshtein_value(int a,int b, int c):val(a), i(b), j(c){}
-        levenshtein_value():val(0), i(0), j(0){}
-};
-levenshtein_value min(levenshtein_value a, levenshtein_value b, bool& first)
+//apply all BarcodePatterns to a single line to generate a vector strings (the Barcodemapping)
+bool split_line_into_barcode_mappings(const std::string seq, input* input, BarcodeMapping& barcodeMap, fastqStats& stats)
 {
-    if(a.val <= b.val)
-    {
-        first = true;
-        return a;
-    }
-    return b;
-}
-bool levenshtein(const std::string seq, std::string anchor, int ma, int mb, int& match_start, int& match_end, int& score)
-{
-    int i,j,ls,la,t,substitutionValue, deletionValue;
-    //stores the lenght of strings s1 and s2
-    ls = seq.length();
-    la = anchor.length();
-    levenshtein_value dist[ls+1][la+1];
+    //iterate over BarcodeMappingVector
+    //for every barcodeMapping element find a match 
 
-    //allow unlimited deletions in beginning; start is zero
-    for(i=0;i<=ls;i++) {
-        levenshtein_value val(i,i-1,0);
-        dist[i][0] = val;
-    }
-    //deletions in pattern is punished; start is zero
-    for(j=0;j<=la;j++) {
-        levenshtein_value val(j,0,j-1);
-        dist[0][j] = val;
-    }
-    levenshtein_value val(0,-1,-1);
-    dist[0][0] = val;
-    for (i=1;i<=ls;i++) 
-    {
-        for(j=1;j<=la;j++) 
-        {
-            //Punishement for substitution
-            if(seq[i-1] == anchor[j-1]) 
-            {
-                substitutionValue= 0;
-            } 
-            else 
-            {
-                substitutionValue = 1;
-            }
-            //punishement for deletion (allow deletions on beginnign and end)
-            if( j==1 | j==la )
-            {
-                deletionValue= 0;
-            } 
-            else 
-            {
-                deletionValue = 1;
-            }
+    //add this match to the BarcodeMapping
 
-            //determine new value of cell
-            levenshtein_value seq_del = dist[i-1][j]; 
-            seq_del.val += deletionValue;
-            seq_del.i = i-1;
-            seq_del.j = j;
-            levenshtein_value seq_ins = dist[i][j-1];
-            seq_ins.val += 1;
-            seq_ins.i = i;
-            seq_ins.j = j-1;
-            levenshtein_value subst = dist[i-1][j-1];
-            subst.val += substitutionValue;
-            subst.i = i-1;
-            subst.j = j-1;
-
-            //if equal score, prefer: subst > ins > del
-            bool firstValueIsMin = false;
-            levenshtein_value tmp1 = min(seq_ins, seq_del, firstValueIsMin);
-            firstValueIsMin = false;
-            levenshtein_value tmp2 = min(subst, tmp1, firstValueIsMin);
-            
-            dist[i][j] = tmp2;
-        }
-    }
-
-    //backtracking to find match start and end
-    // start and end are defined as first and last match of bases 
-    //(deletion, insertion and substitution are not considered, since they could also be part of the adjacent sequences)
-    int start;
-    int end;
-    i = ls;
-    j =la;
-    bool noEnd = true;
-    while(j != 1)
-    {
-
-        int iNew = dist[i][j].i;
-        int jNew = dist[i][j].j;
-
-        if(dist[i][j].val == dist[iNew][jNew].val & i!=iNew & j!=jNew)
-        {
-            start = iNew;
-        }
-
-        if( (jNew<la) & noEnd)
-        {
-            noEnd = false;
-            end = i;
-        }
-
-        i = iNew;
-        j = jNew;
-        assert(j!=0);
-    }
-    if(start==0){start = i+1;}
-
-    if((dist[ls][la]).val <= ma)
-    {
-        score = (dist[ls][la]).val;
-        match_start = start;
-        match_end = end;
-        return true;
-    }
-    return false;
-}
-
-bool split_sequence(const std::string seq, input* input, BarcodeMapping& barcode, fastqStats& stats)
-{
-    //match regex of line
-    std::smatch sm;
-    std::string expressionString = "[ACTGN]+([ACTGN]{15,15})([ACTGN]{10,10})" + input->anchor + "([ACTGN]{10,10})[ACTGN]+";
-    std::regex expression(expressionString);
-    std::string line = seq;
-    std::regex_match(line,sm,expression);
-
-    //check of mismatches
-    if(sm.size()<4)
-    {
-        int start = 0, end = 0, score = 0;
-        // start in seq is at: start-1, end-start+1
-        if(levenshtein(seq, input->anchor, input->ma, input->mb, start, end, score))
-        {
-            int startIdx = start-1;
-            int endIdx = end; // inclusive
-            //minor mismatches that are allowed per mb and ma
-            ++stats.moderateMatches;
-            return true;
-        }
-        else
-        {
-            //bigger mismatches
-            ++stats.noMatches;
-            return false;
-        }
-    }
-    else
-    {
-        //perfect matches
-        assert(sm.size()==4);
-        barcode.push_back(sm[1]);
-        barcode.push_back(sm[2]);
-        barcode.push_back(sm[3]);
-        ++stats.perfectMatches;
-
-        return true;
-    }
-
-    return false;
+    return true;
 }
 
 void write_file(std::string output, BarcodeMappingVector barcodes)
@@ -287,12 +108,12 @@ void write_file(std::string output, BarcodeMappingVector barcodes)
     outputFile.close();
 }
 
-void generate_barcodes(std::vector<std::string> fastqLines, input* input, BarcodeMappingVector& barcodes, fastqStats& stats)
+void map_pattern_to_fastq_lines(std::vector<std::string> fastqLines, input* input, BarcodeMappingVector& barcodes, fastqStats& stats)
 {
     BarcodeMapping barcode;
     for(const std::string& line : fastqLines)
     {
-        if(split_sequence(line, input, barcode, stats))
+        if(split_line_into_barcode_mappings(line, input, barcode, stats))
         {
             barcodes.push_back(barcode);
         }
@@ -315,7 +136,8 @@ BarcodeMappingVector iterate_over_fastq(input& input)
     }
 
     //split input lines into thread buckets
-    std::vector<std::vector<std::string> > fastqLinesVector;
+    std::vector<std::vector<std::string> > fastqLinesVector; //vector holding all the buckets of fastq lines to be analyzed by each thread
+                                                            // each vector element is one bucket for one thread
     int element_number = fastqLines.size() / input.threads;
     std::vector<std::string>::iterator begin = fastqLines.begin();
     for(int i = 0; i < input.threads; ++i)
@@ -329,14 +151,14 @@ BarcodeMappingVector iterate_over_fastq(input& input)
 
     //for every bucket call a thread
     //tmp variables to store thread results
-    std::vector<BarcodeMappingVector> barcodesThreadList(input.threads);
-    std::vector<fastqStats> statsThreadList(input.threads);
+    std::vector<BarcodeMappingVector> barcodesThreadList(input.threads); // vector of mappedSequences to be filled
+    std::vector<fastqStats> statsThreadList(input.threads); // vector of stats to be filled
     std::vector<std::thread> workers;
     //final data variables
     BarcodeMappingVector barcodeVectorFinal;
     fastqStats fastqStatsFinal;
     for (int i = 0; i < input.threads; ++i) {
-        workers.push_back(std::thread(generate_barcodes, fastqLinesVector.at(i), &input, std::ref(barcodesThreadList.at(i)), std::ref(statsThreadList.at(i))));
+        workers.push_back(std::thread(map_pattern_to_fastq_lines, fastqLinesVector.at(i), &input, std::ref(barcodesThreadList.at(i)), std::ref(statsThreadList.at(i))));
     }
     for (std::thread &t: workers) 
     {
@@ -359,8 +181,71 @@ BarcodeMappingVector iterate_over_fastq(input& input)
     return barcodeVectorFinal;
 }
 
-void call_barcode_splitting_for_each_fastq(input input, BarcodeMappingVector& barcodes)
+BarcodePatternVectorPtr generate_barcode_patterns(input input)
 {
+    BarcodePatternVectorPtr barcodePatternVector;
+
+    std::vector<std::string> patterns; // vector of all string patterns
+    std::vector<int> mismatches; // vector of all string patterns
+
+    try{
+        // parse the pattern, mismatches, and barcode file (perform quality check as well)
+        //PARSE PATTERN
+        std::string pattern = input.patternLine;
+        std::string delimiter = "]";
+        const char delimiter2 = '[';
+        size_t pos = 0;
+        std::string seq;
+        while ((pos = pattern.find(delimiter)) != std::string::npos) {
+            seq = pattern.substr(0, pos);
+            pattern.erase(0, pos + 1);
+            if(seq.at(0) != delimiter2)
+            {
+                std::cerr << "PARAMETER ERROR: Wrong barcode patter parameter, it looks like a \'[\' is missing\n";
+                exit(1);
+            }
+            seq.erase(0, 1);
+            patterns.push_back(seq);
+        }
+        //PARSE mismatches
+        pattern = input.mismatchLine;
+        delimiter = ",";
+        pos = 0;
+        while ((pos = pattern.find(delimiter)) != std::string::npos) {
+            seq = pattern.substr(0, pos);
+            pattern.erase(0, pos + 1);
+            mismatches.push_back(stoi(seq));
+        }
+        mismatches.push_back(stoi(pattern));
+        if(patterns.size() != mismatches.size())
+        {
+            std::cerr << "PARAMETER ERROR: Number of barcode patterns and mismatches is not equal\n";
+            exit(1);
+        }
+        //PARSE barcode file
+        
+    }
+    catch(std::exception& e)
+    {
+        std::cerr << "PARAMETER ERROR: Check the input parameters again (barcode pattern list, mismatch list, file with barcode lists)\n";
+        std::cerr << e.what() << std::endl;
+        exit(1);
+    }
+
+
+    for(int i=0; i < patterns.size(); ++i)
+    {
+        //std::cout << patterns.at(i) << mismatches.at(i)<< " \n";
+    }
+
+    return barcodePatternVector;
+
+}
+
+
+void split_barcodes(input input, BarcodeMappingVector& barcodes)
+{
+    BarcodePatternVectorPtr barcodePatterns = generate_barcode_patterns(input);
     //if directory iterate over all fastqs
     barcodes = iterate_over_fastq(input);
 
@@ -374,8 +259,9 @@ int main(int argc, char** argv)
     BarcodeMappingVector barcodes;
     if(parse_arguments(argv, argc, input))
     {
-        call_barcode_splitting_for_each_fastq(input, barcodes);
-        write_file(input.outFile, barcodes);
+        generate_barcode_patterns(input);
+        //split_barcodes(input, barcodes);
+        //write_file(input.outFile, barcodes);
     }
  
     return EXIT_SUCCESS;
