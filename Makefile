@@ -13,4 +13,4 @@ parser:
 	g++ src/Tools/FastqParser.cpp -o bin/parser -lz -lboost_program_options -I ./Tools/ --std=c++11
 
 run:
-	./bin/parser -i ../../TRIALS/Saturation/Plate3SubsamplingKlaas/Subsampled/10.fastq -o ./output.csv -p [NNNNN][ATCAGTCAACAGATAAGCGA][NNNNN] -m 1,2 -t 5
+	./bin/parser -i ./src/test/test_data/inFastqTest.fastq -o ./output.csv -p [NNNN][ATCAGTCAACAGATAAGCGA][NNNN] -m 1,2,0 -t 1 -b ./src/test/test_data/barcodeFile.txt

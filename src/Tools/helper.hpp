@@ -134,10 +134,13 @@ bool levenshtein(const std::string sequence, std::string pattern, int mismatches
     }
     if(start==0){start = i+1;}
 
+    //in case number of mismatches is less or equal to threshold
     if((dist[ls][la]).val <= mismatches)
     {
+        // end is the first index out of sequence, since our strings in matrix are 1-indexed end is fine
+        // start has to be start -= 1, to be the start in a 0-indexed string
         score = (dist[ls][la]).val;
-        match_start = start;
+        match_start = start-1;
         match_end = end;
         return true;
     }

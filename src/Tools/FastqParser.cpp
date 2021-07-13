@@ -41,7 +41,7 @@ PLAN:
 KSEQ_INIT(gzFile, gzread)
 
 //old data types
-typedef std::vector<std::string> BarcodeMapping;
+typedef std::vector< std::shared_ptr<std::string> > BarcodeMapping;
 typedef std::vector<BarcodeMapping> BarcodeMappingVector;
 using namespace boost::program_options;
 
@@ -88,39 +88,90 @@ bool parse_arguments(char** argv, int argc, input& input)
 
 }
 
-//apply all BarcodePatterns to a single line to generate a vector strings (the Barcodemapping)
-bool split_line_into_barcode_mappings(const std::string seq, input* input, BarcodeMapping& barcodeMap, fastqStats& stats)
-{
-    //iterate over BarcodeMappingVector
-    //for every barcodeMapping element find a match 
-
-    //add this match to the BarcodeMapping
-
-    return true;
-}
-
-void write_file(std::string output, BarcodeMappingVector barcodes)
+void write_file(std::string output, BarcodeMappingVector barcodes, const std::vector<std::pair<std::string, bool> > patterns)
 {
     std::ofstream outputFile;
     outputFile.open (output);
     //write header line
-    outputFile << "header\n";
+    for(int i =0; i < patterns.size(); ++i)
+    {
+        outputFile << patterns.at(i).first << "\t";
+    }
+    outputFile << "\n";
+
+    //write all information lines
+    for(int i = 0; i < barcodes.size(); ++i)
+    {
+        for(int j = 0; j < patterns.size(); ++j)
+        {
+            outputFile << *(barcodes.at(i).at(j)) << "\t";
+        }
+        outputFile << "\n";
+    }
+
     outputFile.close();
 }
 
-void map_pattern_to_fastq_lines(std::vector<std::string> fastqLines, input* input, BarcodeMappingVector& barcodes, fastqStats& stats)
+//apply all BarcodePatterns to a single line to generate a vector strings (the Barcodemapping)
+bool split_line_into_barcode_mappings(const std::string& seq, input* input, BarcodeMapping& barcodeMap, 
+                                      fastqStats& stats, std::map<std::string, std::shared_ptr<std::string> >& unique_seq,
+                                      BarcodePatternVectorPtr barcodePatterns)
 {
-    BarcodeMapping barcode;
+    //temporary vecotr of all matches
+    std::vector<std::string> barcodeSequences;
+
+    //iterate over BarcodeMappingVector
+    int offset = 0;
+    for(BarcodePatternVector::iterator patternItr = barcodePatterns->begin(); 
+        patternItr < barcodePatterns->end(); 
+        ++patternItr)
+    {
+        //for every barcodeMapping element find a match
+        int start=0, end=0, score = 0;
+        if(!(*patternItr)->match_pattern(seq, offset, start, end, score))
+        {
+            return false;
+        }
+        std::string mappedBarcode = seq.substr(offset + start, end-start);
+        offset += end;
+
+        std::cout << "#"<< start << "_" << end << ":" << mappedBarcode << "\n";
+
+        //add this match to the BarcodeMapping
+        barcodeMap.emplace_back(std::make_shared<std::string>(mappedBarcode));
+    }
+    std::cout << "\n";
+
+    //add all sequences to map
+    /*for(int i =0; i < barcodeSequences.size(); ++i)
+    {
+        std::string barcodeSeq = barcodeSequences.at(i);
+        if ( unique_seq.find(barcodeSeq) == unique_seq.end() ) 
+        {
+            unique_seq.insert (unique_seq.begin(), std::pair<std::string,std::shared_ptr<std::string>>(barcodeSeq, std::make_shared<std::string>(barcodeSeq)));
+        } 
+        barcodeMap.push_back(unique_seq[barcodeSeq]);
+    }*/
+
+    return true;
+}
+
+void map_pattern_to_fastq_lines(const std::vector<std::string>& fastqLines, input* input, BarcodeMappingVector& barcodes, fastqStats& stats, BarcodePatternVectorPtr barcodePatterns)
+{
+    std::map<std::string, std::shared_ptr<std::string> > unique_seq;
     for(const std::string& line : fastqLines)
     {
-        if(split_line_into_barcode_mappings(line, input, barcode, stats))
+        BarcodeMapping barcode;
+        std::cout << "LINE: " << line << "\n";
+        if(split_line_into_barcode_mappings(line, input, barcode, stats, unique_seq, barcodePatterns))
         {
             barcodes.push_back(barcode);
+            barcode.clear();
         }
     }
 }
 
-BarcodeMappingVector iterate_over_fastq(input& input)
+BarcodeMappingVector iterate_over_fastq(input& input, BarcodePatternVectorPtr barcodePatterns)
 {
     //read all fastq lines into str vector
     gzFile fp;
@@ -158,7 +209,7 @@ BarcodeMappingVector iterate_over_fastq(input& input)
     BarcodeMappingVector barcodeVectorFinal;
     fastqStats fastqStatsFinal;
     for (int i = 0; i < input.threads; ++i) {
-        workers.push_back(std::thread(map_pattern_to_fastq_lines, fastqLinesVector.at(i), &input, std::ref(barcodesThreadList.at(i)), std::ref(statsThreadList.at(i))));
+        workers.push_back(std::thread(map_pattern_to_fastq_lines, fastqLinesVector.at(i), &input, std::ref(barcodesThreadList.at(i)), std::ref(statsThreadList.at(i)), barcodePatterns));
     }
     for (std::thread &t: workers) 
     {
@@ -291,10 +342,8 @@ void parseBarcodeData(const input& input, std::vector<std::pair<std::string, boo
     }
 }
 
-BarcodePatternVectorPtr generate_barcode_patterns(input input)
+BarcodePatternVectorPtr generate_barcode_patterns(input input, std::vector<std::pair<std::string, bool> >& patterns)
 {
-    std::vector<std::pair<std::string, bool> > patterns; // vector of all string patterns, 
-                                                         //bool is TRUE if it is a varying sequence with an entry in the barcode file
     std::vector<int> mismatches; // vector of all string patterns
     std::vector<std::vector<std::string> > varyingBarcodes; // a vector storing for all non-constant barcode patterns in the order of occurence
                                                             // in the barcode pattern string the possible barcode sequences
@@ -344,25 +393,28 @@ BarcodePatternVectorPtr generate_barcode_patterns(input input)
 }
 
 
-void split_barcodes(input input, BarcodeMappingVector& barcodes)
+void split_barcodes(input input, BarcodeMappingVector& barcodes, BarcodePatternVectorPtr barcodePatterns)
 {
-    BarcodePatternVectorPtr barcodePatterns = generate_barcode_patterns(input);
     //if directory iterate over all fastqs
-    barcodes = iterate_over_fastq(input);
 
-    //add plate number and combine all barcodes
+        //combine data to one
+
+    //if file
+    barcodes = iterate_over_fastq(input, barcodePatterns);
 
 }
 
 int main(int argc, char** argv)
 {
     input input;
+    std::vector<std::pair<std::string, bool> > patterns; // vector of all string patterns, 
+                                                        //bool is TRUE if it is a varying sequence with an entry in the barcode file
     BarcodeMappingVector barcodes;
     if(parse_arguments(argv, argc, input))
     {
-        generate_barcode_patterns(input);
-        //split_barcodes(input, barcodes);
-        //write_file(input.outFile, barcodes);
+        BarcodePatternVectorPtr barcodePatterns = generate_barcode_patterns(input, patterns);
+        split_barcodes(input, barcodes, barcodePatterns);
+        write_file(input.outFile, barcodes, patterns);
     }
  
     return EXIT_SUCCESS;

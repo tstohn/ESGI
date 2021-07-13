@@ -17,10 +17,8 @@ class Barcode
     public:
     Barcode(int inMismatches) : mismatches(inMismatches) {}
     int mismatches;
-
-    private:
     //overwritten function to match sequence pattern(s)
-    virtual bool match_pattern(std::string sequence, int offset, int seq_start, int seq_end, fastqStats& stats) = 0;
+    virtual bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score) = 0;
 
 };
 
@@ -29,28 +27,33 @@ class ConstantBarcode : public Barcode
 
     public:
     ConstantBarcode(std::string inPattern, int inMismatches) : pattern(inPattern),Barcode(inMismatches) {}
-    bool match_pattern(std::string sequence, int offset, int seq_start, int seq_end, fastqStats& stats)
+    bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score)
     {
-    int start = 0, end = 0, score = 0;
+        bool offset_shift = false;
+        int tmpOffset = offset;
+        if( !((offset-mismatches) < 0) )
+        {
+            tmpOffset = offset-mismatches;
+            offset_shift = true;
+        }
 
-    sequence.erase(0, offset);
-    // start in seq is at: start-1, end-start+1
-    if(levenshtein(sequence, pattern, mismatches, start, end, score))
-    {
-        int startIdx = start-1;
-        int endIdx = end; // inclusive
-        //minor mismatches that are allowed per mb and ma
-        ++stats.moderateMatches;
-        return true;
+        sequence = sequence.substr(tmpOffset, pattern.length() + 2*mismatches);
+        // e.g.: [AGTAGT]cccc: start=0 end=6 end is first not included idx
+        if(levenshtein(sequence, pattern, mismatches, seq_start, seq_end, score))
+        {
+            if(offset_shift)
+            {
+                seq_start = seq_start-mismatches;
+                seq_end = seq_end-mismatches;
+            }
+            return true;
+        }
+        else
+        {
+            //bigger mismatches
+            return false;
+        }
     }
-    else
-    {
-        //bigger mismatches
-        ++stats.noMatches;
-        return false;
-    }
-
-}
 
     private:
     std::string pattern;
@@ -60,9 +63,76 @@ class VariableBarcode : public Barcode
 
     public:
     VariableBarcode(std::vector<std::string> inPatterns, int inMismatches) : patterns(inPatterns), Barcode(inMismatches) {}
-    bool match_pattern(std::string sequence, int offset, int seq_start, int seq_end, fastqStats& stats)
+    bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score)
     {
-        return true;
+        int match_count = 0;
+        int best_start = 0, best_end = 0, best_score = mismatches+1;
+
+        //calculate a new offset to include possible overlaps of barcodes in case of deletion and same
+        //nucleotides at both ends
+        bool offset_shift = false;
+        int tmpOffset = offset;
+        if( !((offset-mismatches) < 0) )
+        {
+            tmpOffset = offset-mismatches;
+            offset_shift = true;
+        }
+    
+        for(std::string pattern : patterns)
+        {
+            int slice_end =  pattern.length() + 2*mismatches;;
+            std::string tmpSequence = sequence.substr(tmpOffset, slice_end);
+            score = 0;
+            seq_start = 0;
+            seq_end = 0;
+            if(levenshtein(tmpSequence, pattern, mismatches, seq_start, seq_end, score))
+            {
+                if(score < best_score)
+                {
+                    best_start = seq_start;
+                    best_end = seq_end;
+                    best_score = score;
+                    match_count = 1;
+                }
+                else if(score == best_score)
+                {
+                    ++match_count;
+                }
+            }
+        }
+
+        if(match_count == 0)
+        {
+            return false;
+        }
+        else if(match_count > 1)
+        {
+            std::cerr << "SEVERAL BARCODES MAPPED!\n";
+            seq_start = best_start;
+            seq_end = best_end;
+
+            if(offset_shift)
+            {
+                seq_start = seq_start-mismatches;
+                seq_end = seq_end-mismatches;
+            }
+
+            return true;
+        }
+        else
+        {
+            seq_start = best_start;
+            seq_end = best_end;
+
+            if(offset_shift)
+            {
+                seq_start = seq_start-mismatches;
+                seq_end = seq_end-mismatches;
+            }
+
+            return true;
+        }
+
     }
 
     private:
