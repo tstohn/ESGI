@@ -18,7 +18,7 @@ class Barcode
     Barcode(int inMismatches) : mismatches(inMismatches) {}
     int mismatches;
     //overwritten function to match sequence pattern(s)
-    virtual bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, fastqStats& stats) = 0;
+    virtual bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, std::string& realBarcode, fastqStats& stats) = 0;
 
 };
 
@@ -27,7 +27,7 @@ class ConstantBarcode : public Barcode
 
     public:
     ConstantBarcode(std::string inPattern, int inMismatches) : pattern(inPattern),Barcode(inMismatches) {}
-    bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, fastqStats& stats)
+    bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, std::string& realBarcode, fastqStats& stats)
     {
         bool offset_shift = false;
         int tmpOffset = offset;
@@ -47,6 +47,7 @@ class ConstantBarcode : public Barcode
                 seq_start = seq_start-mismatches;
                 seq_end = seq_end-mismatches;
             }
+            realBarcode = pattern;
             return true;
         }
         else
@@ -64,9 +65,10 @@ class VariableBarcode : public Barcode
 
     public:
     VariableBarcode(std::vector<std::string> inPatterns, int inMismatches) : patterns(inPatterns), Barcode(inMismatches) {}
-    bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, fastqStats& stats)
+    bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, std::string& realBarcode, fastqStats& stats)
     {
         int match_count = 0;
+        bool found_match = false;
         int best_start = 0, best_end = 0, best_score = mismatches+1;
 
         //calculate a new offset to include possible overlaps of barcodes in case of deletion and same
@@ -84,19 +86,21 @@ class VariableBarcode : public Barcode
         {
             int slice_end =  pattern.length() + mismatch_length;;
             std::string tmpSequence = sequence.substr(tmpOffset, slice_end);
+
             score = 0;
             seq_start = 0;
             seq_end = 0;
             if(levenshtein(tmpSequence, pattern, mismatches, seq_start, seq_end, score))
             {
-                if(score < best_score)
+                if( (score <= best_score) & (!found_match))
                 {
                     best_start = seq_start;
                     best_end = seq_end;
                     best_score = score;
+                    realBarcode = pattern;
                     match_count = 1;
                 }
-                else if(score == best_score)
+                else if( (score == best_score) & found_match)
                 {
                     ++match_count;
                 }

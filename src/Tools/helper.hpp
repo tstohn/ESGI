@@ -54,7 +54,7 @@ bool levenshtein(const std::string sequence, std::string pattern, int mismatches
 
     //allow unlimited deletions in beginning; start is zero
     for(i=0;i<=ls;i++) {
-        levenshtein_value val(i,i-1,0);
+        levenshtein_value val(0,i-1,0);
         dist[i][0] = val;
     }
     //deletions in pattern is punished; start is zero
@@ -62,6 +62,7 @@ bool levenshtein(const std::string sequence, std::string pattern, int mismatches
         levenshtein_value val(j,0,j-1);
         dist[0][j] = val;
     }
+
     levenshtein_value val(0,-1,-1);
     dist[0][0] = val;
     for (i=1;i<=ls;i++) 
