@@ -2,6 +2,7 @@
 #include <fstream>
 #include <string>
 #include <map>
+#include <cassert>
 
 //stores all the input parameters
 struct input{
