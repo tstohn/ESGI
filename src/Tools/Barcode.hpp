@@ -99,6 +99,7 @@ class VariableBarcode : public Barcode
                     best_score = score;
                     realBarcode = pattern;
                     match_count = 1;
+                    found_match = true;
                 }
                 else if( (score == best_score) & found_match)
                 {
