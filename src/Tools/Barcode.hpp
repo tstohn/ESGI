@@ -19,6 +19,7 @@ class Barcode
     int mismatches;
     //overwritten function to match sequence pattern(s)
     virtual bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, std::string& realBarcode, fastqStats& stats) = 0;
+    virtual std::vector<std::string> get_patterns() = 0;
 
 };
 
@@ -55,6 +56,11 @@ class ConstantBarcode : public Barcode
             //bigger mismatches
             return false;
         }
+    }
+    std::vector<std::string> get_patterns()
+    {
+        std::vector<std::string> patterns = {pattern};
+        return patterns;
     }
 
     private:
@@ -141,6 +147,10 @@ class VariableBarcode : public Barcode
             return true;
         }
 
+    }
+    std::vector<std::string> get_patterns()
+    {
+        return patterns;
     }
 
     private:

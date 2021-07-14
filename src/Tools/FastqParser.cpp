@@ -141,6 +141,33 @@ void write_file(std::string output, BarcodeMappingVector barcodes, BarcodeMappin
     outputFile.close();
 }
 
+void writeStats(std::string output, const fastqStats& stats)
+{
+    std::ofstream outputFile;
+    std::size_t found = output.find_last_of("/");
+    if(found == std::string::npos)
+    {
+        output = "STATS" + output;
+    }
+    else
+    {
+        output = output.substr(0,found) + "/" + "STATS" + output.substr(found+1);
+    }
+    outputFile.open (output);
+
+    for(std::pair<std::string, std::vector<int> > mismatchDictEntry : stats.mapping_dict)
+    {
+        outputFile << mismatchDictEntry.first << "\t";
+        for(int mismatchCountIdx = 0; mismatchCountIdx < mismatchDictEntry.second.size(); ++mismatchCountIdx)
+        {
+            outputFile << mismatchDictEntry.second.at(mismatchCountIdx) << "\t";
+        }
+        outputFile << "\n";
+    }
+
+    outputFile.close();
+}
+
 //apply all BarcodePatterns to a single line to generate a vector strings (the Barcodemapping)
 bool split_line_into_barcode_mappings(const std::string& seq, input* input, BarcodeMapping& barcodeMap, BarcodeMapping& realBarcodeMap,
                                       fastqStats& stats, std::map<std::string, std::shared_ptr<std::string> >& unique_seq,
@@ -169,6 +196,8 @@ bool split_line_into_barcode_mappings(const std::string& seq, input* input, Barc
         score_sum += score;
 
         assert(realBarcode != "");
+        int dictvectorIndex = (score <= (*patternItr)->mismatches ? score : (score + 1) );
+        ++stats.mapping_dict[realBarcode].at(dictvectorIndex);
         //add this match to the BarcodeMapping
         barcodeMap.emplace_back(std::make_shared<std::string>(mappedBarcode));
         realBarcodeMap.emplace_back(std::make_shared<std::string>(realBarcode));
@@ -203,7 +232,7 @@ void map_pattern_to_fastq_lines(const std::vector<std::string>& fastqLines, inpu
     }
 }
 
-void iterate_over_fastq(input& input, BarcodeMappingVector& barcodes, BarcodeMappingVector& realBarcodes, BarcodePatternVectorPtr barcodePatterns)
+void iterate_over_fastq(input& input, BarcodeMappingVector& barcodes, BarcodeMappingVector& realBarcodes, BarcodePatternVectorPtr barcodePatterns, fastqStats& fastqStatsFinal)
 {
     //read all fastq lines into str vector
     gzFile fp;
@@ -236,9 +265,8 @@ void iterate_over_fastq(input& input, BarcodeMappingVector& barcodes, BarcodeMap
     //tmp variables to store thread results
     std::vector<BarcodeMappingVector> barcodesThreadList(input.threads); // vector of mappedSequences to be filled
     std::vector<BarcodeMappingVector> realBarcodesThreadList(input.threads); // vector of mappedSequences to be filled with corrected matches
-    std::vector<fastqStats> statsThreadList(input.threads); // vector of stats to be filled
+    std::vector<fastqStats> statsThreadList(input.threads, fastqStatsFinal); // vector of stats to be filled
     std::vector<std::thread> workers;
-    fastqStats fastqStatsFinal;
     for (int i = 0; i < input.threads; ++i) {
         workers.push_back(std::thread(map_pattern_to_fastq_lines, fastqLinesVector.at(i), 
                         &input, std::ref(barcodesThreadList.at(i)), std::ref(realBarcodesThreadList.at(i)), 
@@ -259,6 +287,14 @@ void iterate_over_fastq(input& input, BarcodeMappingVector& barcodes, BarcodeMap
         fastqStatsFinal.noMatches += statsThreadList.at(i).noMatches;
         fastqStatsFinal.moderateMatches += statsThreadList.at(i).moderateMatches;
         fastqStatsFinal.multiBarcodeMatch += statsThreadList.at(i).multiBarcodeMatch;
+        //iterate for every thread over the dictionary of mismatches per barcode and fill the final stats data with it
+        for(std::pair<std::string, std::vector<int> > mismatchDictEntry : statsThreadList.at(i).mapping_dict)
+        {
+            for(int mismatchCountIdx = 0; mismatchCountIdx < mismatchDictEntry.second.size(); ++mismatchCountIdx)
+            {
+                fastqStatsFinal.mapping_dict[mismatchDictEntry.first].at(mismatchCountIdx) += statsThreadList.at(i).mapping_dict[mismatchDictEntry.first].at(mismatchCountIdx);
+            }
+        }
     }
     std::cout << "MATCHED: " << fastqStatsFinal.perfectMatches << " | MODERATE MATCH: " << fastqStatsFinal.moderateMatches
               << " | MISMATCHED: " << fastqStatsFinal.noMatches << " | Multiplebarcode: " << fastqStatsFinal.multiBarcodeMatch << "\n";
@@ -426,16 +462,38 @@ BarcodePatternVectorPtr generate_barcode_patterns(input input, std::vector<std::
     return barcodePatternVector;
 }
 
-
-void split_barcodes(input input, BarcodeMappingVector& barcodes, BarcodeMappingVector& realBarcodes, BarcodePatternVectorPtr barcodePatterns)
+//TODO: so far only implemented for a single fastq file,
+//implement a function to iterate over all fastq files in a directory and combine data
+//e.g. if we have several files for different batches etc. ...
+void split_barcodes(input input, BarcodeMappingVector& barcodes, BarcodeMappingVector& realBarcodes, BarcodePatternVectorPtr barcodePatterns, fastqStats& fastqStatsFinal)
 {
     //if directory iterate over all fastqs
 
         //combine data to one
 
     //if file
-    iterate_over_fastq(input, barcodes, realBarcodes, barcodePatterns);
+    iterate_over_fastq(input, barcodes, realBarcodes, barcodePatterns, fastqStatsFinal);
 
+}
+
+//initialize the dictionary of mismatches in each specific barcode
+// the vector in the dict has length "mismatches + 2" for each barcode
+// one entry for zero mismatches, eveery number from, 1 to mismatches and 
+//one for more mismatches than the max allowed number of mismathces
+void initializeStats(fastqStats& stats, const BarcodePatternVectorPtr barcodePatterns)
+{
+    for(BarcodePatternVector::iterator patternItr = barcodePatterns->begin(); 
+        patternItr < barcodePatterns->end(); 
+        ++patternItr)
+    {
+        int mismatches = (*patternItr)->mismatches;
+        const std::vector<std::string> patterns = (*patternItr)->get_patterns();
+        for(const std::string& pattern : patterns)
+        {
+            std::vector<int> mismatchVector(mismatches + 2, 0);
+            stats.mapping_dict.insert(std::make_pair(pattern, mismatchVector));
+        }
+    }
 }
 
 int main(int argc, char** argv)
@@ -445,11 +503,14 @@ int main(int argc, char** argv)
                                                         //bool is TRUE if it is a varying sequence with an entry in the barcode file
     BarcodeMappingVector mappedBarcodes;
     BarcodeMappingVector realBarcodes;
+    fastqStats fastqStats;
     if(parse_arguments(argv, argc, input))
     {
         BarcodePatternVectorPtr barcodePatterns = generate_barcode_patterns(input, patterns);
-        split_barcodes(input, mappedBarcodes, realBarcodes, barcodePatterns);
+        initializeStats(fastqStats, barcodePatterns);
+        split_barcodes(input, mappedBarcodes, realBarcodes, barcodePatterns, fastqStats);
         write_file(input.outFile, mappedBarcodes, realBarcodes, patterns);
+        writeStats(input.outFile, fastqStats);
     }
  
     return EXIT_SUCCESS;
