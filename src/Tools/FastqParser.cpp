@@ -122,37 +122,34 @@ bool split_line_into_barcode_mappings(const std::string& seq, input* input, Barc
 
     //iterate over BarcodeMappingVector
     int offset = 0;
+    int score_sum = 0;
     for(BarcodePatternVector::iterator patternItr = barcodePatterns->begin(); 
         patternItr < barcodePatterns->end(); 
         ++patternItr)
     {
         //for every barcodeMapping element find a match
         int start=0, end=0, score = 0;
-        if(!(*patternItr)->match_pattern(seq, offset, start, end, score))
+        if(!(*patternItr)->match_pattern(seq, offset, start, end, score, stats))
         {
+            ++stats.noMatches;
             return false;
         }
         std::string mappedBarcode = seq.substr(offset + start, end-start);
         offset += end;
-
-        std::cout << "#"<< start << "_" << end << ":" << mappedBarcode << "\n";
+        score_sum += score;
 
         //add this match to the BarcodeMapping
         barcodeMap.emplace_back(std::make_shared<std::string>(mappedBarcode));
     }
-    std::cout << "\n";
 
-    //add all sequences to map
-    /*for(int i =0; i < barcodeSequences.size(); ++i)
+    if(score_sum == 0)
     {
-        std::string barcodeSeq = barcodeSequences.at(i);
-        if ( unique_seq.find(barcodeSeq) == unique_seq.end() ) 
-        {
-            unique_seq.insert (unique_seq.begin(), std::pair<std::string,std::shared_ptr<std::string>>(barcodeSeq, std::make_shared<std::string>(barcodeSeq)));
-        } 
-        barcodeMap.push_back(unique_seq[barcodeSeq]);
-    }*/
-
+        ++stats.perfectMatches;
+    }
+    else
+    {
+        ++stats.moderateMatches;
+    }
     return true;
 }
 
@@ -224,9 +221,10 @@ BarcodeMappingVector iterate_over_fastq(input& input, BarcodePatternVectorPtr ba
         fastqStatsFinal.perfectMatches += statsThreadList.at(i).perfectMatches;
         fastqStatsFinal.noMatches += statsThreadList.at(i).noMatches;
         fastqStatsFinal.moderateMatches += statsThreadList.at(i).moderateMatches;
+        fastqStatsFinal.multiBarcodeMatch += statsThreadList.at(i).multiBarcodeMatch;
     }
     std::cout << "MATCHED: " << fastqStatsFinal.perfectMatches << " | MODERATE MATCH: " << fastqStatsFinal.moderateMatches
-              << " | MISMATCHED: " << fastqStatsFinal.noMatches << "\n";
+              << " | MISMATCHED: " << fastqStatsFinal.noMatches << " | Multiplebarcode: " << fastqStatsFinal.multiBarcodeMatch << "\n";
     kseq_destroy(ks);
     gzclose(fp);
     return barcodeVectorFinal;

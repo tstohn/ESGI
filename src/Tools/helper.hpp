@@ -1,6 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <map>
 
 //stores all the input parameters
 struct input{
@@ -15,9 +16,16 @@ struct input{
 };
 
 struct fastqStats{
+    //parameters that are evaluated over the whole fastq line
+    //e.g. perfect match occurs only if ALL barcodes match perfectly in a fastq line
     int perfectMatches = 0;
     int noMatches = 0;
     int moderateMatches = 0;
+    //parameter stating how often a barcode sequence could be matched to several sequences, can occure more than once per line
+    //can only happen for vairable sequences
+    int multiBarcodeMatch =0;
+    //a dictionary of the number of mismatches in a barcode, in the case of a match
+    std::map<std::string, std::vector<int> > mapping_dict;
 };
 
 struct levenshtein_value{
