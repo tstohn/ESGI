@@ -8,4 +8,4 @@ parser:
 	g++ src/Tools/FastqParser.cpp -o bin/parser -pthread -lz -lboost_program_options -I ./Tools/ --std=c++11
 
 run:
-	./bin/parser -i ./src/test/test_data/inFastqTest.fastq -o ./output.csv -p [NNNN][ATCAGTCAACAGATAAGCGA][NNNN] -m 1,2,1 -t 1 -b ./src/test/test_data/barcodeFile.txt
+	./bin/parser -i ./src/test/test_data/inFastqTest.fastq -o ./output.csv -p [NNNN][ATCAGTCAACAGATAAGCGA][NNNN][XXX][TTT] -m 1,2,1,1,0 -t 1 -b ./src/test/test_data/barcodeFile.txt

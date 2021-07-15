@@ -307,7 +307,7 @@ void iterate_over_fastq(input& input, BarcodeMappingVector& barcodes, BarcodeMap
 
 void parseBarcodeData(const input& input, std::vector<std::pair<std::string, bool> >& patterns, std::vector<int>& mismatches, std::vector<std::vector<std::string> >& varyingBarcodes)
 {
-        try{
+    try{
         // parse the pattern, mismatches, and barcode file (perform quality check as well)
         int numberOfNonConstantBarcodes = 0;
         std::string pattern = input.patternLine;
@@ -330,7 +330,7 @@ void parseBarcodeData(const input& input, std::vector<std::pair<std::string, boo
             for (char const &c: seq) {
                 if(!(c=='A' | c=='T' | c=='G' |c=='C' |
                     c=='a' | c=='t' | c=='g' | c=='c' |
-                    c=='N' ))
+                    c=='N' | c=='X'))
                 {
                     std::cerr << "PARAMETER ERROR: a barcode sequence in barcode file is not a base (A,T,G,C,N)\n";
                     if(c==' ' | c=='\t' | c=='\n')
