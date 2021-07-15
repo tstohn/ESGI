@@ -13,6 +13,16 @@
  * 
  **/
 
+/*
+HOW TO ALGORITHM:
+    iterate over patterns and match it to substring plus/minus mismatches on both sides
+    allow mismatches at beginning and end (plus/minus those mismatches, bcs imagine a barcode match with a mismatch in the end,
+    we then donnt know if its  really a msimatch, or a deletion of the barcode and already part of the next barcode...)
+    each matched barcodes is described by the first and last match of the sequence (therefore can be shorter, than real sequence, but not longer)
+    UMI or WildcardBarcodes are matched according to the two last matches in the neighboring sequences
+
+*/
+
 //TODO:
 /*
 make a basetype of barcode:
@@ -32,7 +42,6 @@ make a basetype of barcode:
 PLAN:
 - design classes plus a function to calc dist for one or x sequences and return best match
 - parse pattern, mismatches, and barcodeList and store in new Baseclasspointer vector
-
 
 */
 
@@ -91,7 +100,7 @@ bool parse_arguments(char** argv, int argc, input& input)
 
 }
 
-void write_file(std::string output, BarcodeMappingVector barcodes, BarcodeMappingVector realBarcodes, const std::vector<std::pair<std::string, bool> > patterns)
+void write_file(std::string output, BarcodeMappingVector barcodes, BarcodeMappingVector realBarcodes, const std::vector<std::pair<std::string, char> > patterns)
 {
     //write actually found barcodes
     std::ofstream outputFile;
@@ -182,29 +191,63 @@ bool split_line_into_barcode_mappings(const std::string& seq, input* input, Barc
     //iterate over BarcodeMappingVector
     int offset = 0;
     int score_sum = 0;
+
+    int old_offset = offset;
+    bool wildCardToFill = false;
+    int wildCardLength = 0;
     for(BarcodePatternVector::iterator patternItr = barcodePatterns->begin(); 
         patternItr < barcodePatterns->end(); 
         ++patternItr)
     {
+        //if we have a wildcard skip this matching, we match again the next sequence
+        if((*patternItr)->is_wildcard())
+        {
+            old_offset = offset;
+            wildCardLength = (*patternItr)->get_patterns().at(0).length();
+            offset += wildCardLength;
+            wildCardToFill = true;
+            continue;
+        }
         //for every barcodeMapping element find a match
         std::string realBarcode = ""; //the actual real barcode that we find (mismatch corrected)
         int start=0, end=0, score = 0;
         if(!(*patternItr)->match_pattern(seq, offset, start, end, score, realBarcode, stats))
         {
+            std::cout << "ERROR IN: " << seq << " : " << (*patternItr)->get_patterns().at(0) << " score: " << score << "from "<< offset << "\n";
             ++stats.noMatches;
             return false;
         }
+        std::cout << "pattern matched" << realBarcode << "\n";
         std::string mappedBarcode = seq.substr(offset + start, end-start);
         offset += end;
         score_sum += score;
 
         assert(realBarcode != "");
+        //add barcode data to statistics dictionary
         int dictvectorIndex = (score <= (*patternItr)->mismatches ? score : (score + 1) );
         ++stats.mapping_dict[realBarcode].at(dictvectorIndex);
+        
+        //squeeze in the last wildcard match if there was one 
+        //(we needed both matches of neighboring barcodes to define wildcard boundaries)
+        if(wildCardToFill == true)
+        {
+            wildCardToFill = false;
+            std::string oldWildcardMappedBarcode = seq.substr(old_offset, (offset+start-end) - old_offset);
+            barcodeMap.emplace_back(std::make_shared<std::string>(oldWildcardMappedBarcode));
+            realBarcodeMap.emplace_back(std::make_shared<std::string>(oldWildcardMappedBarcode));
+        }
         //add this match to the BarcodeMapping
         barcodeMap.emplace_back(std::make_shared<std::string>(mappedBarcode));
         realBarcodeMap.emplace_back(std::make_shared<std::string>(realBarcode));
 
+    }
+    //if the last barcode was a WIldcard that still has to be added
+    if(wildCardToFill == true)
+    {
+        wildCardToFill = false; // unnecessary, still left to explicitely set to false
+        std::string oldWildcardMappedBarcode = seq.substr(old_offset, seq.length() - old_offset);
+        barcodeMap.emplace_back(std::make_shared<std::string>(oldWildcardMappedBarcode));
+        realBarcodeMap.emplace_back(std::make_shared<std::string>(oldWildcardMappedBarcode));
     }
 
     if(score_sum == 0)
@@ -305,7 +348,7 @@ void iterate_over_fastq(input& input, BarcodeMappingVector& barcodes, BarcodeMap
     gzclose(fp);
 }
 
-void parseBarcodeData(const input& input, std::vector<std::pair<std::string, bool> >& patterns, std::vector<int>& mismatches, std::vector<std::vector<std::string> >& varyingBarcodes)
+void parseBarcodeData(const input& input, std::vector<std::pair<std::string, char> >& patterns, std::vector<int>& mismatches, std::vector<std::vector<std::string> >& varyingBarcodes)
 {
     try{
         // parse the pattern, mismatches, and barcode file (perform quality check as well)
@@ -326,7 +369,9 @@ void parseBarcodeData(const input& input, std::vector<std::pair<std::string, boo
                 exit(1);
             }
             seq.erase(0, 1);
+            //just check if we have a barcode pattern of only'N', bcs the nunber of those patterns must match the number of lines in barcodefile
             bool nonConstantSeq = true;
+            char patternType = 'c';
             for (char const &c: seq) {
                 if(!(c=='A' | c=='T' | c=='G' |c=='C' |
                     c=='a' | c=='t' | c=='g' | c=='c' |
@@ -340,9 +385,19 @@ void parseBarcodeData(const input& input, std::vector<std::pair<std::string, boo
                     exit(1);
                 }
                 if(c!='N'){nonConstantSeq=false;}
+
+                //determine pattern type and throw error
+                if( (patternType!='c') & (c!='N') & (c!='X') )
+                {
+                    std::cerr << "PARAMETER ERROR: a barcode sequence has bases as well as wildcard 'X' or variable 'N' bases, the combination is not allowed!!!\n";
+                    exit(1);
+                }
+                if(c=='N'){patternType='v';}
+                else if(c=='X'){patternType='w';}
             }
             if(nonConstantSeq){++numberOfNonConstantBarcodes;}
-            patterns.push_back(std::make_pair(seq, nonConstantSeq));
+            
+            patterns.push_back(std::make_pair(seq, patternType));
         }
         //PARSE mismatches
         pattern = input.mismatchLine;
@@ -415,7 +470,7 @@ void parseBarcodeData(const input& input, std::vector<std::pair<std::string, boo
     }
 }
 
-BarcodePatternVectorPtr generate_barcode_patterns(input input, std::vector<std::pair<std::string, bool> >& patterns)
+BarcodePatternVectorPtr generate_barcode_patterns(input input, std::vector<std::pair<std::string, char> >& patterns)
 {
     std::vector<int> mismatches; // vector of all string patterns
     std::vector<std::vector<std::string> > varyingBarcodes; // a vector storing for all non-constant barcode patterns in the order of occurence
@@ -446,17 +501,23 @@ BarcodePatternVectorPtr generate_barcode_patterns(input input, std::vector<std::
     int variableBarcodeIdx = 0; // index for variable barcode sequences is shorter than the vector of patterns in total
     for(int i=0; i < patterns.size(); ++i)
     {
-        if(patterns.at(i).second)
+        if(patterns.at(i).second=='v')
         {
             VariableBarcode barcode(varyingBarcodes.at(variableBarcodeIdx), mismatches.at(i));
             std::shared_ptr<VariableBarcode> barcodePtr(std::make_shared<VariableBarcode>(barcode));
             barcodeVector.emplace_back(barcodePtr);
             ++variableBarcodeIdx;
         }
-        else
+        else if(patterns.at(i).second=='c')
         {
             ConstantBarcode barcode(patterns.at(i).first, mismatches.at(i));
             std::shared_ptr<ConstantBarcode> barcodePtr(std::make_shared<ConstantBarcode>(barcode));
+            barcodeVector.emplace_back(barcodePtr);
+        }
+        else if(patterns.at(i).second=='w')
+        {
+            WildcardBarcode barcode(patterns.at(i).first, mismatches.at(i));
+            std::shared_ptr<WildcardBarcode> barcodePtr(std::make_shared<WildcardBarcode>(barcode));
             barcodeVector.emplace_back(barcodePtr);
         }
     }
@@ -502,8 +563,8 @@ void initializeStats(fastqStats& stats, const BarcodePatternVectorPtr barcodePat
 int main(int argc, char** argv)
 {
     input input;
-    std::vector<std::pair<std::string, bool> > patterns; // vector of all string patterns, 
-                                                        //bool is TRUE if it is a varying sequence with an entry in the barcode file
+    std::vector<std::pair<std::string, char> > patterns; // vector of all string patterns, 
+                                                        //second entry is c=constant, v=varying, w=wildcard
     BarcodeMappingVector mappedBarcodes;
     BarcodeMappingVector realBarcodes;
     fastqStats fastqStats;

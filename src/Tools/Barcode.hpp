@@ -20,6 +20,7 @@ class Barcode
     //overwritten function to match sequence pattern(s)
     virtual bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, std::string& realBarcode, fastqStats& stats) = 0;
     virtual std::vector<std::string> get_patterns() = 0;
+    virtual bool is_wildcard() = 0;
 
 };
 
@@ -62,6 +63,7 @@ class ConstantBarcode : public Barcode
         std::vector<std::string> patterns = {pattern};
         return patterns;
     }
+    bool is_wildcard(){return false;}
 
     private:
     std::string pattern;
@@ -98,6 +100,7 @@ class VariableBarcode : public Barcode
             seq_end = 0;
             if(levenshtein(tmpSequence, pattern, mismatches, seq_start, seq_end, score))
             {
+                std::cout << "leven for: " << pattern  << "\nin" << tmpSequence << ":" << score << "\n";
                 if( (score <= best_score) & (!found_match))
                 {
                     best_start = seq_start;
@@ -152,8 +155,38 @@ class VariableBarcode : public Barcode
     {
         return patterns;
     }
+    bool is_wildcard(){return false;}
 
     private:
     std::vector<std::string> patterns;
 
+};
+
+class WildcardBarcode : public Barcode
+{
+    // TODO: move public parameter mismatches to a private and derived parameter
+    //wildcardBarcode doe snot make use of mismatches yet, since anyways we do not know the sequence,
+    //therefore its an unused parameter, just set for completeness as these classes derive from Barcode (initialized with mismatches, see up...)
+    public:
+    WildcardBarcode(std::string inPattern, int inMismatches) : pattern(inPattern),Barcode(inMismatches) {}
+    bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, std::string& realBarcode, fastqStats& stats)
+    {
+
+        sequence = sequence.substr(offset, pattern.length());
+        int end = (sequence.length() < pattern.length()) ? sequence.length() : pattern.length();
+        // e.g.: [AGTAGT]cccc: start=0 end=6 end is first not included idx
+        seq_start = 0;
+        seq_end = end;
+        realBarcode = sequence;
+        return true;
+    }
+    std::vector<std::string> get_patterns()
+    {
+        std::vector<std::string> patterns = {pattern};
+        return patterns;
+    }
+    bool is_wildcard(){return true;}
+
+    private:
+    std::string pattern;
 };
