@@ -80,7 +80,8 @@ bool levenshtein(const std::string sequence, std::string pattern, int mismatches
                 substitutionValue = 1;
             }
             //punishement for deletion (allow deletions on beginnign and end)
-            if( j==1 | j==la )
+            //if( j==1 | j==la )
+            if(j==la )
             {
                 deletionValue= 0;
             } 
@@ -110,7 +111,9 @@ bool levenshtein(const std::string sequence, std::string pattern, int mismatches
             levenshtein_value tmp2 = min(subst, tmp1, firstValueIsMin);
             
             dist[i][j] = tmp2;
+            std::cout << tmp2.val << "(" << sequence[i-1] <<  ","<< pattern[j-1] << ")" << " ";
         }
+        std::cout << "\n";
     }
 
     //backtracking to find match start and end

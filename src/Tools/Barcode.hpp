@@ -98,9 +98,10 @@ class VariableBarcode : public Barcode
             score = 0;
             seq_start = 0;
             seq_end = 0;
+            std::cout << "# " << pattern << "\n";
             if(levenshtein(tmpSequence, pattern, mismatches, seq_start, seq_end, score))
             {
-                std::cout << "leven for: " << pattern  << "\nin" << tmpSequence << ":" << score << "\n";
+                //std::cout << "leven for: " << pattern  << "\nin" << tmpSequence << ":" << score << "\n";
                 if( (score <= best_score) & (!found_match))
                 {
                     best_start = seq_start;
@@ -112,6 +113,7 @@ class VariableBarcode : public Barcode
                 }
                 else if( (score == best_score) & found_match)
                 {
+                    std::cout << "MULTI: " << realBarcode << "<->" << pattern << " in " << tmpSequence << " with " << score << "\n";
                     ++match_count;
                 }
             }

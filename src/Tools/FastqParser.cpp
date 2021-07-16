@@ -213,11 +213,11 @@ bool split_line_into_barcode_mappings(const std::string& seq, input* input, Barc
         int start=0, end=0, score = 0;
         if(!(*patternItr)->match_pattern(seq, offset, start, end, score, realBarcode, stats))
         {
-            std::cout << "ERROR IN: " << seq << " : " << (*patternItr)->get_patterns().at(0) << " score: " << score << "from "<< offset << "\n";
+            //std::cout << "ERROR IN: " << seq << " : " << (*patternItr)->get_patterns().at(0) << " score: " << score << "from "<< offset << "\n";
             ++stats.noMatches;
             return false;
         }
-        std::cout << "pattern matched" << realBarcode << "\n";
+        //std::cout << "pattern matched" << realBarcode << "\n";
         std::string mappedBarcode = seq.substr(offset + start, end-start);
         offset += end;
         score_sum += score;
