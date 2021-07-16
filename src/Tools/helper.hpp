@@ -111,9 +111,9 @@ bool levenshtein(const std::string sequence, std::string pattern, int mismatches
             levenshtein_value tmp2 = min(subst, tmp1, firstValueIsMin);
             
             dist[i][j] = tmp2;
-            std::cout << tmp2.val << "(" << sequence[i-1] <<  ","<< pattern[j-1] << ")" << " ";
+            //std::cout << tmp2.val << "(" << sequence[i-1] <<  ","<< pattern[j-1] << ")" << " ";
         }
-        std::cout << "\n";
+        //std::cout << "\n";
     }
 
     //backtracking to find match start and end

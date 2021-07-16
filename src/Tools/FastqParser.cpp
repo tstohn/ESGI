@@ -289,56 +289,71 @@ void iterate_over_fastq(input& input, BarcodeMappingVector& barcodes, BarcodeMap
     }
     ks = kseq_init(fp);
     std::vector<std::string> fastqLines;
-    while( kseq_read(ks) >= 0 ){
-        fastqLines.push_back(std::string(ks->seq.s));
-    }
+    fastqStats emptyStats = fastqStatsFinal; //an empty statistic with already the right keys for each barcode in the dictionary, used to initialize hte stats for each thread
 
-    //split input lines into thread buckets
-    std::vector<std::vector<std::string> > fastqLinesVector; //vector holding all the buckets of fastq lines to be analyzed by each thread
-                                                            // each vector element is one bucket for one thread
-    int element_number = fastqLines.size() / input.threads;
-    std::vector<std::string>::iterator begin = fastqLines.begin();
-    for(int i = 0; i < input.threads; ++i)
+    bool readsLeft = true;
+    while(readsLeft)
     {
-        std::vector<std::string>::iterator end = ( i==input.threads-1 ? fastqLines.end() : begin + element_number);
-
-        std::vector<std::string> tmpFastqLines(begin, end);
-        fastqLinesVector.push_back(tmpFastqLines);
-        begin = end;
-    }
-
-    //for every bucket call a thread
-    //tmp variables to store thread results
-    std::vector<BarcodeMappingVector> barcodesThreadList(input.threads); // vector of mappedSequences to be filled
-    std::vector<BarcodeMappingVector> realBarcodesThreadList(input.threads); // vector of mappedSequences to be filled with corrected matches
-    std::vector<fastqStats> statsThreadList(input.threads, fastqStatsFinal); // vector of stats to be filled
-    std::vector<std::thread> workers;
-    for (int i = 0; i < input.threads; ++i) {
-        workers.push_back(std::thread(map_pattern_to_fastq_lines, fastqLinesVector.at(i), 
-                        &input, std::ref(barcodesThreadList.at(i)), std::ref(realBarcodesThreadList.at(i)), 
-                        std::ref(statsThreadList.at(i)), barcodePatterns));
-    }
-    for (std::thread &t: workers) 
-    {
-        if (t.joinable()) {
-            t.join();
-        }
-    }
-    //combine thread data
-    for (int i = 0; i < input.threads; ++i) 
-    {
-        barcodes.insert(barcodes.end(), barcodesThreadList.at(i).begin(), barcodesThreadList.at(i).end());
-        realBarcodes.insert(realBarcodes.end(), realBarcodesThreadList.at(i).begin(), realBarcodesThreadList.at(i).end());
-        fastqStatsFinal.perfectMatches += statsThreadList.at(i).perfectMatches;
-        fastqStatsFinal.noMatches += statsThreadList.at(i).noMatches;
-        fastqStatsFinal.moderateMatches += statsThreadList.at(i).moderateMatches;
-        fastqStatsFinal.multiBarcodeMatch += statsThreadList.at(i).multiBarcodeMatch;
-        //iterate for every thread over the dictionary of mismatches per barcode and fill the final stats data with it
-        for(std::pair<std::string, std::vector<int> > mismatchDictEntry : statsThreadList.at(i).mapping_dict)
-        {
-            for(int mismatchCountIdx = 0; mismatchCountIdx < mismatchDictEntry.second.size(); ++mismatchCountIdx)
+        //push a batch of reads into a temporary vector
+        fastqLines.clear();
+        int fastqReadThreashold = 10;
+        int numFastqReads = 0;
+        while(numFastqReads<fastqReadThreashold){
+            if(kseq_read(ks) < 0)
             {
-                fastqStatsFinal.mapping_dict[mismatchDictEntry.first].at(mismatchCountIdx) += statsThreadList.at(i).mapping_dict[mismatchDictEntry.first].at(mismatchCountIdx);
+                readsLeft = false;
+                numFastqReads = fastqReadThreashold;
+                continue;
+            }
+            fastqLines.push_back(std::string(ks->seq.s));
+            ++numFastqReads;
+        }
+        //split input lines into thread buckets
+        std::vector<std::vector<std::string> > fastqLinesVector; //vector holding all the buckets of fastq lines to be analyzed by each thread
+                                                                // each vector element is one bucket for one thread
+        int element_number = fastqLines.size() / input.threads;
+        std::vector<std::string>::iterator begin = fastqLines.begin();
+        for(int i = 0; i < input.threads; ++i)
+        {
+            std::vector<std::string>::iterator end = ( i==input.threads-1 ? fastqLines.end() : begin + element_number);
+
+            std::vector<std::string> tmpFastqLines(begin, end);
+            fastqLinesVector.push_back(tmpFastqLines);
+            begin = end;
+        }
+        //for every bucket call a thread
+        //tmp variables to store thread results
+        std::vector<BarcodeMappingVector> barcodesThreadList(input.threads); // vector of mappedSequences to be filled
+        std::vector<BarcodeMappingVector> realBarcodesThreadList(input.threads); // vector of mappedSequences to be filled with corrected matches
+        std::vector<fastqStats> statsThreadList(input.threads, emptyStats); // vector of stats to be filled
+        std::vector<std::thread> workers;
+        for (int i = 0; i < input.threads; ++i) {
+            workers.push_back(std::thread(map_pattern_to_fastq_lines, fastqLinesVector.at(i), 
+                            &input, std::ref(barcodesThreadList.at(i)), std::ref(realBarcodesThreadList.at(i)), 
+                            std::ref(statsThreadList.at(i)), barcodePatterns));
+        }
+        for (std::thread &t: workers) 
+        {
+            if (t.joinable()) {
+                t.join();
+            }
+        }
+        //combine thread data
+        for (int i = 0; i < input.threads; ++i) 
+        {
+            barcodes.insert(barcodes.end(), barcodesThreadList.at(i).begin(), barcodesThreadList.at(i).end());
+            realBarcodes.insert(realBarcodes.end(), realBarcodesThreadList.at(i).begin(), realBarcodesThreadList.at(i).end());
+            fastqStatsFinal.perfectMatches += statsThreadList.at(i).perfectMatches;
+            fastqStatsFinal.noMatches += statsThreadList.at(i).noMatches;
+            fastqStatsFinal.moderateMatches += statsThreadList.at(i).moderateMatches;
+            fastqStatsFinal.multiBarcodeMatch += statsThreadList.at(i).multiBarcodeMatch;
+            //iterate for every thread over the dictionary of mismatches per barcode and fill the final stats data with it
+            for(std::pair<std::string, std::vector<int> > mismatchDictEntry : statsThreadList.at(i).mapping_dict)
+            {
+                for(int mismatchCountIdx = 0; mismatchCountIdx < mismatchDictEntry.second.size(); ++mismatchCountIdx)
+                {
+                    fastqStatsFinal.mapping_dict[mismatchDictEntry.first].at(mismatchCountIdx) += statsThreadList.at(i).mapping_dict[mismatchDictEntry.first].at(mismatchCountIdx);
+                }
             }
         }
     }
