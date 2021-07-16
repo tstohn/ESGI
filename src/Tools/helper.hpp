@@ -4,6 +4,16 @@
 #include <map>
 #include <cassert>
 
+#define PBSTR "||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
+#define PBWIDTH 60
+
+void printProgress(double percentage) {
+    int val = (int) (percentage*100);
+    int loadLength = (int) (percentage * PBWIDTH);
+    int emptyLength = PBWIDTH - loadLength;
+    std::cout << "\t\r[" << std::string(loadLength, '|') << std::string(emptyLength, ' ') << "] " << val << "%" << std::flush;
+}
+
 //stores all the input parameters
 struct input{
     std::string inFile;

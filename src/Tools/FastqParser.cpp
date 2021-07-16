@@ -287,18 +287,36 @@ void iterate_over_fastq(input& input, BarcodeMappingVector& barcodes, BarcodeMap
     if(NULL == fp){
         fprintf(stderr,"Fail to open file: %s\n", input.inFile.c_str());
     }
+    int totalReads = 0;
+    unsigned char buffer[1000];
+    while(!gzeof(fp))
+    {
+        gzread(fp, buffer, 999);
+        for (const char &c : buffer) 
+        {
+            if ( c == '\n' )
+            {
+                ++totalReads;
+            }
+        }
+    }
+    totalReads = totalReads/4;
+    gzrewind(fp);
+
     ks = kseq_init(fp);
     std::vector<std::string> fastqLines;
     fastqStats emptyStats = fastqStatsFinal; //an empty statistic with already the right keys for each barcode in the dictionary, used to initialize hte stats for each thread
 
     bool readsLeft = true;
+    int totalCurrentReadNum = 0;
     while(readsLeft)
     {
         //push a batch of reads into a temporary vector
         fastqLines.clear();
         int fastqReadThreashold = 10;
         int numFastqReads = 0;
-        while(numFastqReads<fastqReadThreashold){
+        while(numFastqReads<fastqReadThreashold)
+        {
             if(kseq_read(ks) < 0)
             {
                 readsLeft = false;
@@ -307,6 +325,10 @@ void iterate_over_fastq(input& input, BarcodeMappingVector& barcodes, BarcodeMap
             }
             fastqLines.push_back(std::string(ks->seq.s));
             ++numFastqReads;
+            ++totalCurrentReadNum;
+
+            double perc = totalCurrentReadNum/ (double)totalReads;
+            printProgress(perc);
         }
         //split input lines into thread buckets
         std::vector<std::vector<std::string> > fastqLinesVector; //vector holding all the buckets of fastq lines to be analyzed by each thread
@@ -357,7 +379,7 @@ void iterate_over_fastq(input& input, BarcodeMappingVector& barcodes, BarcodeMap
             }
         }
     }
-    std::cout << "MATCHED: " << fastqStatsFinal.perfectMatches << " | MODERATE MATCH: " << fastqStatsFinal.moderateMatches
+    std::cout << "\nMATCHED: " << fastqStatsFinal.perfectMatches << " | MODERATE MATCH: " << fastqStatsFinal.moderateMatches
               << " | MISMATCHED: " << fastqStatsFinal.noMatches << " | Multiplebarcode: " << fastqStatsFinal.multiBarcodeMatch << "\n";
     kseq_destroy(ks);
     gzclose(fp);

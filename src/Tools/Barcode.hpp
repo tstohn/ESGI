@@ -113,7 +113,6 @@ class VariableBarcode : public Barcode
                 }
                 else if( (score == best_score) & found_match)
                 {
-                    std::cout << "MULTI: " << realBarcode << "<->" << pattern << " in " << tmpSequence << " with " << score << "\n";
                     ++match_count;
                 }
             }
