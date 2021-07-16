@@ -31,9 +31,26 @@ class ConstantBarcode : public Barcode
     ConstantBarcode(std::string inPattern, int inMismatches) : pattern(inPattern),Barcode(inMismatches) {}
     bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, std::string& realBarcode, fastqStats& stats)
     {
+        if(!private_match_pattern(sequence, offset, seq_start, seq_end,score ,realBarcode ,stats, false))
+        {
+            return(private_match_pattern(sequence, offset, seq_start, seq_end,score ,realBarcode ,stats, true));
+        }
+        return true;
+    }
+    std::vector<std::string> get_patterns()
+    {
+        std::vector<std::string> patterns = {pattern};
+        return patterns;
+    }
+    bool is_wildcard(){return false;}
+
+    private:
+    bool private_match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, 
+                               int& score, std::string& realBarcode, fastqStats& stats, bool allowMismatches)
+    {
         bool offset_shift = false;
         int tmpOffset = offset;
-        if( !((offset-mismatches) < 0) )
+        if( !((offset-mismatches) < 0) & allowMismatches)
         {
             tmpOffset = offset-mismatches;
             offset_shift = true;
@@ -58,14 +75,6 @@ class ConstantBarcode : public Barcode
             return false;
         }
     }
-    std::vector<std::string> get_patterns()
-    {
-        std::vector<std::string> patterns = {pattern};
-        return patterns;
-    }
-    bool is_wildcard(){return false;}
-
-    private:
     std::string pattern;
 };
 class VariableBarcode : public Barcode
@@ -75,6 +84,21 @@ class VariableBarcode : public Barcode
     VariableBarcode(std::vector<std::string> inPatterns, int inMismatches) : patterns(inPatterns), Barcode(inMismatches) {}
     bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, std::string& realBarcode, fastqStats& stats)
     {
+        if(!private_match_pattern(sequence ,offset ,seq_start ,seq_end ,score ,realBarcode ,stats , false))
+        {
+            return(private_match_pattern(sequence ,offset ,seq_start ,seq_end ,score ,realBarcode ,stats , true));
+        }
+        return true;
+    }
+    std::vector<std::string> get_patterns()
+    {
+        return patterns;
+    }
+    bool is_wildcard(){return false;}
+
+    private:
+    bool private_match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, std::string& realBarcode, fastqStats& stats, bool allowMismatches)
+    {
         int match_count = 0;
         bool found_match = false;
         int best_start = 0, best_end = 0, best_score = mismatches+1;
@@ -83,7 +107,7 @@ class VariableBarcode : public Barcode
         //nucleotides at both ends
         bool offset_shift = false;
         int tmpOffset = offset;
-        if( !((offset-mismatches) < 0) )
+        if( !((offset-mismatches) < 0) & allowMismatches)
         {
             tmpOffset = offset-mismatches;
             offset_shift = true;
@@ -150,15 +174,7 @@ class VariableBarcode : public Barcode
 
             return true;
         }
-
     }
-    std::vector<std::string> get_patterns()
-    {
-        return patterns;
-    }
-    bool is_wildcard(){return false;}
-
-    private:
     std::vector<std::string> patterns;
 
 };
