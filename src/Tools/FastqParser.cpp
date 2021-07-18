@@ -104,7 +104,7 @@ void write_file(std::string output, BarcodeMappingVector barcodes, BarcodeMappin
 {
     //write actually found barcodes
     std::ofstream outputFile;
-    outputFile.open (output);
+    /*outputFile.open (output);
     //write header line
     for(int i =0; i < patterns.size(); ++i)
     {
@@ -121,7 +121,7 @@ void write_file(std::string output, BarcodeMappingVector barcodes, BarcodeMappin
         }
         outputFile << "\n";
     }
-    outputFile.close();
+    outputFile.close();*/
 
     //write the barcodes we mapped
     std::size_t found = output.find_last_of("/");
@@ -133,13 +133,13 @@ void write_file(std::string output, BarcodeMappingVector barcodes, BarcodeMappin
     {
         output = output.substr(0,found) + "/" + "CORRECTED" + output.substr(found+1);
     }
-    outputFile.open (output);
+    outputFile.open (output, std::ofstream::app);
     //write header line
-    for(int i =0; i < patterns.size(); ++i)
+    /*for(int i =0; i < patterns.size(); ++i)
     {
         outputFile << patterns.at(i).first << "\t";
     }
-    outputFile << "\n";
+    outputFile << "\n";*/
 
     //write all information lines
     for(int i = 0; i < realBarcodes.size(); ++i)
@@ -165,7 +165,7 @@ void writeStats(std::string output, const fastqStats& stats)
     {
         output = output.substr(0,found) + "/" + "STATS" + output.substr(found+1);
     }
-    outputFile.open (output);
+    outputFile.open (output, std::ofstream::app);
 
     for(std::pair<std::string, std::vector<int> > mismatchDictEntry : stats.mapping_dict)
     {
@@ -278,7 +278,17 @@ void map_pattern_to_fastq_lines(const std::vector<std::string>& fastqLines, inpu
     }
 }
 
-void iterate_over_fastq(input& input, BarcodeMappingVector& barcodes, BarcodeMappingVector& realBarcodes, BarcodePatternVectorPtr barcodePatterns, fastqStats& fastqStatsFinal)
+void writeCurrentResults(BarcodeMappingVector& barcodes, BarcodeMappingVector& realBarcodes, fastqStats& fastqStatsFinal, input& input, 
+                         const std::vector<std::pair<std::string, char> >& patterns)
+{
+    write_file(input.outFile, barcodes, realBarcodes, patterns);
+
+    barcodes.clear();
+    realBarcodes.clear();
+}
+
+void iterate_over_fastq(input& input, BarcodeMappingVector& barcodes, BarcodeMappingVector& realBarcodes, BarcodePatternVectorPtr barcodePatterns, fastqStats& fastqStatsFinal,
+                        const std::vector<std::pair<std::string, char> >& patterns)
 {
     //read all fastq lines into str vector
     gzFile fp;
@@ -378,6 +388,8 @@ void iterate_over_fastq(input& input, BarcodeMappingVector& barcodes, BarcodeMap
                 }
             }
         }
+
+        writeCurrentResults(barcodes, realBarcodes, fastqStatsFinal, input, patterns);
     }
     std::cout << "\nMATCHED: " << fastqStatsFinal.perfectMatches << " | MODERATE MATCH: " << fastqStatsFinal.moderateMatches
               << " | MISMATCHED: " << fastqStatsFinal.noMatches << " | Multiplebarcode: " << fastqStatsFinal.multiBarcodeMatch << "\n";
@@ -566,14 +578,15 @@ BarcodePatternVectorPtr generate_barcode_patterns(input input, std::vector<std::
 //TODO: so far only implemented for a single fastq file,
 //implement a function to iterate over all fastq files in a directory and combine data
 //e.g. if we have several files for different batches etc. ...
-void split_barcodes(input input, BarcodeMappingVector& barcodes, BarcodeMappingVector& realBarcodes, BarcodePatternVectorPtr barcodePatterns, fastqStats& fastqStatsFinal)
+void split_barcodes(input input, BarcodeMappingVector& barcodes, BarcodeMappingVector& realBarcodes, BarcodePatternVectorPtr barcodePatterns, fastqStats& fastqStatsFinal,
+                    const std::vector<std::pair<std::string, char> >& patterns)
 {
     //if directory iterate over all fastqs
 
         //combine data to one
 
     //if file
-    iterate_over_fastq(input, barcodes, realBarcodes, barcodePatterns, fastqStatsFinal);
+    iterate_over_fastq(input, barcodes, realBarcodes, barcodePatterns, fastqStatsFinal, patterns);
 
 }
 
@@ -609,8 +622,8 @@ int main(int argc, char** argv)
     {
         BarcodePatternVectorPtr barcodePatterns = generate_barcode_patterns(input, patterns);
         initializeStats(fastqStats, barcodePatterns);
-        split_barcodes(input, mappedBarcodes, realBarcodes, barcodePatterns, fastqStats);
-        write_file(input.outFile, mappedBarcodes, realBarcodes, patterns);
+        split_barcodes(input, mappedBarcodes, realBarcodes, barcodePatterns, fastqStats, patterns);
+        //write_file(input.outFile, mappedBarcodes, realBarcodes, patterns);
         writeStats(input.outFile, fastqStats);
     }
  
