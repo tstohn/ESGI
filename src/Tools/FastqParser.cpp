@@ -323,7 +323,7 @@ void iterate_over_fastq(input& input, BarcodeMappingVector& barcodes, BarcodeMap
     {
         //push a batch of reads into a temporary vector
         fastqLines.clear();
-        int fastqReadThreashold = 1000000;
+        int fastqReadThreashold = 10000000;
         int numFastqReads = 0;
         while(numFastqReads<fastqReadThreashold)
         {
