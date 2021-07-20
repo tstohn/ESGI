@@ -504,6 +504,7 @@ void parseBarcodeData(const input& input, std::vector<std::pair<std::string, cha
             varyingBarcodes.push_back(seqVector);
             seqVector.clear();
         }
+        barcodeFile.close();
         if(numberOfNonConstantBarcodes != varyingBarcodes.size())
         {
             std::cerr << "PARAMETER ERROR: Number of barcode patterns for non-constant sequences [N*] and lines in barcode file are not equal\n";
