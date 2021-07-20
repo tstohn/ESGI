@@ -1,6 +1,6 @@
 
 #include <iostream>
-#include <set>
+#include <unordered_set>
 #include <string>
 #include <string.h>
 #include <cstdio>
@@ -34,7 +34,7 @@ class UniqueCharSet
 
       const char* getUniqueChar(const char* k)
       {
-         std::set<const char*>::iterator idx = charPtrSet.find(k);
+         std::unordered_set<const char*>::iterator idx = charPtrSet.find(k);
          if(idx != charPtrSet.end())
          {
             return *idx;
@@ -75,6 +75,6 @@ class UniqueCharSet
       }
 
    private:
-      std::set<const char*, CharPtrComparator> charPtrSet;
+      std::unordered_set<const char*, std::hash<const char*>, CharPtrComparator> charPtrSet;
 
 };
