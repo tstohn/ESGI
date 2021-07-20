@@ -34,7 +34,7 @@ make a basetype of barcode:
  INPUT: pattern plus mismatches and barcode sequences
  => vector of barcode pointer which inherits to constant and variable (difference std::stirng anf vector of strings)
 
- OUTPUT: three files
+ OUTPUT: three files (TAB seperated)
     1.) a files with the real data strings that were amtched to barcodes
     2.) a file with the actual REAL barcode without mismatches that was mapped on the data
     3.) a file with the statistics of all barcodes, the number of mismatches per barcode

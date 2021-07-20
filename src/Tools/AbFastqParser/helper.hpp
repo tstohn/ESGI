@@ -7,6 +7,31 @@
 #define PBSTR "||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
 #define PBWIDTH 60
 
+
+int totalNumberOfLines(std::string fileName)
+{
+    int totalReads = 0;
+    unsigned char buffer[1000];
+    gzFile fp = gzopen(fileName.c_str(),"r");
+    if(NULL == fp){
+        fprintf(stderr,"Fail to open file: %s\n", fileName.c_str());
+    }
+    while(!gzeof(fp))
+    {
+        gzread(fp, buffer, 999);
+        for (const char &c : buffer) 
+        {
+            if ( c == '\n' )
+            {
+                ++totalReads;
+            }
+        }
+    }
+    gzrewind(fp);
+
+    return totalReads;
+}
+
 void printProgress(double percentage) {
     int val = (int) (percentage*100);
     int loadLength = (int) (percentage * PBWIDTH);
