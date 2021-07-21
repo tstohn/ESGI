@@ -16,18 +16,21 @@ class CharHash
     public:
         size_t operator()(const char *s) const
         {
+
             return std::hash<std::string_view>()(std::string_view(s, std::strlen(s)));
         }
 };
 
+struct CharPtrComparator {
+   bool operator()(const char* left, const char* right) const {
+      //return ((left != nullptr) && (right != nullptr) && (strcmp(left, right) < 0));
+      return ( (strcmp(left, right)) == 0 );
+
+   }
+};
+
 class UniqueCharSet
 {
-
-   struct CharPtrComparator {
-      bool operator()(const char* left, const char* right) const {
-         return ((left != nullptr) && (right != nullptr) && (strcmp(left, right) < 0));
-      }
-   };
 
    public:
 
@@ -62,16 +65,29 @@ class UniqueCharSet
             std::cout << "Unable to insert char*: \'" << k << "\'\n";
             exit(EXIT_FAILURE);
          }
-
          char* key = new char[strlen(k)];
+         std::cout << "ADRESS: " << &key << " ";
          strcpy(key, k);
+         std::cout << "ADRESS: " << &key << "\n";
+
+         std::cout << "make new " << charPtrSet.size() << " } <"<<  k << ">|<" << key << ">\n";
+
          charPtrSet.insert(key);
+         int o = 0;
+         std::cout << "size: " << charPtrSet.size() << "\n";
+         for(auto el : charPtrSet)
+         {
+            //std::cout << o<< " "<< el << "\n";
+            //++o;
+         }
+         std::cout << "make new-@@@\n";
 
          return(key);
       }
 
       void clearUniqueSet() 
       {
+         std::cout << "CLEARING SET\n";
          for(auto it = charPtrSet.begin(); it != charPtrSet.end(); ++it) 
          {
             const char* key = *it;

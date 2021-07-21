@@ -37,10 +37,10 @@ class UmiData
 
         ~UmiData()
         {
-            data.clear();
-            positionsOfUmi.clear();
-            posiitonsOfABSingleCell.clear();
-            uniqueChars.~UniqueCharSet();
+            //data.clear();
+            //positionsOfUmi.clear();
+            //posiitonsOfABSingleCell.clear();
+            //uniqueChars.~UniqueCharSet();
         }
 
         // add a dataLines to the vector
@@ -48,14 +48,18 @@ class UmiData
         {
             //get unique pointer for all three string
             dataLine line;
-            line.umi_seq = uniqueChars.getUniqueChar(umiStr.c_str());
-            line.ab_seq = uniqueChars.getUniqueChar(abStr.c_str());
-            line.cell_seq = uniqueChars.getUniqueChar(singleCellStr.c_str());
+            std::cout << "STRINGS: " << umiStr << "|" << abStr <<"|"<< singleCellStr<< "\n";
+            uniqueChars.getUniqueChar(umiStr.c_str());
+           // line.umi_seq = uniqueChars.getUniqueChar(umiStr.c_str());
+          //  line.ab_seq = uniqueChars.getUniqueChar(abStr.c_str());
+          //  line.cell_seq = uniqueChars.getUniqueChar(singleCellStr.c_str());
 
             //make a dataLinePtr from those unique string
+            //dataLinePtr linePtr(std::make_shared<dataLine>(line));
 
             //add it to our dataStructure (3 entries have to be set)
-            
+
+            //addDataLine(linePtr);
         }
 
         //return all dataLines of this specific UMI
@@ -75,9 +79,52 @@ class UmiData
 
     private:
 
+        void addDataLine(dataLinePtr line)
+        {
+            //1.) ADD LINE
+            data.push_back(line);
+
+            //2.) INSERT UMI POSITIONS
+            //if umi already exists also store this new position
+            if(positionsOfUmi.find(line->umi_seq) == positionsOfUmi.end())
+            {
+                std::vector<int> vec;
+                vec.push_back(data.size()-1);
+                //positionsOfUmi.insert(std::make_pair(line->umi_seq, vec));
+            }
+            //if not add this new umi with this actual position to map
+            else
+            {
+                //positionsOfUmi[line->umi_seq].push_back(data.size()-1);
+            }
+
+            // 3.) INSERT ABSC POSITIONS
+            //same for AbSingleCell
+            std::string abScIdxStr = std::string((line->ab_seq)) + std::string((line->cell_seq));
+            
+            const char* abScIdxChar = uniqueChars.getUniqueChar(abScIdxStr.c_str());
+            if(positonsOfABSingleCell.find(abScIdxChar) == positonsOfABSingleCell.end())
+            {
+                std::vector<int> vec;
+                vec.push_back(data.size()-1);
+                //positonsOfABSingleCell.insert(std::make_pair(abScIdxChar, vec));
+            }
+            //if not add this new umi with this actual position to map
+            else
+            {
+                //positonsOfABSingleCell[abScIdxChar].push_back(data.size()-1);
+            }
+        }
+
+        std::string uniqueAbSingleCellId(std::string abId, std::string singleCellId)
+        {
+            std::string id = abId + singleCellId;
+            return id;
+        }
+
         std::vector<dataLinePtr> data;
-        std::unordered_map<std::string, std::vector<int> > positionsOfUmi;
-        std::unordered_map<std::string, std::vector<int> > posiitonsOfABSingleCell;
+        std::unordered_map<const char*, std::vector<int>, CharHash, CharPtrComparator> positionsOfUmi;
+        std::unordered_map<const char*, std::vector<int>, CharHash, CharPtrComparator> positonsOfABSingleCell;
 
         //all the string inside this class are stored only once, 
         //set of all the unique barcodes we use, and we only pass pointers to those
@@ -94,7 +141,7 @@ class UmiDataParser
         UmiDataParser(CIBarcode barcodeIdData) : barcodeDict(barcodeIdData){}
         ~UmiDataParser()
         {
-            data.~UmiData();
+            //data.~UmiData();
         }
 
         void parseFile(const std::string fileName, const int& thread);
