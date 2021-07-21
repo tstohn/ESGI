@@ -1,25 +1,16 @@
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <zlib.h>
-#include <vector>
-#include <thread>
-#include<pthread.h>
-
 #include <boost/program_options.hpp>
 #include <boost/program_options/options_description.hpp>
-#include <boost/iostreams/filtering_streambuf.hpp>
-#include <boost/iostreams/copy.hpp>
-#include <boost/iostreams/filter/gzip.hpp>
 
-#include "dataTypes.hpp"
-#include "helper.hpp"
+#include "AbData.hpp"
 
 using namespace boost::program_options;
-pthread_mutex_t lock;
 
 /**
  * HOW TO:
+ * PREREQUISITS:
+ *  THE BARCODE FILE TO ANALYSE MUST HAVE A HEADER WITH THE BARCODEPATTERNS AS IN FASTQPARSER TOOL, THERE MUST BE A UMI SEQU< AND A AB SEQ, which MUST BE THE ONLY
+ *  VARYING BARCODE SEQUENCE EXCEPT THE CI BARCODES
+ * 
  * - generates two files: 
  *          - firstly collapse all UMI_barcodes and have a file: UMI_idx, Ab_idx, cell_idx
  *          - secondly collapse all UMI_idxs: Ab_idx, Ab_count, cell_idx
@@ -33,122 +24,14 @@ pthread_mutex_t lock;
  *    so that we end up with a file Ab_id, sample_id, Ab_count
  * => generate the file format for our ScRNA_seq_Normalization pipeline
  * 
+ * DISTINGUISH THOSE TWO BY UMI-DATA and BARCODE-DATA
+ * 
+ * PARAMETER FOR ABRCODE POSITIONS:
+ *  give a list of indices for the CIBarcodes within the file, which hold all alternatives for the varying indices (the real position indide the fastqRead is then parsed
+ *  by checking for NNNN sequences), the other one left NNN sequence is the AB sequence and the XXX is the UMI sequence
  * */
 
-struct dataLine
-{
-    char* umi_seq;
-    char* ab_seq;
-    char* cell_seq;
-    
-    //dataLine():val(0), i(0), j(0){}
-
-};
-
-class UmiData
-{
-
-
-    public:
-        ~UmiData()
-        {
-            data.clear();
-            uniqueChars.~UniqueCharSet();
-        }
-
-        void parseFile(const std::string fileName, const int& thread)
-        {
-            int totalReads = totalNumberOfLines(fileName);
-            int currentReads = 0;
-            //open gz file
-            std::ifstream file(fileName, std::ios_base::in | std::ios_base::binary);
-            boost::iostreams::filtering_streambuf<boost::iostreams::input> inbuf;
-            inbuf.push(boost::iostreams::gzip_decompressor());
-            inbuf.push(file);
-            std::istream instream(&inbuf);
-
-            //run multiple threads on bucket of barcode lines
-            std::vector<std::thread> workers;
-            for (int i = 0; i < thread; ++i) 
-            {
-                workers.push_back(std::thread(&UmiData::parseBarcodeLines, this, &instream, totalReads, std::ref(currentReads) ));
-            }
-            for (std::thread &t: workers) 
-            {
-                if (t.joinable()) {
-                    t.join();
-                }
-            }
-
-            //Cleanup
-            file.close();
-        }
-
-    private:
-
-        dataLine extraDataLineFromString(const std::string& line)
-        {
-            dataLine dataTmp;
-
-            //split the line into barcodes
-            std::vector<std::string> result;
-            std::stringstream ss;
-            ss.str(line);
-            while( ss.good() )
-            {
-                std::string substr;
-                getline( ss, substr, ',' );
-                result.push_back( substr );
-            }
-
-            return dataTmp;
-        }
-
-        void parseBarcodeLines(std::istream* instream, const int& totalReads, int& currentReads)
-        {
-            std::string line;
-            pthread_mutex_lock(&lock);
-            if(!std::getline(*instream, line))
-            {
-                pthread_mutex_unlock(&lock);
-                dataLine datalineTmp = extraDataLineFromString(line);   
-                pthread_mutex_lock(&lock);
-             
-            }
-
-            double perc = currentReads/ (double)totalReads;
-            ++currentReads;
-            printProgress(perc);
-            pthread_mutex_unlock(&lock);
-
-
-
-            dataLine dataTmp = extraDataLineFromString(line);
-            data.push_back(dataTmp);
-        }
-
-        std::vector<dataLine> data;
-        UniqueCharSet uniqueChars;
-
-};
-
-class AbData
-{
-    public:
-
-        AbData(UmiData umiData)
-        {
-            
-        }
-
-
-        void writeFile(const std::string outFile)
-        {
-
-        }
-};
-
-bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& outFile, int& threats)
+bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& outFile, int& threats, std::string& barcodeFile, std::string& barcodeIndices)
 {
     try
     {
@@ -156,6 +39,14 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
         desc.add_options()
             ("input,i", value<std::string>(&inFile)->required(), "directory of files or single file in fastq(.gz) format")
             ("output,o", value<std::string>(&outFile)->required(), "output file with all split barcodes")
+            ("barcodeList,b", value<std::string>(&(barcodeFile)), "file with a list of all allowed well barcodes (comma seperated barcodes across several rows)\
+            the row refers to the correponding bracket enclosed sequence substring. E.g. for two bracket enclosed substrings in out sequence a possible list could be:\
+            AGCTTCGAG,ACGTTCAGG\nACGTCTAGACT,ATCGGCATACG,ATCGCGATC,ATCGCGCATAC. This can be the same list as it was for FastqParser.")
+            
+            ("CombinatorialIndexingBarcodeIndices,c", value<std::string>(&(barcodeIndices))->required(), "comma seperated list of indexes, that are used during \
+            combinatorial indexing and should distinguish a unique cell. Be aware that this is the index of the line inside the barcodeList file (see above). \
+            This file ONLY includes lines for the varying sequences (except UMI). Therefore the index is not the same as the position in the whole sequence \
+            if constant or UMI-seq are present. Index starts with zero.")
 
             ("thread,t", value<int>(&threats)->default_value(5), "number of threads")
             ("help,h", "help message");
@@ -181,18 +72,101 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
 
 }
 
+void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, CIBarcode& barcodeIdData)
+{
+    //parse barcode file
+    std::vector<std::vector<std::string> > barcodeList;
+    std::ifstream barcodeFileStream(barcodeFile);
+    for(std::string line; std::getline(barcodeFileStream, line);)
+    {
+        std::string delimiter = ",";
+        std::string seq;
+        size_t pos = 0;
+        std::vector<std::string> seqVector;
+        while ((pos = line.find(delimiter)) != std::string::npos) 
+        {
+            seq = line.substr(0, pos);
+            line.erase(0, pos + 1);
+            for (char const &c: seq) {
+                if(!(c=='A' | c=='T' | c=='G' |c=='C' |
+                        c=='a' | c=='t' | c=='g' | c=='c'))
+                        {
+                        std::cerr << "PARAMETER ERROR: a barcode sequence in barcode file is not a base (A,T,G,C)\n";
+                        if(c==' ' | c=='\t' | c=='\n')
+                        {
+                            std::cerr << "PARAMETER ERROR: Detected a whitespace in sequence; remove it to continue!\n";
+                        }
+                        exit(1);
+                        }
+            }
+            seqVector.push_back(seq);
+        }
+        seq = line;
+        for (char const &c: seq) {
+            if(!(c=='A' | c=='T' | c=='G' |c=='C' |
+                    c=='a' | c=='t' | c=='g' | c=='c'))
+                    {
+                    std::cerr << "PARAMETER ERROR: a barcode sequence in barcode file is not a base (A,T,G,C)\n";
+                    if(c==' ' | c=='\t' | c=='\n')
+                    {
+                        std::cerr << "PARAMETER ERROR: Detected a whitespace in sequence; remove it to continue!\n";
+                    }
+                    exit(1);
+                    }
+        }
+        seqVector.push_back(seq);
+        barcodeList.push_back(seqVector);
+        seqVector.clear();
+    }
+    barcodeFileStream.close();
+
+    //parse the indices of CIbarcodes from line
+    std::stringstream ss;
+    ss.str(barcodeIndices);
+    while(ss.good())
+    {
+        std::string substr;
+        getline(ss, substr, ',' );
+        barcodeIdData.ciBarcodeIndices.push_back(stoi(substr));
+    }
+
+    //vector of barodeList stores all possible barcodes at each index
+    //generate a struct with a dictionary maping a barcode to an index
+    //for every CI Barcode in sequence
+    for(const int& i : barcodeIdData.ciBarcodeIndices)
+    {
+        int barcodeCount = 0;
+        std::unordered_map<std::string, int> barcodeMap;
+        //for all options of this barcode
+        for(const std::string& barcodeEntry : barcodeList.at(i))
+        {
+            barcodeMap.insert(std::pair<std::string, int>(barcodeEntry,barcodeCount));
+            ++barcodeCount;
+        }
+        barcodeIdData.barcodeIdDict.push_back(barcodeMap);
+    }
+
+}
+
 
 int main(int argc, char** argv)
 {
     std::string inFile;
     std::string outFile;
+    std::string barcodeFile;
+    std::string barcodeIndices;
     int thread;
-    parse_arguments(argv, argc, inFile, outFile, thread);
-    UmiData data;
-    data.parseFile(inFile, thread);
+    parse_arguments(argv, argc, inFile, outFile, thread, barcodeFile, barcodeIndices);
+    
+    //generate the dictionary of barcode alternatives to idx
+    CIBarcode barcodeIdData;
+    generateBarcodeDicts(barcodeFile, barcodeIndices, barcodeIdData);
+    
+    UmiDataParser dataParser(barcodeIdData);
+    dataParser.parseFile(inFile, thread);
 
-    AbData abData(data);
-    abData.writeFile(outFile);
+    //AbData abData(data);
+    //abData.writeFile(outFile);
 
     return(EXIT_SUCCESS);
 }

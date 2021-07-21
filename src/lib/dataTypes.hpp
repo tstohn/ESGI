@@ -1,3 +1,4 @@
+#pragma once
 
 #include <iostream>
 #include <unordered_set>
@@ -9,6 +10,15 @@
  *    small functionality of a char* set to not use any duplicate strings
  *    
  * */
+
+class CharHash
+{
+    public:
+        size_t operator()(const char *s) const
+        {
+            return std::hash<std::string_view>()(std::string_view(s, std::strlen(s)));
+        }
+};
 
 class UniqueCharSet
 {
@@ -75,6 +85,6 @@ class UniqueCharSet
       }
 
    private:
-      std::unordered_set<const char*, std::hash<const char*>, CharPtrComparator> charPtrSet;
+      std::unordered_set<const char*, CharHash, CharPtrComparator> charPtrSet;
 
 };

@@ -1,14 +1,17 @@
+#pragma once
+
 #include <iostream>
 #include <fstream>
 #include <string>
 #include <map>
 #include <cassert>
+#include <string_view>
+#include <cstring>
 
 #define PBSTR "||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
 #define PBWIDTH 60
 
-
-int totalNumberOfLines(std::string fileName)
+inline int totalNumberOfLines(std::string fileName)
 {
     int totalReads = 0;
     unsigned char buffer[1000];
@@ -32,7 +35,15 @@ int totalNumberOfLines(std::string fileName)
     return totalReads;
 }
 
-void printProgress(double percentage) {
+inline bool endWith(std::string const &fullString, std::string const &ending) {
+    if (fullString.length() >= ending.length()) {
+        return (0 == fullString.compare (fullString.length() - ending.length(), ending.length(), ending));
+    } else {
+        return false;
+    }
+}
+
+inline void printProgress(double percentage) {
     int val = (int) (percentage*100);
     int loadLength = (int) (percentage * PBWIDTH);
     int emptyLength = PBWIDTH - loadLength;
@@ -71,7 +82,7 @@ struct levenshtein_value{
         levenshtein_value(int a,int b, int c):val(a), i(b), j(c){}
         levenshtein_value():val(0), i(0), j(0){}
 };
-levenshtein_value min(levenshtein_value a, levenshtein_value b, bool& first)
+inline levenshtein_value min(levenshtein_value a, levenshtein_value b, bool& first)
 {
     if(a.val <= b.val)
     {
@@ -80,7 +91,7 @@ levenshtein_value min(levenshtein_value a, levenshtein_value b, bool& first)
     }
     return b;
 }
-bool levenshtein(const std::string sequence, std::string pattern, int mismatches, int& match_start, int& match_end, int& score)
+inline bool levenshtein(const std::string sequence, std::string pattern, int mismatches, int& match_start, int& match_end, int& score)
 {
     int i,j,ls,la,t,substitutionValue, deletionValue;
     //stores the lenght of strings s1 and s2
