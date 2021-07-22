@@ -89,12 +89,12 @@ class UmiData
             {
                 std::vector<int> vec;
                 vec.push_back(data.size()-1);
-                //positionsOfUmi.insert(std::make_pair(line->umi_seq, vec));
+                positionsOfUmi.insert(std::make_pair(line->umi_seq, vec));
             }
             //if not add this new umi with this actual position to map
             else
             {
-                //positionsOfUmi[line->umi_seq].push_back(data.size()-1);
+                positionsOfUmi[line->umi_seq].push_back(data.size()-1);
             }
 
             // 3.) INSERT ABSC POSITIONS
@@ -106,12 +106,12 @@ class UmiData
             {
                 std::vector<int> vec;
                 vec.push_back(data.size()-1);
-                //positonsOfABSingleCell.insert(std::make_pair(abScIdxChar, vec));
+                positonsOfABSingleCell.insert(std::make_pair(abScIdxChar, vec));
             }
             //if not add this new umi with this actual position to map
             else
             {
-                //positonsOfABSingleCell[abScIdxChar].push_back(data.size()-1);
+                positonsOfABSingleCell[abScIdxChar].push_back(data.size()-1);
             }
         }
 
