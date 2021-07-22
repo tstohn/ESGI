@@ -48,18 +48,17 @@ class UmiData
         {
             //get unique pointer for all three string
             dataLine line;
-            std::cout << "STRINGS: " << umiStr << "|" << abStr <<"|"<< singleCellStr<< "\n";
             uniqueChars.getUniqueChar(umiStr.c_str());
-           // line.umi_seq = uniqueChars.getUniqueChar(umiStr.c_str());
-          //  line.ab_seq = uniqueChars.getUniqueChar(abStr.c_str());
-          //  line.cell_seq = uniqueChars.getUniqueChar(singleCellStr.c_str());
+            line.umi_seq = uniqueChars.getUniqueChar(umiStr.c_str());
+            line.ab_seq = uniqueChars.getUniqueChar(abStr.c_str());
+            line.cell_seq = uniqueChars.getUniqueChar(singleCellStr.c_str());
 
             //make a dataLinePtr from those unique string
-            //dataLinePtr linePtr(std::make_shared<dataLine>(line));
+            dataLinePtr linePtr(std::make_shared<dataLine>(line));
 
             //add it to our dataStructure (3 entries have to be set)
 
-            //addDataLine(linePtr);
+            addDataLine(linePtr);
         }
 
         //return all dataLines of this specific UMI

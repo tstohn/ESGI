@@ -33,13 +33,11 @@ void UmiDataParser::parseBarcodeLines(std::istream* instream, const int& totalRe
             getCiBarcodeInWholeSequence(line);
             continue;
         }
-        std::cout << "adding line " <<currentReads <<  line << "\n";
         addFastqReadToUmiData(line);   
-        std::cout << "SUCCESS for " << line << "\n";
 
         double perc = currentReads/ (double)totalReads;
         ++currentReads;
-        //printProgress(perc);        
+        printProgress(perc);        
     }
 }
 
@@ -64,7 +62,6 @@ void UmiDataParser::addFastqReadToUmiData(const std::string& line)
     {
         ciBarcodes.push_back(result.at(i));
     }
-    std::cout << "make SCINDEX\n";
     std::string singleCellIdx = generateSingleCellIndexFromBarcodes(ciBarcodes);
     data.add(result.at(umiIdx), result.at(abIdx), singleCellIdx);
 
@@ -102,20 +99,16 @@ void UmiDataParser::getCiBarcodeInWholeSequence(const std::string& line)
             if (std::count(barcodeDict.ciBarcodeIndices.begin(), barcodeDict.ciBarcodeIndices.end(), variableBarcodeCount)) 
             {
                 fastqReadBarcodeIdx.push_back(count);
-                std::cout << "barcode " << count << "\n";
             }
             else
             {
                 abIdx = count;
-            std::cout << "AB"<<abIdx << "\n";
-
             }
             ++variableBarcodeCount;
         }
         else if(substr.find_first_not_of('X') == std::string::npos)
         {
             umiIdx = count;
-            std::cout << "UMI"<< umiIdx << "\n";
         }
         result.push_back( substr );
         ++count;
