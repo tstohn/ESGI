@@ -65,21 +65,35 @@ class UniqueCharSet
             std::cout << "Unable to insert char*: \'" << k << "\'\n";
             exit(EXIT_FAILURE);
          }
-         char* key = new char[strlen(k)];
-         std::cout << "ADRESS: " << &key << " ";
+         char* key = new char[strlen(k) + 1];
+
+         std::cout << "ADRESS: " << static_cast<void*>(key) << " ";
          strcpy(key, k);
-         std::cout << "ADRESS: " << &key << "\n";
+
+         std::cout << "\nITER THROUGH <" << *key << ">:_";
+         for(char* x = key; *x !='\0'; ++x)
+         {
+            std::cout << *x;
+         }
+                  std::cout << "_\n";
+
+         std::cout << "ADRESS: " << static_cast<void*>(key) << "\n";
 
          std::cout << "make new " << charPtrSet.size() << " } <"<<  k << ">|<" << key << ">\n";
 
-         charPtrSet.insert(key);
+         auto x = charPtrSet.insert(key);
          int o = 0;
-         std::cout << "size: " << charPtrSet.size() << "\n";
-         for(auto el : charPtrSet)
+         std::cout << "size: " << charPtrSet.size() << " " << *(x.first)  << " " << x.second<< true <<"\n";
+         if(x.second == false)
          {
-            //std::cout << o<< " "<< el << "\n";
-            //++o;
+            std::cout << "EXIT" << "\n";
+            exit(0);
          }
+         //for(auto el : charPtrSet)
+         //{
+           // std::cout << o<< " "<< el << "\n";
+          //  ++o;
+         //}
          std::cout << "make new-@@@\n";
 
          return(key);
