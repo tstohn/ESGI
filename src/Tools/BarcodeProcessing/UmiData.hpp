@@ -1,19 +1,14 @@
 #pragma once
 
 #include <iostream>
-#include <fstream>
 #include <string>
-#include <zlib.h>
 #include <vector>
-#include <thread>
-#include <pthread.h>
 #include <unordered_map>
-#include <sstream>
-#include <climits>
 
 #include <boost/iostreams/filtering_streambuf.hpp>
 #include <boost/iostreams/copy.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
+
 #include "dataTypes.hpp"
 
 struct dataLine
@@ -23,37 +18,25 @@ struct dataLine
     const char* cell_seq;
 };
 typedef std::shared_ptr<dataLine> dataLinePtr;
- 
-struct CIBarcode
-{
-    std::vector<std::unordered_map<std::string, int> > barcodeIdDict; // map of barcode to id, maps are in order of their occurence in the fastqRead
-    // ids of the CI barcode within the barcode file (includes only barcodes for variable sequence regions)
-    std::vector<int> ciBarcodeIndices; // more or less only of temporary usage, during generation of barcode map vector
-};
-
-//statistics of the UMI occurences
-struct StatsUmi
-{
-    //dict: key = number of mismatches; 
-    //value = how often this particular number of mismatches between any two UMIs of same AbSc-idx was observed
-    std::unordered_map<int, int> umiMismatchDict;
-    int sameUmiDiffAbSc = 0;
-    int sameUmiSameAbSc = 0;
-};
 
 class UmiData
 {
     public:
+
+        UmiData()
+        {
+            uniqueChars = std::make_shared<UniqueCharSet>();
+        }
 
         // add a dataLines to the vector
         void add(std::string& umiStr, std::string& abStr, std::string& singleCellStr)
         {
             //get unique pointer for all three string
             dataLine line;
-            uniqueChars.getUniqueChar(umiStr.c_str());
-            line.umi_seq = uniqueChars.getUniqueChar(umiStr.c_str());
-            line.ab_seq = uniqueChars.getUniqueChar(abStr.c_str());
-            line.cell_seq = uniqueChars.getUniqueChar(singleCellStr.c_str());
+            uniqueChars->getUniqueChar(umiStr.c_str());
+            line.umi_seq = uniqueChars->getUniqueChar(umiStr.c_str());
+            line.ab_seq = uniqueChars->getUniqueChar(abStr.c_str());
+            line.cell_seq = uniqueChars->getUniqueChar(singleCellStr.c_str());
 
             //make a dataLinePtr from those unique string
             dataLinePtr linePtr(std::make_shared<dataLine>(line));
@@ -76,6 +59,10 @@ class UmiData
             std::vector<dataLinePtr> returnLines;
 
             return returnLines;
+        }
+        std::shared_ptr<UniqueCharSet> getUniqueBarcodes()
+        {
+            return uniqueChars;
         }
 
         //return functions for our data, based on positions, UMI or AB/ SC barcodes
@@ -149,7 +136,7 @@ class UmiData
             //same for AbSingleCell
             std::string abScIdxStr = std::string((line->ab_seq)) + std::string((line->cell_seq));
             
-            const char* abScIdxChar = uniqueChars.getUniqueChar(abScIdxStr.c_str());
+            const char* abScIdxChar = uniqueChars->getUniqueChar(abScIdxStr.c_str());
             if(positonsOfABSingleCell.find(abScIdxChar) == positonsOfABSingleCell.end())
             {
                 std::vector<dataLinePtr> vec;
@@ -175,46 +162,6 @@ class UmiData
 
         //all the string inside this class are stored only once, 
         //set of all the unique barcodes we use, and we only pass pointers to those
-        UniqueCharSet uniqueChars;
+        std::shared_ptr<UniqueCharSet> uniqueChars;
 
-};
-
-class UmiDataParser
-{
-
-
-    public:
-
-        UmiDataParser(CIBarcode barcodeIdData) : barcodeDict(barcodeIdData){}
-
-        void parseFile(const std::string fileName, const int& thread);
-
-        void correctUmis(const int& umiMismatches);
-
-        void writeStats(std::string output);
-        void writeUmiCorrectedData(const std::string& output);
-
-    private:
-
-        //parse the file, store each line in our data structure
-        void addFastqReadToUmiData(const std::string& line);
-        void parseBarcodeLines(std::istream* instream, const int& totalReads, int& currentReads);
-
-        //get positions of CIBarcodes
-        void getCiBarcodeInWholeSequence(const std::string& line);
-        //map all the barcodes of CI to a unique 'number' string as SingleCellIdx
-        std::string generateSingleCellIndexFromBarcodes(std::vector<std::string> ciBarcodes);
-
-        //data structure storing lines with: UMI, AB_id, SingleCell_id
-        UmiData data;
-        //Dictionary used to generate the dataLines, maps for each barcode in teh sequence all
-        //possibilities to an idx
-        CIBarcode barcodeDict;
-
-        StatsUmi stats;        
-        //
-        std::vector<int> fastqReadBarcodeIdx; // ids of the CI barcode within the whole string of all barcodes
-        int abIdx = INT_MAX;
-        int umiIdx = INT_MAX;
-        int umiLength = 0;
 };

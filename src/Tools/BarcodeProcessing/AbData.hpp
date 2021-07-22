@@ -6,24 +6,35 @@ struct abLine
 {
     const char* ab_seq;
     const char* cell_seq;
-    int ab_cout;
+    int ab_cout = 0;
 
-};
-typedef std::shared_ptr<dataLine> dataLinePtr;
- 
+}; 
 
 class AbData
 {
     public:
 
-        AbData(UmiData umiData)
+        AbData()
         {
-            
+            uniqueChars = std::make_shared<UniqueCharSet>();
         }
 
-
-        void writeFile(const std::string outFile)
+        inline void setUniqueCharSet(std::shared_ptr<UniqueCharSet> newUniqueChars)
         {
-
+            uniqueChars = newUniqueChars;
         }
+
+        inline void addLine(const abLine& newAbLine)
+        {
+            abLineVector.push_back(newAbLine);
+        }
+
+        inline std::vector<abLine> getData() const
+        {
+            return abLineVector;
+        }
+
+    private:
+        std::shared_ptr<UniqueCharSet> uniqueChars;
+        std::vector<abLine> abLineVector;
 };
