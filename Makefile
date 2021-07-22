@@ -5,11 +5,11 @@ install:
 	mkdir bin
 
 parser:
-	g++ src/Tools/AbFastqParser/FastqParser.cpp -o bin/parser -pthread -lz -lboost_program_options -I ./Tools/ --std=c++11
+	g++ src/Tools/AbFastqParser/FastqParser.cpp -o bin/parser -pthread -lz -lboost_program_options -I ./Tools/ --std=c++17
 
 processing:
-	g++ -c src/Tools/BarcodeProcessing/UmiData.cpp -I ./Tools/ -I ./src/lib -I ./src/Tools/AbFastqParser --std=c++11
-	g++ -c src/Tools/BarcodeProcessing/BarcodeProcessing.cpp -I ./Tools/ -I ./src/lib -I ./src/Tools/AbFastqParser --std=c++11
+	g++ -c src/Tools/BarcodeProcessing/UmiData.cpp -I ./Tools/ -I ./src/lib -I ./src/Tools/AbFastqParser --std=c++17
+	g++ -c src/Tools/BarcodeProcessing/BarcodeProcessing.cpp -I ./Tools/ -I ./src/lib -I ./src/Tools/AbFastqParser --std=c++17
 	g++ BarcodeProcessing.o UmiData.o -o ./bin/processing -lpthread -lz -lboost_program_options -lboost_iostreams
 
 run:

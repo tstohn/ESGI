@@ -47,7 +47,7 @@ class UniqueCharSet
 
       const char* getUniqueChar(const char* k)
       {
-         std::unordered_set<const char*>::iterator idx = charPtrSet.find(k);
+         std::unordered_set<const char*, CharHash, CharPtrComparator>::iterator idx = charPtrSet.find(k);
          if(idx != charPtrSet.end())
          {
             return *idx;
