@@ -37,7 +37,7 @@ void UmiDataParser::parseBarcodeLines(std::istream* instream, const int& totalRe
 
         double perc = currentReads/ (double)totalReads;
         ++currentReads;
-        //printProgress(perc);        
+        printProgress(perc);        
     }
 }
 
