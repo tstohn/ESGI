@@ -118,7 +118,7 @@ void UmiDataParser::getCiBarcodeInWholeSequence(const std::string& line)
     assert(abIdx != INT_MAX);
 }
 
-void UmiDataParser::writeStats()
+void UmiDataParser::writeStats(std::string output)
 {
     for(auto uniqueUmiIdx : data.getNumberOfUniqueUmis())
     {
@@ -134,12 +134,49 @@ void UmiDataParser::writeStats()
             std::cout << "\n";
         }
     }
-
+    std::cout << "###################\n";
     for(auto uniqueAbScIdx : data.getNumberOfUniqueAbSc())
     {
         if(uniqueAbScIdx.second != 1)
         {
             std::cout << uniqueAbScIdx.first << " : " << uniqueAbScIdx.second << "\n";
+            auto duplicatedAbScs = data.getDataWithAbSc(uniqueAbScIdx.first);
+            std::cout << "=>  ";
+            for(auto absc : duplicatedAbScs)
+            {
+                std::cout << absc->umi_seq << " " << absc->ab_seq << " " << absc->cell_seq << "; ";
+            }
+            std::cout << "\n";
         }
     }
+
+//WRITE INTO FILE
+    std::ofstream outputFile;
+    std::size_t found = output.find_last_of("/");
+    if(found == std::string::npos)
+    {
+        output = "STATS" + output;
+    }
+    else
+    {
+        output = output.substr(0,found) + "/" + "STATS" + output.substr(found+1);
+    }
+    outputFile.open (output);
+
+    outputFile.close();
+
+}
+
+void UmiDataParser::writeUmiCorrectedData(const std::string& output)
+{
+    std::ofstream outputFile;
+    outputFile.open (output);
+
+    outputFile << "UMI" << "\t" << "AB_BARCODE" << "\t" << "SingleCell_BARCODE" << "\n"; 
+    for(auto line : data.getData())
+    {
+        outputFile << line->umi_seq << "\t" << line->ab_seq << "\t" << line->cell_seq << "\n"; 
+    }
+
+    outputFile.close();
 }

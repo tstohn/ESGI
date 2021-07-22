@@ -31,6 +31,12 @@ using namespace boost::program_options;
  *  by checking for NNNN sequences), the other one left NNN sequence is the AB sequence and the XXX is the UMI sequence
  * */
 
+//statistics of the UMI occurences
+struct StatsUmi
+{
+    
+};
+
 bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& outFile, int& threats, std::string& barcodeFile, std::string& barcodeIndices)
 {
     try
@@ -164,8 +170,9 @@ int main(int argc, char** argv)
     
     UmiDataParser dataParser(barcodeIdData);
     dataParser.parseFile(inFile, thread);
-    dataParser.writeStats();
 
+    //dataParser.writeStats(outFile);
+    dataParser.writeUmiCorrectedData(outFile);
     //AbData abData(data);
     //abData.writeFile(outFile);
 

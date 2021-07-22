@@ -86,6 +86,10 @@ class UmiData
             std::string abScIdxStr = std::string((ab)) + std::string((sc));
             return positonsOfABSingleCell.at(abScIdxStr.c_str());
         }
+        inline std::vector<dataLinePtr> getDataWithAbSc(const char* absc) const
+        {
+            return positonsOfABSingleCell.at(absc);
+        }
         inline std::vector<std::pair<const char*, int> > getNumberOfUniqueUmis() const
         {
             std::vector<std::pair<const char*, int> > uniqueUmiNums;
@@ -169,7 +173,8 @@ class UmiDataParser
         UmiDataParser(CIBarcode barcodeIdData) : barcodeDict(barcodeIdData){}
 
         void parseFile(const std::string fileName, const int& thread);
-        void writeStats();
+        void writeStats(std::string output);
+        void writeUmiCorrectedData(const std::string& output);
 
     private:
 

@@ -1,9 +1,11 @@
 #include <iostream>
 #include <fstream>
+#include <cstdio>
 #include <string>
 #include <zlib.h>
 #include <regex>
 #include <thread>
+
 #include "Barcode.hpp"
 
 /** @param:
@@ -133,6 +135,7 @@ void write_file(std::string output, BarcodeMappingVector barcodes, BarcodeMappin
     {
         output = output.substr(0,found) + "/" + "CORRECTED" + output.substr(found+1);
     }
+    std::remove(output.c_str());
     outputFile.open (output, std::ofstream::app);
     //write header line
     /*for(int i =0; i < patterns.size(); ++i)
@@ -165,6 +168,7 @@ void writeStats(std::string output, const fastqStats& stats)
     {
         output = output.substr(0,found) + "/" + "STATS" + output.substr(found+1);
     }
+    std::remove(output.c_str());
     outputFile.open (output, std::ofstream::app);
 
     for(std::pair<std::string, std::vector<int> > mismatchDictEntry : stats.mapping_dict)
