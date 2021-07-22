@@ -35,14 +35,6 @@ class UmiData
 {
     public:
 
-        ~UmiData()
-        {
-            //data.clear();
-            //positionsOfUmi.clear();
-            //posiitonsOfABSingleCell.clear();
-            //uniqueChars.~UniqueCharSet();
-        }
-
         // add a dataLines to the vector
         void add(std::string& umiStr, std::string& abStr, std::string& singleCellStr)
         {
@@ -76,6 +68,43 @@ class UmiData
             return returnLines;
         }
 
+        //return functions for our data, based on positions, UMI or AB/ SC barcodes
+        inline const std::vector<dataLinePtr> getData() const
+        {
+            return data;
+        }
+        inline dataLinePtr getDataAt(int pos) const
+        {
+            return data.at(pos);
+        }
+        inline std::vector<dataLinePtr> getDataWithUmi(const char* umi) const
+        {
+            return positionsOfUmi.at(umi);
+        }
+        inline std::vector<dataLinePtr> getDataWithAbSc(const char* ab, const char* sc) const
+        {
+            std::string abScIdxStr = std::string((ab)) + std::string((sc));
+            return positonsOfABSingleCell.at(abScIdxStr.c_str());
+        }
+        inline std::vector<std::pair<const char*, int> > getNumberOfUniqueUmis() const
+        {
+            std::vector<std::pair<const char*, int> > uniqueUmiNums;
+            for(auto mapIdx : positionsOfUmi)
+            {
+                uniqueUmiNums.emplace_back(std::make_pair(mapIdx.first, mapIdx.second.size()));
+            }
+            return uniqueUmiNums;
+        }
+        inline std::vector<std::pair<const char*, int> > getNumberOfUniqueAbSc() const
+        {
+            std::vector<std::pair<const char*, int> > uniqueAbScNums;
+            for(auto mapIdx : positonsOfABSingleCell)
+            {
+                uniqueAbScNums.emplace_back(std::make_pair(mapIdx.first, mapIdx.second.size()));
+            }
+            return uniqueAbScNums;
+        }
+
     private:
 
         void addDataLine(dataLinePtr line)
@@ -87,14 +116,14 @@ class UmiData
             //if umi already exists also store this new position
             if(positionsOfUmi.find(line->umi_seq) == positionsOfUmi.end())
             {
-                std::vector<int> vec;
-                vec.push_back(data.size()-1);
+                std::vector<dataLinePtr> vec;
+                vec.push_back(line);
                 positionsOfUmi.insert(std::make_pair(line->umi_seq, vec));
             }
             //if not add this new umi with this actual position to map
             else
             {
-                positionsOfUmi[line->umi_seq].push_back(data.size()-1);
+                positionsOfUmi[line->umi_seq].push_back(line);
             }
 
             // 3.) INSERT ABSC POSITIONS
@@ -104,14 +133,14 @@ class UmiData
             const char* abScIdxChar = uniqueChars.getUniqueChar(abScIdxStr.c_str());
             if(positonsOfABSingleCell.find(abScIdxChar) == positonsOfABSingleCell.end())
             {
-                std::vector<int> vec;
-                vec.push_back(data.size()-1);
+                std::vector<dataLinePtr> vec;
+                vec.push_back(line);
                 positonsOfABSingleCell.insert(std::make_pair(abScIdxChar, vec));
             }
             //if not add this new umi with this actual position to map
             else
             {
-                positonsOfABSingleCell[abScIdxChar].push_back(data.size()-1);
+                positonsOfABSingleCell[abScIdxChar].push_back(line);
             }
         }
 
@@ -122,8 +151,8 @@ class UmiData
         }
 
         std::vector<dataLinePtr> data;
-        std::unordered_map<const char*, std::vector<int>, CharHash, CharPtrComparator> positionsOfUmi;
-        std::unordered_map<const char*, std::vector<int>, CharHash, CharPtrComparator> positonsOfABSingleCell;
+        std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator> positionsOfUmi;
+        std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator> positonsOfABSingleCell;
 
         //all the string inside this class are stored only once, 
         //set of all the unique barcodes we use, and we only pass pointers to those
@@ -138,12 +167,9 @@ class UmiDataParser
     public:
 
         UmiDataParser(CIBarcode barcodeIdData) : barcodeDict(barcodeIdData){}
-        ~UmiDataParser()
-        {
-            //data.~UmiData();
-        }
 
         void parseFile(const std::string fileName, const int& thread);
+        void writeStats();
 
     private:
 

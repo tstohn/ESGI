@@ -37,7 +37,7 @@ void UmiDataParser::parseBarcodeLines(std::istream* instream, const int& totalRe
 
         double perc = currentReads/ (double)totalReads;
         ++currentReads;
-        printProgress(perc);        
+        //printProgress(perc);        
     }
 }
 
@@ -116,4 +116,30 @@ void UmiDataParser::getCiBarcodeInWholeSequence(const std::string& line)
     assert(sizeof(fastqReadBarcodeIdx) == sizeof(barcodeDict.ciBarcodeIndices));
     assert(umiIdx != INT_MAX);
     assert(abIdx != INT_MAX);
+}
+
+void UmiDataParser::writeStats()
+{
+    for(auto uniqueUmiIdx : data.getNumberOfUniqueUmis())
+    {
+        if(uniqueUmiIdx.second != 1)
+        {
+            std::cout << uniqueUmiIdx.first << " : " << uniqueUmiIdx.second << "\n";
+            auto duplicatedUmis = data.getDataWithUmi(uniqueUmiIdx.first);
+            std::cout << "=>  ";
+            for(auto umi : duplicatedUmis)
+            {
+                std::cout << umi->ab_seq << " " << umi->cell_seq << "; ";
+            }
+            std::cout << "\n";
+        }
+    }
+
+    for(auto uniqueAbScIdx : data.getNumberOfUniqueAbSc())
+    {
+        if(uniqueAbScIdx.second != 1)
+        {
+            std::cout << uniqueAbScIdx.first << " : " << uniqueAbScIdx.second << "\n";
+        }
+    }
 }

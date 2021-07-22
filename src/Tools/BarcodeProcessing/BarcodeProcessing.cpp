@@ -164,6 +164,7 @@ int main(int argc, char** argv)
     
     UmiDataParser dataParser(barcodeIdData);
     dataParser.parseFile(inFile, thread);
+    dataParser.writeStats();
 
     //AbData abData(data);
     //abData.writeFile(outFile);
