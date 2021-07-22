@@ -31,13 +31,8 @@ using namespace boost::program_options;
  *  by checking for NNNN sequences), the other one left NNN sequence is the AB sequence and the XXX is the UMI sequence
  * */
 
-//statistics of the UMI occurences
-struct StatsUmi
-{
-    
-};
-
-bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& outFile, int& threats, std::string& barcodeFile, std::string& barcodeIndices)
+bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& outFile, int& threats, 
+                     std::string& barcodeFile, std::string& barcodeIndices, int& umiMismatches)
 {
     try
     {
@@ -54,6 +49,8 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             This file ONLY includes lines for the varying sequences (except UMI). Therefore the index is not the same as the position in the whole sequence \
             if constant or UMI-seq are present. Index starts with zero.")
 
+            ("mismatches,m", value<int>(&umiMismatches)->default_value(2), "number of allowed mismatches in a UMI. The nucleotides in the beginning and end do NOT count.\
+            Since the UMI is defined as the sequence between the last and first match of neighboring sequences, bases of mismatches could be in the beginning/ end.")
             ("thread,t", value<int>(&threats)->default_value(5), "number of threads")
             ("help,h", "help message");
 
@@ -162,7 +159,8 @@ int main(int argc, char** argv)
     std::string barcodeFile;
     std::string barcodeIndices;
     int thread;
-    parse_arguments(argv, argc, inFile, outFile, thread, barcodeFile, barcodeIndices);
+    int umiMismatches;
+    parse_arguments(argv, argc, inFile, outFile, thread, barcodeFile, barcodeIndices, umiMismatches);
     
     //generate the dictionary of barcode alternatives to idx
     CIBarcode barcodeIdData;
@@ -171,8 +169,10 @@ int main(int argc, char** argv)
     UmiDataParser dataParser(barcodeIdData);
     dataParser.parseFile(inFile, thread);
 
-    //dataParser.writeStats(outFile);
+    dataParser.correctUmis(umiMismatches);
+    dataParser.writeStats(outFile);
     dataParser.writeUmiCorrectedData(outFile);
+
     //AbData abData(data);
     //abData.writeFile(outFile);
 

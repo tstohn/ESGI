@@ -31,6 +31,16 @@ struct CIBarcode
     std::vector<int> ciBarcodeIndices; // more or less only of temporary usage, during generation of barcode map vector
 };
 
+//statistics of the UMI occurences
+struct StatsUmi
+{
+    //dict: key = number of mismatches; 
+    //value = how often this particular number of mismatches between any two UMIs of same AbSc-idx was observed
+    std::unordered_map<int, int> umiMismatchDict;
+    int sameUmiDiffAbSc = 0;
+    int sameUmiSameAbSc = 0;
+};
+
 class UmiData
 {
     public:
@@ -90,23 +100,28 @@ class UmiData
         {
             return positonsOfABSingleCell.at(absc);
         }
-        inline std::vector<std::pair<const char*, int> > getNumberOfUniqueUmis() const
+        inline std::vector<std::pair<const char*, std::vector<dataLinePtr> > > getUniqueUmis() const
         {
-            std::vector<std::pair<const char*, int> > uniqueUmiNums;
+            std::vector<std::pair<const char*, std::vector<dataLinePtr> > > uniqueUmiNums;
             for(auto mapIdx : positionsOfUmi)
             {
-                uniqueUmiNums.emplace_back(std::make_pair(mapIdx.first, mapIdx.second.size()));
+                uniqueUmiNums.emplace_back(std::make_pair(mapIdx.first, mapIdx.second));
             }
             return uniqueUmiNums;
         }
-        inline std::vector<std::pair<const char*, int> > getNumberOfUniqueAbSc() const
+        inline std::vector<std::pair<const char*, std::vector<dataLinePtr> > > getUniqueAbSc() const
         {
-            std::vector<std::pair<const char*, int> > uniqueAbScNums;
+            std::vector<std::pair<const char*, std::vector<dataLinePtr> > > uniqueAbScNums;
             for(auto mapIdx : positonsOfABSingleCell)
             {
-                uniqueAbScNums.emplace_back(std::make_pair(mapIdx.first, mapIdx.second.size()));
+                uniqueAbScNums.emplace_back(std::make_pair(mapIdx.first, mapIdx.second));
             }
             return uniqueAbScNums;
+        }
+        inline void changeUmi(const char* oldUmi, const char* newUmi, dataLinePtr line)
+        {
+            remove(positionsOfUmi.at(oldUmi).begin(), positionsOfUmi.at(oldUmi).end(), line);
+            positionsOfUmi.at(newUmi).push_back(line);
         }
 
     private:
@@ -173,6 +188,9 @@ class UmiDataParser
         UmiDataParser(CIBarcode barcodeIdData) : barcodeDict(barcodeIdData){}
 
         void parseFile(const std::string fileName, const int& thread);
+
+        void correctUmis(const int& umiMismatches);
+
         void writeStats(std::string output);
         void writeUmiCorrectedData(const std::string& output);
 
@@ -182,7 +200,7 @@ class UmiDataParser
         void addFastqReadToUmiData(const std::string& line);
         void parseBarcodeLines(std::istream* instream, const int& totalReads, int& currentReads);
 
-        //fill the CIBarcode dict: mapping of barcode alternatives to an unique idx
+        //get positions of CIBarcodes
         void getCiBarcodeInWholeSequence(const std::string& line);
         //map all the barcodes of CI to a unique 'number' string as SingleCellIdx
         std::string generateSingleCellIndexFromBarcodes(std::vector<std::string> ciBarcodes);
@@ -192,8 +210,11 @@ class UmiDataParser
         //Dictionary used to generate the dataLines, maps for each barcode in teh sequence all
         //possibilities to an idx
         CIBarcode barcodeDict;
+
+        StatsUmi stats;        
         //
         std::vector<int> fastqReadBarcodeIdx; // ids of the CI barcode within the whole string of all barcodes
         int abIdx = INT_MAX;
         int umiIdx = INT_MAX;
+        int umiLength = 0;
 };

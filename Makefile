@@ -16,4 +16,4 @@ run:
 	./bin/parser -i ./src/test/test_data/inFastqTest.fastq -o ./output.csv -p [NNNN][ATCAGTCAACAGATAAGCGA][NNNN][XXX][TTT] -m 1,2,1,1,1 -t 1 -b ./src/test/test_data/barcodeFile.txt
 
 run_processing:
-	./bin/processing -i /Users/t.stohn/Desktop/KATHY/TestDataRun/barcodeTestFirst1000.csv.gz -o ../../../KATHY/CIAB_OUTPUT/processed_out -t 1 -b /Users/t.stohn/Desktop/KATHY/TestDataRun/barcodeFile.txt  -c 0,2,3,4
+	./bin/processing -i /Users/t.stohn/Desktop/KATHY/TestDataRun/barcodeTestFirst1000PlusM.csv.gz -o ../../../KATHY/CIAB_OUTPUT/processed_out -t 1 -b /Users/t.stohn/Desktop/KATHY/TestDataRun/barcodeFile.txt  -c 0,2,3,4
