@@ -38,7 +38,7 @@ void UmiDataParser::parseBarcodeLines(std::istream* instream, const int& totalRe
 
         double perc = currentReads/ (double)totalReads;
         ++currentReads;
-        //printProgress(perc);        
+        printProgress(perc);        
     }
 
     std::cout << "\n";
@@ -161,9 +161,11 @@ void UmiDataParser::correctUmisThreaded(const int& umiMismatches, const int& thr
 
     //for every batch calcualte the unique umis with same/different AbSc barcodes
     std::vector<std::thread> workers;
+    int currentUmisChecked = 0;
+    std::cout << "Checking Quality of UMIs\n";
     for (int i = 0; i < thread; ++i) 
     {
-        workers.push_back(std::thread(&UmiDataParser::umiQualityCheck, this, std::ref(independantUmiBatches.at(i)), std::ref(umiQualThreaded.at(i)) ));
+        workers.push_back(std::thread(&UmiDataParser::umiQualityCheck, this, std::ref(independantUmiBatches.at(i)), std::ref(umiQualThreaded.at(i)), std::ref(currentUmisChecked) ));
     }
     for (std::thread &t: workers) 
     {
@@ -171,12 +173,14 @@ void UmiDataParser::correctUmisThreaded(const int& umiMismatches, const int& thr
             t.join();
         }
     }
-
+    std::cout << "\n";
     //for every batch calculate an UmiData and ABData vector and stats
+    int currentUmisCorrected = 0;
+    std::cout << "Correcting UMIs and counting ABs\n";
     for (int i = 0; i < thread; ++i) 
     {
         workers.push_back(std::thread(&UmiDataParser::correctUmis, this, std::ref(umiMismatches), std::ref(umiStatsThreaded.at(i)), std::ref(umiDataThreaded.at(i)),
-                          std::ref(abDataThreaded.at(i)), std::ref(independantAbScBatches.at(i)) ));
+                          std::ref(abDataThreaded.at(i)), std::ref(independantAbScBatches.at(i)), std::ref(currentUmisCorrected) ));
     }
     for (std::thread &t: workers) 
     {
@@ -184,6 +188,7 @@ void UmiDataParser::correctUmisThreaded(const int& umiMismatches, const int& thr
             t.join();
         }
     }
+    std::cout << "\n";
 
     //combine the three dataSets
      for (int i = 0; i < thread; ++i) 
@@ -214,10 +219,11 @@ void UmiDataParser::correctUmisThreaded(const int& umiMismatches, const int& thr
 
 
 void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, std::vector<dataLinePtr>& umiDataTmp, std::vector<abLine>& abDataTmp, 
-                                const std::vector<std::vector<dataLinePtr> >& AbScBucket)
+                                const std::vector<std::vector<dataLinePtr> >& AbScBucket, int& currentUmisCorrected)
 {
     //correct for UMI mismatches and fill the AbCountvector
     //iterate through same AbScIdx, calculate levenshtein dist for all UMIs and match those with a certain number of mismatches
+    int tmpCurrentUmisCorrected = 0;
     for (auto uniqueAbSc : AbScBucket)
     {
         abLine abLineTmp;
@@ -291,13 +297,25 @@ void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, st
         abLineTmp.ab_cout = abCount;
         abDataTmp.push_back(abLineTmp);
         umiDataTmp.push_back(uniqueAbSc.at(uniqueAbSc.size() - 1));
+
+        ++tmpCurrentUmisCorrected;
+        if(tmpCurrentUmisCorrected % 10000 == 0)
+        {
+            lock.lock();
+            currentUmisCorrected += tmpCurrentUmisCorrected;
+            tmpCurrentUmisCorrected = 0;
+            double perc = currentUmisCorrected/ (double) rawData.getUniqueAbSc().size();
+            printProgress(perc);
+            lock.unlock();
+        }
     }
 
 }
 
-void UmiDataParser::umiQualityCheck(const std::vector< std::vector<dataLinePtr> > uniqueUmis, umiQuality& qualTmp)
+void UmiDataParser::umiQualityCheck(const std::vector< std::vector<dataLinePtr> > uniqueUmis, umiQuality& qualTmp, int& currentUmisChecked)
 {
     //first quality check, does a unique umi have always the same AbScIdx
+    int tmpCurrentUmisChecked =0;
     for(auto uniqueUmi : uniqueUmis)
     {
         //for all AbSc combinations of this unique UMI
@@ -316,6 +334,16 @@ void UmiDataParser::umiQualityCheck(const std::vector< std::vector<dataLinePtr> 
                     ++qualTmp.sameUmiDiffAbSc;
                 }
             }
+        }
+        ++tmpCurrentUmisChecked;
+        if(tmpCurrentUmisChecked % 10000 == 0)
+        {
+            lock.lock();
+            currentUmisChecked += tmpCurrentUmisChecked;
+            tmpCurrentUmisChecked = 0;
+            double perc = currentUmisChecked/ (double) rawData.getUniqueUmis().size();
+            printProgress(perc);
+            lock.unlock();
         }
     }
 }

@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <sstream>
 #include <climits>
+#include <mutex>
 
 #include <boost/iostreams/filtering_streambuf.hpp>
 #include <boost/iostreams/copy.hpp>
@@ -61,8 +62,8 @@ class UmiDataParser
         void addFastqReadToUmiData(const std::string& line);
         void parseBarcodeLines(std::istream* instream, const int& totalReads, int& currentReads);
         void correctUmis(const int& umiMismatches, StatsUmi& statsTmp, std::vector<dataLinePtr>& umiDataTmp, std::vector<abLine>& abDataTmp, 
-                         const std::vector<std::vector<dataLinePtr> >& AbScBucket);
-        void umiQualityCheck(const std::vector< std::vector<dataLinePtr> > uniqueUmis, umiQuality& qualTmp);
+                         const std::vector<std::vector<dataLinePtr> >& AbScBucket, int& currentUmisCorrected);
+        void umiQualityCheck(const std::vector< std::vector<dataLinePtr> > uniqueUmis, umiQuality& qualTmp, int& currentUmisChecked);
 
         //get positions of CIBarcodes
         void getCiBarcodeInWholeSequence(const std::string& line);
@@ -83,7 +84,9 @@ class UmiDataParser
         CIBarcode barcodeDict;
         //statistics of the whole process
         StatsUmi stats;    
-        umiQuality qual;    
+        umiQuality qual;  
+
+        std::mutex lock;  
         
         // variables to read the data from each fastq line
         std::vector<int> fastqReadBarcodeIdx; // ids of the CI barcode within the whole string of all barcodes
