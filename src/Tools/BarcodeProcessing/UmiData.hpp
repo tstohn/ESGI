@@ -11,6 +11,15 @@
 
 #include "dataTypes.hpp"
 
+
+struct abLine
+{
+    const char* ab_seq;
+    const char* cell_seq;
+    int ab_cout = 0;
+
+}; 
+
 struct dataLine
 {
     const char* umi_seq;
@@ -87,23 +96,13 @@ class UmiData
         {
             return positonsOfABSingleCell.at(absc);
         }
-        inline std::vector<std::pair<const char*, std::vector<dataLinePtr> > > getUniqueUmis() const
+        inline std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator> getUniqueUmis() const
         {
-            std::vector<std::pair<const char*, std::vector<dataLinePtr> > > uniqueUmiNums;
-            for(auto mapIdx : positionsOfUmi)
-            {
-                uniqueUmiNums.emplace_back(std::make_pair(mapIdx.first, mapIdx.second));
-            }
-            return uniqueUmiNums;
+            return positionsOfUmi;
         }
-        inline std::vector<std::pair<const char*, std::vector<dataLinePtr> > > getUniqueAbSc() const
+        inline std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator> getUniqueAbSc() const
         {
-            std::vector<std::pair<const char*, std::vector<dataLinePtr> > > uniqueAbScNums;
-            for(auto mapIdx : positonsOfABSingleCell)
-            {
-                uniqueAbScNums.emplace_back(std::make_pair(mapIdx.first, mapIdx.second));
-            }
-            return uniqueAbScNums;
+            return positonsOfABSingleCell;
         }
         inline void changeUmi(const char* oldUmi, const char* newUmi, dataLinePtr line)
         {

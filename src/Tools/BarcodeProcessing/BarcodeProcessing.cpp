@@ -32,7 +32,8 @@ using namespace boost::program_options;
  * */
 
 bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& outFile, int& threats, 
-                     std::string& barcodeFile, std::string& barcodeIndices, int& umiMismatches)
+                     std::string& barcodeFile, std::string& barcodeIndices, int& umiMismatches,
+                     std::string& abFile, std::string& treatmentFile, int& treatmentIdx)
 {
     try
     {
@@ -40,10 +41,15 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
         desc.add_options()
             ("input,i", value<std::string>(&inFile)->required(), "directory of files or single file in fastq(.gz) format")
             ("output,o", value<std::string>(&outFile)->required(), "output file with all split barcodes")
+
             ("barcodeList,b", value<std::string>(&(barcodeFile)), "file with a list of all allowed well barcodes (comma seperated barcodes across several rows)\
             the row refers to the correponding bracket enclosed sequence substring. E.g. for two bracket enclosed substrings in out sequence a possible list could be:\
             AGCTTCGAG,ACGTTCAGG\nACGTCTAGACT,ATCGGCATACG,ATCGCGATC,ATCGCGCATAC. This can be the same list as it was for FastqParser.")
-            
+            ("antibodyList,a", value<std::string>(&(abFile)), "file with a list of all antbodies used, should be in same order as the ab-barcodes in the barcodeList.")
+            ("groupList,g", value<std::string>(&(treatmentFile)), "file with a list of all groups (e.g.treatments) used, should be in same order as the specific arcodes in the barcodeList. \
+            If tis argument is given, you must also add the index of barcodes used for grouping")
+            ("GroupingIndex,n", value<int>(&treatmentIdx), "Index used to group cells. This is the x-th barcode from the barcodeFile (0 indexed).")
+
             ("CombinatorialIndexingBarcodeIndices,c", value<std::string>(&(barcodeIndices))->required(), "comma seperated list of indexes, that are used during \
             combinatorial indexing and should distinguish a unique cell. Be aware that this is the index of the line inside the barcodeList file (see above). \
             This file ONLY includes lines for the varying sequences (except UMI). Therefore the index is not the same as the position in the whole sequence \
@@ -160,7 +166,11 @@ int main(int argc, char** argv)
     std::string barcodeIndices;
     int thread;
     int umiMismatches;
-    parse_arguments(argv, argc, inFile, outFile, thread, barcodeFile, barcodeIndices, umiMismatches);
+
+    std::string abFile; 
+    std::string treatmentFile;
+    int treatmentIdx;
+    parse_arguments(argv, argc, inFile, outFile, thread, barcodeFile, barcodeIndices, umiMismatches, abFile, treatmentFile, treatmentIdx);
     
     //generate the dictionary of barcode alternatives to idx
     CIBarcode barcodeIdData;
@@ -169,7 +179,7 @@ int main(int argc, char** argv)
     UmiDataParser dataParser(barcodeIdData);
     dataParser.parseFile(inFile, thread);
 
-    dataParser.correctUmis(umiMismatches);
+    dataParser.correctUmisThreaded(umiMismatches, thread);
     dataParser.writeStats(outFile);
     dataParser.writeUmiCorrectedData(outFile);
 

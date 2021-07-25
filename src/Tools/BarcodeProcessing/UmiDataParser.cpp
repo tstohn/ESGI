@@ -1,0 +1,423 @@
+#include "UmiDataParser.hpp"
+#include "helper.hpp"
+
+void UmiDataParser::parseFile(const std::string fileName, const int& thread)
+{
+    int totalReads = totalNumberOfLines(fileName);
+    int currentReads = 0;
+    //open gz file
+    if(!endWith(fileName,".gz"))
+    {
+        std::cerr << "Input file must be gzip compressed\n";
+        exit(EXIT_FAILURE);
+    }
+    std::ifstream file(fileName, std::ios_base::in | std::ios_base::binary);
+    boost::iostreams::filtering_streambuf<boost::iostreams::input> inbuf;
+    inbuf.push(boost::iostreams::gzip_decompressor());
+    inbuf.push(file);
+    std::istream instream(&inbuf);
+    
+    parseBarcodeLines(&instream, totalReads, currentReads);
+    //Cleanup
+    file.close();
+}
+
+void UmiDataParser::parseBarcodeLines(std::istream* instream, const int& totalReads, int& currentReads)
+{
+    std::string line;
+    std::cout << "READING ALL LINES INTO MEMORY\n";
+    while(std::getline(*instream, line))
+    {
+        //for the first read check the positions in the string that refer to CIBarcoding positions
+        if(currentReads==0){
+            ++currentReads; 
+            getCiBarcodeInWholeSequence(line);
+            continue;
+        }
+        addFastqReadToUmiData(line);   
+
+        double perc = currentReads/ (double)totalReads;
+        ++currentReads;
+        //printProgress(perc);        
+    }
+
+    std::cout << "\n";
+}
+
+void UmiDataParser::addFastqReadToUmiData(const std::string& line)
+{
+    dataLine dataTmp;
+
+    //split the line into barcodes
+    std::vector<std::string> result;
+    std::stringstream ss;
+    ss.str(line);
+    while( ss.good() )
+    {
+        std::string substr;
+        getline( ss, substr, '\t' );
+        result.push_back( substr );
+    }
+
+    //hand over the UMI string, ab string, singleCellstring (concatenation of CIbarcodes)
+    std::vector<std::string> ciBarcodes;
+    for(int i : fastqReadBarcodeIdx)
+    {
+        ciBarcodes.push_back(result.at(i));
+    }
+    std::string singleCellIdx = generateSingleCellIndexFromBarcodes(ciBarcodes);
+    rawData.add(result.at(umiIdx), result.at(abIdx), singleCellIdx);
+
+}
+
+std::string UmiDataParser::generateSingleCellIndexFromBarcodes(std::vector<std::string> ciBarcodes)
+{
+    std::string scIdx;
+
+    for(int i = 0; i < ciBarcodes.size(); ++i)
+    {
+        std::string barcodeAlternative = ciBarcodes.at(i);
+        int tmpIdx = barcodeDict.barcodeIdDict.at(i)[barcodeAlternative];
+        scIdx += std::to_string(tmpIdx);
+    }
+
+    return scIdx;
+}
+
+void UmiDataParser::getCiBarcodeInWholeSequence(const std::string& line)
+{
+    std::vector<std::string> result;
+    std::stringstream ss;
+    ss.str(line);
+    int count = 0;
+    int variableBarcodeCount = 0;
+    while( ss.good() )
+    {
+        std::string substr;
+        getline(ss, substr, '\t' );
+        if(substr.empty()){continue;}
+        //if substr is only N's
+        if(substr.find_first_not_of('N') == std::string::npos)
+        {
+            if (std::count(barcodeDict.ciBarcodeIndices.begin(), barcodeDict.ciBarcodeIndices.end(), variableBarcodeCount)) 
+            {
+                fastqReadBarcodeIdx.push_back(count);
+            }
+            else
+            {
+                abIdx = count;
+            }
+            ++variableBarcodeCount;
+        }
+        else if(substr.find_first_not_of('X') == std::string::npos)
+        {
+            umiIdx = count;
+            umiLength = strlen(substr.c_str());
+        }
+        result.push_back( substr );
+        ++count;
+    }
+    assert(sizeof(fastqReadBarcodeIdx) == sizeof(barcodeDict.ciBarcodeIndices));
+    assert(umiIdx != INT_MAX);
+    assert(abIdx != INT_MAX);
+}
+
+void UmiDataParser::correctUmisThreaded(const int& umiMismatches, const int& thread)
+{
+    //split AbSc map into equal parts
+    std::vector< std::vector < std::vector<dataLinePtr> > > independantAbScBatches(thread);
+    std::vector< std::vector < std::vector<dataLinePtr> > > independantUmiBatches(thread);
+
+    int element_number = rawData.getUniqueAbSc().size() / thread;
+
+    //iterate through map, and add one element after the other ot the vector (each element is itself a vector
+    //of all the lines with the same AB and SingleCell)    
+    int abScLineIdx = 0;
+    for(auto mapElement : rawData.getUniqueAbSc())
+    {
+        std::vector<dataLinePtr> abScLine = mapElement.second;
+        
+        independantAbScBatches.at( abScLineIdx%thread ).push_back(abScLine);
+
+        ++abScLineIdx;
+    }
+
+    int umiLineIdx = 0;
+    for(auto mapElement : rawData.getUniqueUmis())
+    {
+        std::vector<dataLinePtr> umiLine = mapElement.second;
+        
+        independantUmiBatches.at( umiLineIdx%thread ).push_back(umiLine);
+
+        ++umiLineIdx;
+    }
+
+    //temporary vectors to store all the thread outputs
+    std::vector<StatsUmi> umiStatsThreaded(thread);
+    std::vector<umiQuality> umiQualThreaded(thread);
+
+    std::vector<std::vector<dataLinePtr> > umiDataThreaded(thread);
+    std::vector<std::vector<abLine> > abDataThreaded(thread);
+
+    //for every batch calcualte the unique umis with same/different AbSc barcodes
+    std::vector<std::thread> workers;
+    for (int i = 0; i < thread; ++i) 
+    {
+        workers.push_back(std::thread(&UmiDataParser::umiQualityCheck, this, std::ref(independantUmiBatches.at(i)), std::ref(umiQualThreaded.at(i)) ));
+    }
+    for (std::thread &t: workers) 
+    {
+        if (t.joinable()) {
+            t.join();
+        }
+    }
+
+    //for every batch calculate an UmiData and ABData vector and stats
+    for (int i = 0; i < thread; ++i) 
+    {
+        workers.push_back(std::thread(&UmiDataParser::correctUmis, this, std::ref(umiMismatches), std::ref(umiStatsThreaded.at(i)), std::ref(umiDataThreaded.at(i)),
+                          std::ref(abDataThreaded.at(i)), std::ref(independantAbScBatches.at(i)) ));
+    }
+    for (std::thread &t: workers) 
+    {
+        if (t.joinable()) {
+            t.join();
+        }
+    }
+
+    //combine the three dataSets
+     for (int i = 0; i < thread; ++i) 
+    {
+        //data
+        umiData.insert(umiData.end(), umiDataThreaded.at(i).begin(), umiDataThreaded.at(i).end());
+        abData.insert(abData.end(), abDataThreaded.at(i).begin(), abDataThreaded.at(i).end());
+
+        //statistics
+
+        //simply add integer values
+        qual.sameUmiDiffAbSc += umiQualThreaded.at(i).sameUmiDiffAbSc;
+        qual.sameUmiSameAbSc += umiQualThreaded.at(i).sameUmiSameAbSc;
+        //add each element of Dict to master dict
+        for(auto dictElem : umiStatsThreaded.at(i).umiMismatchDict)
+        {
+            if(stats.umiMismatchDict.find(dictElem.first) != stats.umiMismatchDict.end())
+            {
+                stats.umiMismatchDict[dictElem.first] += dictElem.second;
+            }
+            else
+            {
+                stats.umiMismatchDict.insert(dictElem);
+            }
+        }
+    }
+}
+
+
+void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, std::vector<dataLinePtr>& umiDataTmp, std::vector<abLine>& abDataTmp, 
+                                const std::vector<std::vector<dataLinePtr> >& AbScBucket)
+{
+    //correct for UMI mismatches and fill the AbCountvector
+    //iterate through same AbScIdx, calculate levenshtein dist for all UMIs and match those with a certain number of mismatches
+    for (auto uniqueAbSc : AbScBucket)
+    {
+        abLine abLineTmp;
+        abLineTmp.ab_seq = uniqueAbSc.at(0)->ab_seq;
+        abLineTmp.cell_seq = uniqueAbSc.at(0)->cell_seq;
+        int abCount = 1; // abCount is calculated for every umi one after the other, if an umi is unique, the count is incremented
+        //for umis with several occurences the last occurence will increment the count, the very last UMI is never checked and is always
+        //incrementing the count, therefore initialized with 1
+        for(int i = 0; i < (uniqueAbSc.size() - 1); ++i)
+        {
+            //assert(abLineTmp.ab_seq == uniqueAbSc.second.at(i)->ab_seq);
+            //assert(abLineTmp.cell_seq == uniqueAbSc.second.at(i)->cell_seq);
+            bool unique = true;
+            for(int j = i+1; j < uniqueAbSc.size(); ++j)
+            {
+                const char* umia = uniqueAbSc.at(i)->umi_seq;
+                const char* umib = uniqueAbSc.at(j)->umi_seq;
+
+                int dist = UINT_MAX;
+                int start = 0;
+                int end = 0;
+                bool similar = levenshtein(umia, umib, umiLength, start, end, dist);
+
+                //if mismatches are within range, change UMI seq
+                //the new 'correct' UMI sequence is the one of umiLength, if both r of
+                //same length, its the first occuring UMI
+                if(dist <= umiMismatches)
+                {
+                    unique = false;
+                    if(dist!=0)
+                    {
+                        //get real UMI
+                        const char* realUmi;
+                        if(strlen(umia)==umiLength)
+                        {
+                            realUmi = umia;
+                            uniqueAbSc.at(j)->umi_seq = uniqueAbSc.at(i)->umi_seq;
+                            rawData.changeUmi(umib, umia, uniqueAbSc.at(i));
+                        }
+                        else if(strlen(umib)==umiLength)
+                        {
+                            realUmi = umib;
+                            uniqueAbSc.at(i)->umi_seq = uniqueAbSc.at(j)->umi_seq;
+                            rawData.changeUmi(umia, umib, uniqueAbSc.at(j));
+                        }
+                        else
+                        {
+                            realUmi = umia;
+                            uniqueAbSc.at(j)->umi_seq = uniqueAbSc.at(i)->umi_seq;
+                            rawData.changeUmi(umib, umia, uniqueAbSc.at(i));
+                        }   
+                    }                 
+                }
+
+                //dist is set inside levenshtein, if its <= mismatches=2
+                if(statsTmp.umiMismatchDict.find(dist) != statsTmp.umiMismatchDict.end())
+                {
+                    ++statsTmp.umiMismatchDict.at(dist);
+                }
+                else
+                {
+                    statsTmp.umiMismatchDict.insert(std::make_pair(dist, 1));
+                }
+            }
+            if(unique)
+            {
+                ++abCount;
+            }
+            umiDataTmp.push_back(uniqueAbSc.at(i));
+        }    
+        abLineTmp.ab_cout = abCount;
+        abDataTmp.push_back(abLineTmp);
+        umiDataTmp.push_back(uniqueAbSc.at(uniqueAbSc.size() - 1));
+    }
+
+}
+
+void UmiDataParser::umiQualityCheck(const std::vector< std::vector<dataLinePtr> > uniqueUmis, umiQuality& qualTmp)
+{
+    //first quality check, does a unique umi have always the same AbScIdx
+    for(auto uniqueUmi : uniqueUmis)
+    {
+        //for all AbSc combinations of this unique UMI
+        for(int i = 0; i < (uniqueUmi.size() - 1); ++i)
+        {
+            for(int j = i+1; j < uniqueUmi.size(); ++j)
+            {
+                dataLinePtr a = uniqueUmi.at(i);
+                dataLinePtr b = uniqueUmi.at(j);
+                if(strcmp(a->ab_seq, b->ab_seq)==0 & strcmp(a->cell_seq, b->cell_seq)==0)
+                {
+                    ++qualTmp.sameUmiSameAbSc;
+                }
+                else
+                {
+                    ++qualTmp.sameUmiDiffAbSc;
+                }
+            }
+        }
+    }
+}
+
+void UmiDataParser::writeStats(std::string output)
+{
+    /*for(auto uniqueUmiIdx : data.getUniqueUmis())
+    {
+        if(uniqueUmiIdx.second.size() != 1)
+        {
+            std::cout << uniqueUmiIdx.first << " : " << uniqueUmiIdx.second.size() << "\n";
+            auto duplicatedUmis = data.getDataWithUmi(uniqueUmiIdx.first);
+            std::cout << "=>  ";
+            for(auto umi : duplicatedUmis)
+            {
+                std::cout << umi->ab_seq << " " << umi->cell_seq << "; ";
+            }
+            std::cout << "\n";
+        }
+    }
+    std::cout << "###################\n";
+    for(auto uniqueAbScIdx : data.getUniqueAbSc())
+    {
+        if(uniqueAbScIdx.second.size() != 1)
+        {
+            std::cout << uniqueAbScIdx.first << " : " << uniqueAbScIdx.second.size() << "\n";
+            auto duplicatedAbScs = data.getDataWithAbSc(uniqueAbScIdx.first);
+            std::cout << "=>  ";
+            for(auto absc : duplicatedAbScs)
+            {
+                std::cout << absc->umi_seq << " " << absc->ab_seq << " " << absc->cell_seq << "; ";
+            }
+            std::cout << "\n";
+        }
+    }*/
+
+//WRITE INTO FILE
+    std::ofstream outputFile;
+    std::size_t found = output.find_last_of("/");
+    if(found == std::string::npos)
+    {
+        output = "STATS" + output;
+    }
+    else
+    {
+        output = output.substr(0,found) + "/" + "STATS" + output.substr(found+1);
+    }
+    outputFile.open (output);
+
+    //qualiry output
+    outputFile << "same umi same AbSc: " << qual.sameUmiSameAbSc << "\n";
+    outputFile << "same umi diff AbSc: " << qual.sameUmiDiffAbSc << "\n";    
+
+    //mismatches dist output
+    for(auto el : stats.umiMismatchDict)
+    {
+        outputFile << el.first << " " << el.second << "\n";
+    }
+
+    outputFile.close();
+
+}
+
+void UmiDataParser::writeUmiCorrectedData(const std::string& output)
+{
+    std::cout << output << "\n";
+    std::ofstream outputFile;
+    std::size_t found = output.find_last_of("/");
+
+    //STORE RAW UMI CORRECTED DATA
+    std::string umiOutput = output;
+    if(found == std::string::npos)
+    {
+        umiOutput = "UMI" + output;
+    }
+    else
+    {
+        umiOutput = output.substr(0,found) + "/" + "UMI" + output.substr(found+1);
+    }
+    outputFile.open (umiOutput);
+    outputFile << "UMI" << "\t" << "AB_BARCODE" << "\t" << "SingleCell_BARCODE" << "\n"; 
+    for(auto line : umiData)
+    {
+        outputFile << line->umi_seq << "\t" << line->ab_seq << "\t" << line->cell_seq << "\n"; 
+    }
+    outputFile.close();
+
+    //STORE AB COUNT DATA
+    std::string abOutput = output;
+    if(found == std::string::npos)
+    {
+        abOutput = "AB" + output;
+    }
+    else
+    {
+        abOutput = output.substr(0,found) + "/" + "AB" + output.substr(found+1);
+    }
+    outputFile.open (abOutput);
+    outputFile << "AB_BARCODE" << "\t" << "SingleCell_BARCODE" << "\t" << "AB_COUNT" << "\n"; 
+    for(auto line : abData)
+    {
+        outputFile << line.ab_seq << "\t" << line.cell_seq << "\t" << line.ab_cout << "\n"; 
+    }
+    outputFile.close();
+}
