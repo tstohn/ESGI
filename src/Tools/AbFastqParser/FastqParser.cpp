@@ -149,7 +149,8 @@ void write_file(std::string output, BarcodeMappingVector barcodes, BarcodeMappin
     {
         for(int j = 0; j < patterns.size(); ++j)
         {
-            outputFile << *(realBarcodes.at(i).at(j)) << "\t";
+            outputFile << *(realBarcodes.at(i).at(j));
+            if(j!=patterns.size()-1){outputFile << "\t";}
         }
         outputFile << "\n";
     }

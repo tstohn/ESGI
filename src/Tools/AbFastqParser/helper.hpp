@@ -126,7 +126,6 @@ inline bool levenshtein(const std::string sequence, std::string pattern, int mis
                 substitutionValue = 1;
             }
             //punishement for deletion (allow deletions on beginnign and end)
-            //if( j==1 | j==la )
             if(j==la )
             {
                 deletionValue= 0;
