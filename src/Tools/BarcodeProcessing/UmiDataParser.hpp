@@ -22,7 +22,9 @@ struct CIBarcode
 {
     std::vector<std::unordered_map<std::string, int> > barcodeIdDict; // map of barcode to id, maps are in order of their occurence in the fastqRead
     // ids of the CI barcode within the barcode file (includes only barcodes for variable sequence regions)
+
     std::vector<int> ciBarcodeIndices; // more or less only of temporary usage, during generation of barcode map vector
+    int tmpTreatmentIdx;
 };
 
 //statistics of the UMI occurences
@@ -55,18 +57,26 @@ class UmiDataParser
 
         void writeStats(std::string output);
         void writeUmiCorrectedData(const std::string& output);
+        inline void addTreatmentData(std::unordered_map<std::string, std::shared_ptr<std::string> > map)
+        {
+            rawData.setTreatmentDict(map);
+        }
+        inline void addProteinData(std::unordered_map<std::string, std::shared_ptr<std::string> > map)
+        {
+            rawData.setProteinDict(map);
+        }
 
     private:
 
         //parse the file, store each line in our data structure
-        void addFastqReadToUmiData(const std::string& line);
+        void addFastqReadToUmiData(const std::string& line, const int& elements);
         void parseBarcodeLines(std::istream* instream, const int& totalReads, int& currentReads);
         void correctUmis(const int& umiMismatches, StatsUmi& statsTmp, std::vector<dataLinePtr>& umiDataTmp, std::vector<abLine>& abDataTmp, 
                          const std::vector<std::vector<dataLinePtr> >& AbScBucket, int& currentUmisCorrected);
-        void umiQualityCheck(const std::vector< std::vector<dataLinePtr> > uniqueUmis, umiQuality& qualTmp, int& currentUmisChecked);
+        void umiQualityCheck(const std::vector< std::vector<dataLinePtr> >& uniqueUmis, umiQuality& qualTmp, int& currentUmisChecked);
 
         //get positions of CIBarcodes
-        void getCiBarcodeInWholeSequence(const std::string& line);
+        void getCiBarcodeInWholeSequence(const std::string& line, int& barcodeElements);
         //map all the barcodes of CI to a unique 'number' string as SingleCellIdx
         std::string generateSingleCellIndexFromBarcodes(std::vector<std::string> ciBarcodes);
 
@@ -92,5 +102,6 @@ class UmiDataParser
         std::vector<int> fastqReadBarcodeIdx; // ids of the CI barcode within the whole string of all barcodes
         int abIdx = INT_MAX;
         int umiIdx = INT_MAX;
+        int treatmentIdx = INT_MAX;
         int umiLength = 0;
 };

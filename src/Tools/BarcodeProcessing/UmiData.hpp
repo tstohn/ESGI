@@ -14,10 +14,11 @@
 
 struct abLine
 {
-    const char* ab_seq;
+    std::shared_ptr<std::string> ab_seq;
+    std::shared_ptr<std::string> treatment;
+    
     const char* cell_seq;
     int ab_cout = 0;
-
 }; 
 
 struct dataLine
@@ -25,6 +26,7 @@ struct dataLine
     const char* umi_seq;
     const char* ab_seq;
     const char* cell_seq;
+    const char* treatment_seq;
 };
 typedef std::shared_ptr<dataLine> dataLinePtr;
 
@@ -38,14 +40,14 @@ class UmiData
         }
 
         // add a dataLines to the vector
-        void add(std::string& umiStr, std::string& abStr, std::string& singleCellStr)
+        void add(std::string& umiStr, std::string& abStr, std::string& singleCellStr, std::string& treatment)
         {
             //get unique pointer for all three string
             dataLine line;
-            uniqueChars->getUniqueChar(umiStr.c_str());
             line.umi_seq = uniqueChars->getUniqueChar(umiStr.c_str());
             line.ab_seq = uniqueChars->getUniqueChar(abStr.c_str());
             line.cell_seq = uniqueChars->getUniqueChar(singleCellStr.c_str());
+            line.treatment_seq = uniqueChars->getUniqueChar(treatment.c_str());
 
             //make a dataLinePtr from those unique string
             dataLinePtr linePtr(std::make_shared<dataLine>(line));
@@ -109,6 +111,26 @@ class UmiData
             remove(positionsOfUmi.at(oldUmi).begin(), positionsOfUmi.at(oldUmi).end(), line);
             positionsOfUmi.at(newUmi).push_back(line);
         }
+        inline void setTreatmentDict(std::unordered_map<std::string, std::shared_ptr<std::string>> dict)
+        {
+            treatmentDict = dict;
+        }
+        inline void setProteinDict(std::unordered_map<std::string, std::shared_ptr<std::string>> dict)
+        {
+            proteinDict = dict;
+        }
+        inline std::shared_ptr<std::string> getProteinName(std::string barcode)
+        {
+            return proteinDict[barcode];
+        }
+        inline std::shared_ptr<std::string> getTreatmentName(std::string barcode)
+        {
+            if ( treatmentDict.find(barcode) == treatmentDict.end() ) {
+                std::cerr << "Barcode is not in treatment dict, check treatment barcodes, treatmend ID and treatment File\n";
+                exit(EXIT_FAILURE);
+            }
+            return treatmentDict[barcode];
+        }
 
     private:
 
@@ -163,4 +185,7 @@ class UmiData
         //set of all the unique barcodes we use, and we only pass pointers to those
         std::shared_ptr<UniqueCharSet> uniqueChars;
 
+        //dictionaries to map a barcode-sequence to the treatment, and Protein
+        std::unordered_map<std::string, std::shared_ptr<std::string> > treatmentDict;
+        std::unordered_map<std::string, std::shared_ptr<std::string> > proteinDict;
 };

@@ -33,7 +33,7 @@ using namespace boost::program_options;
 
 bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& outFile, int& threats, 
                      std::string& barcodeFile, std::string& barcodeIndices, int& umiMismatches,
-                     std::string& abFile, std::string& treatmentFile, int& treatmentIdx)
+                     std::string& abFile, int& abIdx, std::string& treatmentFile, int& treatmentIdx)
 {
     try
     {
@@ -46,9 +46,10 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             the row refers to the correponding bracket enclosed sequence substring. E.g. for two bracket enclosed substrings in out sequence a possible list could be:\
             AGCTTCGAG,ACGTTCAGG\nACGTCTAGACT,ATCGGCATACG,ATCGCGATC,ATCGCGCATAC. This can be the same list as it was for FastqParser.")
             ("antibodyList,a", value<std::string>(&(abFile)), "file with a list of all antbodies used, should be in same order as the ab-barcodes in the barcodeList.")
+            ("antibodyIndex,x", value<int>(&abIdx), "Index used for antibody distinction.")
             ("groupList,g", value<std::string>(&(treatmentFile)), "file with a list of all groups (e.g.treatments) used, should be in same order as the specific arcodes in the barcodeList. \
             If tis argument is given, you must also add the index of barcodes used for grouping")
-            ("GroupingIndex,n", value<int>(&treatmentIdx), "Index used to group cells. This is the x-th barcode from the barcodeFile (0 indexed).")
+            ("GroupingIndex,y", value<int>(&treatmentIdx), "Index used to group cells(e.g. by treatment). This is the x-th barcode from the barcodeFile (0 indexed).")
 
             ("CombinatorialIndexingBarcodeIndices,c", value<std::string>(&(barcodeIndices))->required(), "comma seperated list of indexes, that are used during \
             combinatorial indexing and should distinguish a unique cell. Be aware that this is the index of the line inside the barcodeList file (see above). \
@@ -81,7 +82,8 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
 
 }
 
-void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, CIBarcode& barcodeIdData)
+void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, CIBarcode& barcodeIdData, 
+                          std::vector<std::string>& proteinDict, const int& protIdx, std::vector<std::string>& treatmentDict, const int& treatmentIdx)
 {
     //parse barcode file
     std::vector<std::vector<std::string> > barcodeList;
@@ -154,7 +156,77 @@ void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, C
         }
         barcodeIdData.barcodeIdDict.push_back(barcodeMap);
     }
+    barcodeIdData.tmpTreatmentIdx = treatmentIdx;
 
+    proteinDict = barcodeList.at(protIdx);
+    treatmentDict = barcodeList.at(treatmentIdx);
+
+}
+
+std::unordered_map<std::string, std::shared_ptr<std::string> > generateProteinDict(std::string abFile, int abIdx, 
+                                                                                              const std::vector<std::string>& abBarcodes)
+{
+    std::unordered_map<std::string, std::shared_ptr<std::string> > map;
+    std::vector<std::string> proteinNames;
+
+    std::ifstream abFileStream(abFile);
+    for(std::string line; std::getline(abFileStream, line);)
+    {
+        std::string delimiter = ",";
+        std::string seq;
+        size_t pos = 0;
+        std::vector<std::string> seqVector;
+        while ((pos = line.find(delimiter)) != std::string::npos) 
+        {
+            seq = line.substr(0, pos);
+            line.erase(0, pos + 1);
+            proteinNames.push_back(seq);
+        }
+        seq = line;
+        proteinNames.push_back(seq);
+    }
+
+    assert(abBarcodes.size() == proteinNames.size());
+    for(int i = 0; i < abBarcodes.size(); ++i)
+    {
+        map.insert(std::make_pair(abBarcodes.at(i), std::make_shared<std::string>(proteinNames.at(i))));
+    }
+    abFileStream.close();
+
+    return map;
+}
+
+std::unordered_map<std::string, std::shared_ptr<std::string> > generateTreatmentDict(std::string treatmentFile, int treatmentIdx,
+                                                                                                const std::vector<std::string>& treatmentBarcodes)
+{
+    std::unordered_map<std::string, std::shared_ptr<std::string> > map;
+    std::vector<std::string> treatmentNames;
+
+    std::ifstream treatmentFileStream(treatmentFile);
+    for(std::string line; std::getline(treatmentFileStream, line);)
+    {
+        std::string delimiter = ",";
+        std::string seq;
+        size_t pos = 0;
+        std::vector<std::string> seqVector;
+        while ((pos = line.find(delimiter)) != std::string::npos) 
+        {
+            seq = line.substr(0, pos);
+            line.erase(0, pos + 1);
+            treatmentNames.push_back(seq);
+
+        }
+        seq = line;
+        treatmentNames.push_back(seq);
+    }
+    assert(treatmentNames.size() == treatmentBarcodes.size());
+    for(int i = 0; i < treatmentBarcodes.size(); ++i)
+    {
+        map.insert(std::make_pair(treatmentBarcodes.at(i), std::make_shared<std::string>(treatmentNames.at(i))));
+    }
+    treatmentFileStream.close();
+
+    return map;
 }
 
 
@@ -167,16 +239,32 @@ int main(int argc, char** argv)
     int thread;
     int umiMismatches;
 
+    //data for protein(ab) and treatment information
     std::string abFile; 
+    int abIdx;
     std::string treatmentFile;
     int treatmentIdx;
-    parse_arguments(argv, argc, inFile, outFile, thread, barcodeFile, barcodeIndices, umiMismatches, abFile, treatmentFile, treatmentIdx);
+    std::vector<std::string> abBarcodes;
+    std::vector<std::string> treatmentBarcodes;
+
+    parse_arguments(argv, argc, inFile, outFile, thread, barcodeFile, barcodeIndices, umiMismatches, abFile, abIdx, treatmentFile, treatmentIdx);
     
     //generate the dictionary of barcode alternatives to idx
     CIBarcode barcodeIdData;
-    generateBarcodeDicts(barcodeFile, barcodeIndices, barcodeIdData);
-    
+    generateBarcodeDicts(barcodeFile, barcodeIndices, barcodeIdData, abBarcodes, abIdx, treatmentBarcodes, treatmentIdx);
     UmiDataParser dataParser(barcodeIdData);
+
+    if(!abFile.empty())
+    {
+        std::unordered_map<std::string, std::shared_ptr<std::string> > map = generateProteinDict(abFile, abIdx, abBarcodes);
+        dataParser.addProteinData(map);
+    }
+    if(!treatmentFile.empty())
+    {
+        std::unordered_map<std::string, std::shared_ptr<std::string> > map = generateTreatmentDict(treatmentFile, treatmentIdx, treatmentBarcodes);
+        dataParser.addTreatmentData(map);
+    }
+
     dataParser.parseFile(inFile, thread);
 
     dataParser.correctUmisThreaded(umiMismatches, thread);

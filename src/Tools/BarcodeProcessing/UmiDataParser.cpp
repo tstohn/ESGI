@@ -26,28 +26,27 @@ void UmiDataParser::parseBarcodeLines(std::istream* instream, const int& totalRe
 {
     std::string line;
     std::cout << "READING ALL LINES INTO MEMORY\n";
+    int count = 0;
+    int elements = 0; //check that each row has the correct number of barcodes
     while(std::getline(*instream, line))
     {
         //for the first read check the positions in the string that refer to CIBarcoding positions
         if(currentReads==0){
             ++currentReads; 
-            getCiBarcodeInWholeSequence(line);
+            getCiBarcodeInWholeSequence(line, elements);
             continue;
         }
-        addFastqReadToUmiData(line);   
+        addFastqReadToUmiData(line, elements);   
 
         double perc = currentReads/ (double)totalReads;
         ++currentReads;
         printProgress(perc);        
     }
-
     std::cout << "\n";
 }
 
-void UmiDataParser::addFastqReadToUmiData(const std::string& line)
+void UmiDataParser::addFastqReadToUmiData(const std::string& line, const int& elements)
 {
-    dataLine dataTmp;
-
     //split the line into barcodes
     std::vector<std::string> result;
     std::stringstream ss;
@@ -56,7 +55,12 @@ void UmiDataParser::addFastqReadToUmiData(const std::string& line)
     {
         std::string substr;
         getline( ss, substr, '\t' );
-        result.push_back( substr );
+        if(substr != ""){result.push_back( substr );}
+    }
+    if(result.size() != elements)
+    {
+        std::cerr << "Error in barcode file, following row has not the correct number of sequences: " << line << "\n";
+        exit(EXIT_FAILURE);
     }
 
     //hand over the UMI string, ab string, singleCellstring (concatenation of CIbarcodes)
@@ -66,7 +70,13 @@ void UmiDataParser::addFastqReadToUmiData(const std::string& line)
         ciBarcodes.push_back(result.at(i));
     }
     std::string singleCellIdx = generateSingleCellIndexFromBarcodes(ciBarcodes);
-    rawData.add(result.at(umiIdx), result.at(abIdx), singleCellIdx);
+    std::string treatment = "";
+
+    if(treatmentIdx != INT_MAX)
+    {
+        treatment = result.at(treatmentIdx);
+    }
+    rawData.add(result.at(umiIdx), result.at(abIdx), singleCellIdx, treatment);
 
 }
 
@@ -84,7 +94,7 @@ std::string UmiDataParser::generateSingleCellIndexFromBarcodes(std::vector<std::
     return scIdx;
 }
 
-void UmiDataParser::getCiBarcodeInWholeSequence(const std::string& line)
+void UmiDataParser::getCiBarcodeInWholeSequence(const std::string& line, int& barcodeElements)
 {
     std::vector<std::string> result;
     std::stringstream ss;
@@ -99,6 +109,12 @@ void UmiDataParser::getCiBarcodeInWholeSequence(const std::string& line)
         //if substr is only N's
         if(substr.find_first_not_of('N') == std::string::npos)
         {
+            //add index for treatment
+            if(variableBarcodeCount == barcodeDict.tmpTreatmentIdx)
+            {
+                treatmentIdx = count;
+            }
+            //add index for combinatorial indexing barcode
             if (std::count(barcodeDict.ciBarcodeIndices.begin(), barcodeDict.ciBarcodeIndices.end(), variableBarcodeCount)) 
             {
                 fastqReadBarcodeIdx.push_back(count);
@@ -117,6 +133,8 @@ void UmiDataParser::getCiBarcodeInWholeSequence(const std::string& line)
         result.push_back( substr );
         ++count;
     }
+
+    barcodeElements = count;
     assert(sizeof(fastqReadBarcodeIdx) == sizeof(barcodeDict.ciBarcodeIndices));
     assert(umiIdx != INT_MAX);
     assert(abIdx != INT_MAX);
@@ -227,8 +245,10 @@ void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, st
     for (auto uniqueAbSc : AbScBucket)
     {
         abLine abLineTmp;
-        abLineTmp.ab_seq = uniqueAbSc.at(0)->ab_seq;
         abLineTmp.cell_seq = uniqueAbSc.at(0)->cell_seq;
+        abLineTmp.ab_seq = rawData.getProteinName(uniqueAbSc.at(0)->ab_seq);
+        abLineTmp.treatment = rawData.getTreatmentName(uniqueAbSc.at(0)->treatment_seq);
+
         int abCount = 1; // abCount is calculated for every umi one after the other, if an umi is unique, the count is incremented
         //for umis with several occurences the last occurence will increment the count, the very last UMI is never checked and is always
         //incrementing the count, therefore initialized with 1
@@ -312,7 +332,7 @@ void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, st
 
 }
 
-void UmiDataParser::umiQualityCheck(const std::vector< std::vector<dataLinePtr> > uniqueUmis, umiQuality& qualTmp, int& currentUmisChecked)
+void UmiDataParser::umiQualityCheck(const std::vector< std::vector<dataLinePtr> >& uniqueUmis, umiQuality& qualTmp, int& currentUmisChecked)
 {
     //first quality check, does a unique umi have always the same AbScIdx
     int tmpCurrentUmisChecked =0;
@@ -409,7 +429,6 @@ void UmiDataParser::writeStats(std::string output)
 
 void UmiDataParser::writeUmiCorrectedData(const std::string& output)
 {
-    std::cout << output << "\n";
     std::ofstream outputFile;
     std::size_t found = output.find_last_of("/");
 
@@ -442,10 +461,10 @@ void UmiDataParser::writeUmiCorrectedData(const std::string& output)
         abOutput = output.substr(0,found) + "/" + "AB" + output.substr(found+1);
     }
     outputFile.open (abOutput);
-    outputFile << "AB_BARCODE" << "\t" << "SingleCell_BARCODE" << "\t" << "AB_COUNT" << "\n"; 
+    outputFile << "AB_BARCODE" << "\t" << "SingleCell_BARCODE" << "\t" << "AB_COUNT" << "\t" << "TREATMENT" << "\n"; 
     for(auto line : abData)
     {
-        outputFile << line.ab_seq << "\t" << line.cell_seq << "\t" << line.ab_cout << "\n"; 
+        outputFile << *(line.ab_seq) << "\t" << line.cell_seq << "\t" << line.ab_cout << "\t" << *(line.treatment) << "\n"; 
     }
     outputFile.close();
 }
