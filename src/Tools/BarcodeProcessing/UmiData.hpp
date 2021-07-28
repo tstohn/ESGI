@@ -126,7 +126,7 @@ class UmiData
         inline std::shared_ptr<std::string> getTreatmentName(std::string barcode)
         {
             if ( treatmentDict.find(barcode) == treatmentDict.end() ) {
-                std::cerr << "Barcode is not in treatment dict, check treatment barcodes, treatmend ID and treatment File\n";
+                std::cerr << "Barcode is not in treatment dict, check treatment barcodes, treatmend ID and treatment File:\n" << barcode << "\n";
                 exit(EXIT_FAILURE);
             }
             return treatmentDict[barcode];

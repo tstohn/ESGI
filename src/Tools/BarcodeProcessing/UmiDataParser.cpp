@@ -3,6 +3,13 @@
 
 void UmiDataParser::parseFile(const std::string fileName, const int& thread)
 {
+
+    /*int score;
+    int mm = 5;
+    outputSense("DA", "AAE", mm, score);
+    std::cout << "DONE" << score << "\n";
+    exit(1);*/
+
     int totalReads = totalNumberOfLines(fileName);
     int currentReads = 0;
     //open gz file
@@ -265,7 +272,11 @@ void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, st
                 int dist = UINT_MAX;
                 int start = 0;
                 int end = 0;
-                bool similar = levenshtein(umia, umib, umiLength, start, end, dist);
+
+                const int diff = std::strlen(umia) - std::strlen(umib);
+                const int lengthCorrectedMismatches = umiMismatches + ( sqrt(diff*diff));
+                bool similar = outputSense(umia, umib, lengthCorrectedMismatches, dist);
+                //bool similar = levenshtein(umia, umib, umiMismatches, start, end, dist, true);
 
                 //if mismatches are within range, change UMI seq
                 //the new 'correct' UMI sequence is the one of umiLength, if both r of
@@ -319,7 +330,7 @@ void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, st
         umiDataTmp.push_back(uniqueAbSc.at(uniqueAbSc.size() - 1));
 
         ++tmpCurrentUmisCorrected;
-        if(tmpCurrentUmisCorrected % 10000 == 0)
+        if(tmpCurrentUmisCorrected % 100 == 0)
         {
             lock.lock();
             currentUmisCorrected += tmpCurrentUmisCorrected;
@@ -356,7 +367,7 @@ void UmiDataParser::umiQualityCheck(const std::vector< std::vector<dataLinePtr> 
             }
         }
         ++tmpCurrentUmisChecked;
-        if(tmpCurrentUmisChecked % 10000 == 0)
+        if(tmpCurrentUmisChecked % 100 == 0)
         {
             lock.lock();
             currentUmisChecked += tmpCurrentUmisChecked;

@@ -11,6 +11,9 @@
 #define PBSTR "||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
 #define PBWIDTH 60
 
+#define MAX(X,Y) (X<Y ? Y : X)
+#define MIN(X,Y) (X<Y ? X : Y)
+
 inline int totalNumberOfLines(std::string fileName)
 {
     int totalReads = 0;
@@ -76,11 +79,11 @@ struct fastqStats{
 };
 
 struct levenshtein_value{
-        int val = 0;
+        unsigned int val = 0;
         int i = 0;
         int j = 0;
         levenshtein_value(int a,int b, int c):val(a), i(b), j(c){}
-        levenshtein_value():val(0), i(0), j(0){}
+        levenshtein_value():val(UINT_MAX-1), i(0), j(0){}
 };
 inline levenshtein_value min(levenshtein_value a, levenshtein_value b, bool& first)
 {
@@ -91,9 +94,125 @@ inline levenshtein_value min(levenshtein_value a, levenshtein_value b, bool& fir
     }
     return b;
 }
-inline bool levenshtein(const std::string sequence, std::string pattern, int mismatches, int& match_start, int& match_end, int& score)
+
+struct frontMatrix
 {
-    int i,j,ls,la,t,substitutionValue, deletionValue;
+    std::vector<unsigned int> previous;
+    std::vector<unsigned int> current;
+    unsigned int offset;
+    unsigned int d;
+
+    frontMatrix(unsigned int m, unsigned int n): previous(m+n+3, UINT_MAX), current(m+n+3, UINT_MAX){}
+};
+int lcp(const std::string& a, const std::string& b)
+{
+    unsigned int lcp = 0;
+    unsigned int a_len = a.length();
+    unsigned int b_len = b.length();
+    unsigned int len = (a_len > b_len) ? b_len : a_len;
+
+    while( (a[lcp] == b[lcp]) & (lcp < len) )
+    {
+        ++lcp;
+    }
+    
+    return lcp;
+}
+void front(const std::string& a, const std::string& b, frontMatrix& f)
+{
+    unsigned int min = MIN(a.length(), f.d);
+    unsigned int max = MIN(b.length(), f.d);
+
+    for(unsigned int i = f.offset - MIN(f.d-1, a.length()); i<= MIN(f.d-1, b.length()) + f.offset;++i)
+    {
+        f.previous.at(i) = f.current.at(i);
+    }
+
+    for(auto el : f.previous)
+    {
+       // std::cout << el << " ";
+    }
+    //std::cout << "\n";
+
+    unsigned int l = 0;
+    for(unsigned int i = (f.offset-min); i <= (f.offset + max); ++i)
+    {
+       // std::cout << "  $ offset"<<  f.offset << " d-val " << f.d << " i " << i << "\n";
+        unsigned int aVal = 0, bVal = 0, cVal = 0;
+        if(f.previous.at(i-1) != UINT_MAX){ aVal = f.previous.at(i-1);}
+        if(f.previous.at(i+1) != UINT_MAX){ bVal = f.previous.at(i+1)+1;}
+        if(f.previous.at(i) != UINT_MAX){ cVal = f.previous.at(i)+1;}
+
+        l = MAX(MAX(aVal, bVal), cVal);
+
+           // std::cout <<  "     "<< a << " <-> " << b << " : l:" << l << " i:" << i << " offset:" << f.offset << "\n";
+           // std::cout << "     i-offset+l"<<i - f.offset + l << "\n";
+            
+            if(l >= a.length())
+            {
+                f.current.at(i) = a.length();
+            }
+            else if( (i - f.offset + l) >= b.length())
+            {
+
+            }
+            else
+            {
+                f.current.at(i) = l + lcp( a.substr(l), b.substr(i - f.offset + l) );
+            }
+
+            
+
+            //std::cout << "      I pos for diag: " << i << " is " << f.current.at(i) << " of total length "<< a.length() << "\n";
+    
+
+    }
+
+}
+inline bool outputSense(const std::string& sequence, const std::string& pattern, const int& mismatches, int& score)
+{
+    const unsigned int m = sequence.length();
+    const unsigned int n = pattern.length();
+    
+    frontMatrix f(m,n);
+    f.offset = m + 1;
+    f.d = 0;
+
+    f.current.at(f.offset) = lcp(sequence, pattern);
+    if(f.current.at(n-m+f.offset) == m)
+    {
+        score = f.d;
+        return true;
+        if(score <= mismatches){return true;}
+        else{return false;}
+    }
+    ++f.d;
+
+//std::cout << sequence << " " << pattern << f.current.at(f.offset) << "\n";
+    while(f.d <= MIN(MAX(m,n), mismatches))
+    {
+        //std::cout << "# CHECKING D: " << f.d << " " << MAX(m,n) << "\n";
+        front(sequence, pattern, f);
+        if(f.current.at(n-m+f.offset) == m)
+        {
+            score = f.d;
+            if(score <= mismatches){return true;}
+            else{return false;}
+        }
+        ++f.d;
+    }
+    //std::cout << "ENDED IN NOWHERE\n";
+
+    //no match found within limits: assign a score > mismatches
+    score = mismatches + 1;
+    return false;
+}
+
+//function is not overflow safe, in the case that INT_MAX mismatches might occur (not relevant for our small sequences...)
+inline bool levenshtein(const std::string sequence, std::string pattern, const int& mismatches, int& match_start, int& match_end, int& score,
+                        bool upperBoundCheck = false)
+{
+    int i,j,ls,la,t,substitutionValue, deletionValue, upperBoundCol = 0;
     //stores the lenght of strings s1 and s2
     ls = sequence.length();
     la = pattern.length();
@@ -155,12 +274,25 @@ inline bool levenshtein(const std::string sequence, std::string pattern, int mis
             firstValueIsMin = false;
             levenshtein_value tmp2 = min(subst, tmp1, firstValueIsMin);
             
+            //Upper bound for mismatches
+            if(upperBoundCheck)
+            {
+                if( (tmp2.val > mismatches) & (j > upperBoundCol))
+                {
+                    upperBoundCol = j-1;
+                    break;
+                }
+                else if(j == la)
+                {
+                    upperBoundCol = la;
+                }
+            }
             dist[i][j] = tmp2;
             //std::cout << tmp2.val << "(" << sequence[i-1] <<  ","<< pattern[j-1] << ")" << " ";
         }
         //std::cout << "\n";
     }
-
+    if(upperBoundCheck & (dist[ls][la].val > mismatches)){return false;}
     //backtracking to find match start and end
     // start and end are defined as first and last match of bases 
     //(deletion, insertion and substitution are not considered, since they could also be part of the adjacent sequences)

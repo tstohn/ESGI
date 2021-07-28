@@ -2,7 +2,6 @@
 #include <boost/program_options/options_description.hpp>
 
 #include "UmiDataParser.hpp"
-
 using namespace boost::program_options;
 
 /**
@@ -232,6 +231,7 @@ std::unordered_map<std::string, std::shared_ptr<std::string> > generateTreatment
 
 int main(int argc, char** argv)
 {
+
     std::string inFile;
     std::string outFile;
     std::string barcodeFile;
