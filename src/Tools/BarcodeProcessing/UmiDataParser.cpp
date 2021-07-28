@@ -362,6 +362,106 @@ void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, st
             lock.unlock();
         }
     }
+}
+
+void UmiDataParser::correctUmisWithStats(const int& umiMismatches, StatsUmi& statsTmp, std::vector<dataLinePtr>& umiDataTmp, std::vector<abLine>& abDataTmp, 
+                                const std::vector<std::vector<dataLinePtr> >& AbScBucket, int& currentUmisCorrected)
+{
+    //correct for UMI mismatches and fill the AbCountvector
+    //iterate through same AbScIdx, calculate levenshtein dist for all UMIs and match those with a certain number of mismatches
+    int tmpCurrentUmisCorrected = 0;
+    for (auto uniqueAbSc : AbScBucket)
+    {
+        abLine abLineTmp;
+        abLineTmp.cell_seq = uniqueAbSc.at(0)->cell_seq;
+        abLineTmp.ab_seq = rawData.getProteinName(uniqueAbSc.at(0)->ab_seq);
+        abLineTmp.treatment = rawData.getTreatmentName(uniqueAbSc.at(0)->treatment_seq);
+
+        int abCount = 1; // abCount is calculated for every umi one after the other, if an umi is unique, the count is incremented
+        //for umis with several occurences the last occurence will increment the count, the very last UMI is never checked and is always
+        //incrementing the count, therefore initialized with 1
+        for(int i = 0; i < (uniqueAbSc.size() - 1); ++i)
+        {
+            //assert(abLineTmp.ab_seq == uniqueAbSc.second.at(i)->ab_seq);
+            //assert(abLineTmp.cell_seq == uniqueAbSc.second.at(i)->cell_seq);
+            bool unique = true;
+            for(int j = i+1; j < uniqueAbSc.size(); ++j)
+            {
+                const char* umia = uniqueAbSc.at(i)->umi_seq;
+                const char* umib = uniqueAbSc.at(j)->umi_seq;
+
+                int dist = INT_MAX;
+                int start = 0;
+                int end = 0;
+
+                bool similar = levenshtein(umia, umib, umiLength, start, end, dist, true);
+
+                //if(std::strcmp(abLineTmp.cell_seq, "10295") == 0 & std::strcmp((abLineTmp.ab_seq)->c_str(), "CTD1")==0){std::cout << umia << " " << umib << " => "<< dist << " " << start << " " << end <<  "\n";}
+
+                //if mismatches are within range, change UMI seq
+                //the new 'correct' UMI sequence is the one of umiLength, if both r of
+                //same length, its the first occuring UMI
+                if(dist <= umiMismatches)
+                {
+                    unique = false;
+                    if(dist!=0)
+                    {
+                        //get real UMI
+                        const char* realUmi;
+                        if(strlen(umia)==umiLength)
+                        {
+                            realUmi = umia;
+                            uniqueAbSc.at(j)->umi_seq = uniqueAbSc.at(i)->umi_seq;
+                            rawData.changeUmi(umib, umia, uniqueAbSc.at(i));
+                        }
+                        else if(strlen(umib)==umiLength)
+                        {
+                            realUmi = umib;
+                            uniqueAbSc.at(i)->umi_seq = uniqueAbSc.at(j)->umi_seq;
+                            rawData.changeUmi(umia, umib, uniqueAbSc.at(j));
+                        }
+                        else
+                        {
+                            realUmi = umia;
+                            uniqueAbSc.at(j)->umi_seq = uniqueAbSc.at(i)->umi_seq;
+                            rawData.changeUmi(umib, umia, uniqueAbSc.at(i));
+                        }   
+                    }                 
+                }
+
+                //dist is set inside levenshtein, if its <= mismatches=2
+                if(statsTmp.umiMismatchDict.find(dist) != statsTmp.umiMismatchDict.end())
+                {
+                    ++statsTmp.umiMismatchDict.at(dist);
+                }
+                else
+                {
+                    statsTmp.umiMismatchDict.insert(std::make_pair(dist, 1));
+                }
+            }
+            //if(std::strcmp(abLineTmp.cell_seq, "10295") == 0 & std::strcmp((abLineTmp.ab_seq)->c_str(), "CTD1")==0){std::cout << "\n";}
+            if(unique)
+            {
+                ++abCount;
+                            //if(std::strcmp(abLineTmp.cell_seq, "10295") == 0 & std::strcmp((abLineTmp.ab_seq)->c_str(), "CTD1")==0){std::cout << "      "<< abCount << "      ADDED\n";;}
+            }
+            umiDataTmp.push_back(uniqueAbSc.at(i));
+        }    
+        abLineTmp.ab_cout = abCount;
+        abDataTmp.push_back(abLineTmp);
+        umiDataTmp.push_back(uniqueAbSc.at(uniqueAbSc.size() - 1));
+
+        ++tmpCurrentUmisCorrected;
+        if(tmpCurrentUmisCorrected % 100 == 0)
+        {
+            lock.lock();
+            currentUmisCorrected += tmpCurrentUmisCorrected;
+            tmpCurrentUmisCorrected = 0;
+            double perc = currentUmisCorrected/ (double) rawData.getUniqueAbSc().size();
+            printProgress(perc);
+            lock.unlock();
+        }
+    }
 
 }
 

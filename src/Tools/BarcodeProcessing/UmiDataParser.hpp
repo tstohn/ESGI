@@ -74,6 +74,9 @@ class UmiDataParser
         void parseBarcodeLines(std::istream* instream, const int& totalReads, int& currentReads);
         void correctUmis(const int& umiMismatches, StatsUmi& statsTmp, std::vector<dataLinePtr>& umiDataTmp, std::vector<abLine>& abDataTmp, 
                          const std::vector<std::vector<dataLinePtr> >& AbScBucket, int& currentUmisCorrected);
+        void correctUmisWithStats(const int& umiMismatches, StatsUmi& statsTmp, std::vector<dataLinePtr>& umiDataTmp, std::vector<abLine>& abDataTmp, 
+                         const std::vector<std::vector<dataLinePtr> >& AbScBucket, int& currentUmisCorrected);
+
         void umiQualityCheck(const std::vector< std::vector<dataLinePtr> >& uniqueUmis, umiQuality& qualTmp, int& currentUmisChecked);
 
         //get positions of CIBarcodes
