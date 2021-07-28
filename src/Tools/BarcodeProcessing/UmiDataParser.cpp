@@ -168,7 +168,9 @@ void UmiDataParser::correctUmisThreaded(const int& umiMismatches, const int& thr
         ++abScLineIdx;
     }
 
-    int umiLineIdx = 0;
+
+//uncomment to make UMI quality check
+    /*int umiLineIdx = 0;
     for(auto mapElement : rawData.getUniqueUmis())
     {
         std::vector<dataLinePtr> umiLine = mapElement.second;
@@ -176,7 +178,7 @@ void UmiDataParser::correctUmisThreaded(const int& umiMismatches, const int& thr
         independantUmiBatches.at( umiLineIdx%thread ).push_back(umiLine);
 
         ++umiLineIdx;
-    }
+    }*/
 
     //temporary vectors to store all the thread outputs
     std::vector<StatsUmi> umiStatsThreaded(thread);
@@ -189,7 +191,7 @@ void UmiDataParser::correctUmisThreaded(const int& umiMismatches, const int& thr
     std::vector<std::thread> workers;
     int currentUmisChecked = 0;
     std::cout << "Checking Quality of UMIs\n";
-    for (int i = 0; i < thread; ++i) 
+    /*for (int i = 0; i < thread; ++i) 
     {
         workers.push_back(std::thread(&UmiDataParser::umiQualityCheck, this, std::ref(independantUmiBatches.at(i)), std::ref(umiQualThreaded.at(i)), std::ref(currentUmisChecked) ));
     }
@@ -199,7 +201,7 @@ void UmiDataParser::correctUmisThreaded(const int& umiMismatches, const int& thr
             t.join();
         }
     }
-    std::cout << "\n";
+    std::cout << "\n";*/
     //for every batch calculate an UmiData and ABData vector and stats
     int currentUmisCorrected = 0;
     std::cout << "Correcting UMIs and counting ABs\n";
