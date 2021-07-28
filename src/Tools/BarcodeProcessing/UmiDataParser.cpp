@@ -270,7 +270,7 @@ void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, st
                 const char* umia = uniqueAbSc.at(i)->umi_seq;
                 const char* umib = uniqueAbSc.at(j)->umi_seq;
 
-                int dist = UINT_MAX;
+                int dist = INT_MAX;
                 int start = 0;
                 int end = 0;
 
@@ -279,8 +279,10 @@ void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, st
 
                 //const char * seq = (std::strlen(umia) > std::strlen(umib) ? umia : umib);
                 //const char * pat = (std::strlen(umia) > std::strlen(umib) ? umib : umia);
-                //bool similar = levenshtein(seq, pat, umiMismatches, start, end, dist, true);
+                //bool similar = levenshtein(umia, umib, umiMismatches, start, end, dist, true);
                 bool similar = outputSense(umia, umib, lengthCorrectedMismatches, dist);
+
+                //if(std::strcmp(abLineTmp.cell_seq, "10295") == 0 & std::strcmp((abLineTmp.ab_seq)->c_str(), "CTD1")==0){std::cout << umia << " " << umib << " => "<< dist << " " << start << " " << end <<  "\n";}
 
                 //if mismatches are within range, change UMI seq
                 //the new 'correct' UMI sequence is the one of umiLength, if both r of
@@ -323,9 +325,11 @@ void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, st
                     statsTmp.umiMismatchDict.insert(std::make_pair(dist, 1));
                 }
             }
+            //if(std::strcmp(abLineTmp.cell_seq, "10295") == 0 & std::strcmp((abLineTmp.ab_seq)->c_str(), "CTD1")==0){std::cout << "\n";}
             if(unique)
             {
                 ++abCount;
+                            //if(std::strcmp(abLineTmp.cell_seq, "10295") == 0 & std::strcmp((abLineTmp.ab_seq)->c_str(), "CTD1")==0){std::cout << "      "<< abCount << "      ADDED\n";;}
             }
             umiDataTmp.push_back(uniqueAbSc.at(i));
         }    
