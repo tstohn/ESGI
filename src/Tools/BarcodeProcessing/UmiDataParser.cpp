@@ -4,11 +4,12 @@
 void UmiDataParser::parseFile(const std::string fileName, const int& thread)
 {
 
-    /*int score;
-    int mm = 5;
-    outputSense("DA", "AAE", mm, score);
-    std::cout << "DONE" << score << "\n";
-    exit(1);*/
+    //int score = 0;
+    //int mm = 1;
+    //bool res = outputSense("GGSGA", "GGSGAC", mm, score);
+    //if(res){std::cout << "DONE: " << score << "\n";}
+    //else{std::cout << "FAIL: " << score << "\n";}
+    //exit(1);
 
     int totalReads = totalNumberOfLines(fileName);
     int currentReads = 0;
@@ -275,8 +276,11 @@ void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, st
 
                 const int diff = std::strlen(umia) - std::strlen(umib);
                 const int lengthCorrectedMismatches = umiMismatches + ( sqrt(diff*diff));
+
+                //const char * seq = (std::strlen(umia) > std::strlen(umib) ? umia : umib);
+                //const char * pat = (std::strlen(umia) > std::strlen(umib) ? umib : umia);
+                //bool similar = levenshtein(seq, pat, umiMismatches, start, end, dist, true);
                 bool similar = outputSense(umia, umib, lengthCorrectedMismatches, dist);
-                //bool similar = levenshtein(umia, umib, umiMismatches, start, end, dist, true);
 
                 //if mismatches are within range, change UMI seq
                 //the new 'correct' UMI sequence is the one of umiLength, if both r of

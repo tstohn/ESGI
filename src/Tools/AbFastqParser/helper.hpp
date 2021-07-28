@@ -83,7 +83,7 @@ struct levenshtein_value{
         int i = 0;
         int j = 0;
         levenshtein_value(int a,int b, int c):val(a), i(b), j(c){}
-        levenshtein_value():val(UINT_MAX-1), i(0), j(0){}
+        levenshtein_value():val(UINT_MAX-1), i(0), j(0){} // -1 to make val+1 not start from 0
 };
 inline levenshtein_value min(levenshtein_value a, levenshtein_value b, bool& first)
 {
@@ -123,15 +123,10 @@ void front(const std::string& a, const std::string& b, frontMatrix& f)
     unsigned int min = MIN(a.length(), f.d);
     unsigned int max = MIN(b.length(), f.d);
 
-    for(unsigned int i = f.offset - MIN(f.d-1, a.length()); i<= MIN(f.d-1, b.length()) + f.offset;++i)
-    {
-        f.previous.at(i) = f.current.at(i);
-    }
+    //hard coded only: for(unsigned int i = f.offset - MIN(f.d-1, a.length()); i<= MIN(f.d-1, b.length()) + f.offset;++i)
+    //however probably assigning whole vector is faster (open for suggestions)
+    f.previous = f.current;
 
-    for(auto el : f.previous)
-    {
-       // std::cout << el << " ";
-    }
     //std::cout << "\n";
 
     unsigned int l = 0;
@@ -154,7 +149,9 @@ void front(const std::string& a, const std::string& b, frontMatrix& f)
             }
             else if( (i - f.offset + l) >= b.length())
             {
-
+                //in this case the row must be i, however it already is
+                //to set explicitely uncomment
+                //f.current.at(i) = i;
             }
             else
             {
@@ -184,20 +181,30 @@ inline bool outputSense(const std::string& sequence, const std::string& pattern,
         score = f.d;
         return true;
         if(score <= mismatches){return true;}
-        else{return false;}
+        else
+        {
+            score = mismatches + 1;
+            return false;
+        }
     }
-    ++f.d;
 
-//std::cout << sequence << " " << pattern << f.current.at(f.offset) << "\n";
+    ++f.d;
     while(f.d <= MIN(MAX(m,n), mismatches))
     {
         //std::cout << "# CHECKING D: " << f.d << " " << MAX(m,n) << "\n";
         front(sequence, pattern, f);
-        if(f.current.at(n-m+f.offset) == m)
+        if(f.current.at(n-m+f.offset) == m )
         {
             score = f.d;
-            if(score <= mismatches){return true;}
-            else{return false;}
+            if(score <= mismatches)
+            {
+                return true;
+            }
+            else
+            {
+                score = mismatches + 1;
+                return false;
+            }
         }
         ++f.d;
     }
@@ -212,7 +219,7 @@ inline bool outputSense(const std::string& sequence, const std::string& pattern,
 inline bool levenshtein(const std::string sequence, std::string pattern, const int& mismatches, int& match_start, int& match_end, int& score,
                         bool upperBoundCheck = false)
 {
-    int i,j,ls,la,t,substitutionValue, deletionValue, upperBoundCol = 0;
+    int i,j,ls,la,substitutionValue, deletionValue;
     //stores the lenght of strings s1 and s2
     ls = sequence.length();
     la = pattern.length();
@@ -231,10 +238,13 @@ inline bool levenshtein(const std::string sequence, std::string pattern, const i
 
     levenshtein_value val(0,-1,-1);
     dist[0][0] = val;
+
+    int upperBoundCol = mismatches;
     for (i=1;i<=ls;i++) 
     {
         for(j=1;j<=la;j++) 
         {
+
             //Punishement for substitution
             if(sequence[i-1] == pattern[j-1]) 
             {
@@ -273,20 +283,13 @@ inline bool levenshtein(const std::string sequence, std::string pattern, const i
             levenshtein_value tmp1 = min(seq_ins, seq_del, firstValueIsMin);
             firstValueIsMin = false;
             levenshtein_value tmp2 = min(subst, tmp1, firstValueIsMin);
-            
-            //Upper bound for mismatches
-            if(upperBoundCheck)
+
+            if(upperBoundCheck & (tmp2.val > mismatches) & (j > upperBoundCol) )
             {
-                if( (tmp2.val > mismatches) & (j > upperBoundCol))
-                {
                     upperBoundCol = j-1;
                     break;
-                }
-                else if(j == la)
-                {
-                    upperBoundCol = la;
-                }
             }
+            
             dist[i][j] = tmp2;
             //std::cout << tmp2.val << "(" << sequence[i-1] <<  ","<< pattern[j-1] << ")" << " ";
         }
