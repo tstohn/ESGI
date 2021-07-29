@@ -163,11 +163,11 @@ void writeStats(std::string output, const fastqStats& stats)
     std::size_t found = output.find_last_of("/");
     if(found == std::string::npos)
     {
-        output = "STATS" + output;
+        output = "StatsBarcodeMappingErrors_" + output;
     }
     else
     {
-        output = output.substr(0,found) + "/" + "STATS" + output.substr(found+1);
+        output = output.substr(0,found) + "/" + "StatsBarcodeMappingErrors_" + output.substr(found+1);
     }
     std::remove(output.c_str());
     outputFile.open (output, std::ofstream::app);

@@ -59,10 +59,10 @@ void UmiDataParser::addFastqReadToUmiData(const std::string& line, const int& el
     std::vector<std::string> result;
     std::stringstream ss;
     ss.str(line);
-    while( ss.good() )
+    std::string substr;
+
+    while(getline( ss, substr, '\t' ))
     {
-        std::string substr;
-        getline( ss, substr, '\t' );
         if(substr != ""){result.push_back( substr );}
     }
     if(result.size() != elements)
@@ -97,6 +97,10 @@ std::string UmiDataParser::generateSingleCellIndexFromBarcodes(std::vector<std::
         std::string barcodeAlternative = ciBarcodes.at(i);
         int tmpIdx = barcodeDict.barcodeIdDict.at(i)[barcodeAlternative];
         scIdx += std::to_string(tmpIdx);
+        if(i < ciBarcodes.size() - 1)
+        {
+            scIdx += ".";
+        }
     }
 
     return scIdx;
@@ -109,10 +113,9 @@ void UmiDataParser::getCiBarcodeInWholeSequence(const std::string& line, int& ba
     ss.str(line);
     int count = 0;
     int variableBarcodeCount = 0;
-    while( ss.good() )
+    std::string substr;
+    while(std::getline(ss, substr, '\t'))
     {
-        std::string substr;
-        getline(ss, substr, '\t' );
         if(substr.empty()){continue;}
         //if substr is only N's
         if(substr.find_first_not_of('N') == std::string::npos)
@@ -141,9 +144,8 @@ void UmiDataParser::getCiBarcodeInWholeSequence(const std::string& line, int& ba
         result.push_back( substr );
         ++count;
     }
-
     barcodeElements = count;
-    assert(sizeof(fastqReadBarcodeIdx) == sizeof(barcodeDict.ciBarcodeIndices));
+    assert(fastqReadBarcodeIdx.size() == barcodeDict.ciBarcodeIndices.size());
     assert(umiIdx != INT_MAX);
     assert(abIdx != INT_MAX);
 }
@@ -158,7 +160,7 @@ void UmiDataParser::correctUmisThreaded(const int& umiMismatches, const int& thr
 
     //iterate through map, and add one element after the other ot the vector (each element is itself a vector
     //of all the lines with the same AB and SingleCell)    
-    /*int abScLineIdx = 0;
+    int abScLineIdx = 0;
     for(auto mapElement : rawData.getUniqueAbSc())
     {
         std::vector<dataLinePtr> abScLine = mapElement.second;
@@ -166,7 +168,7 @@ void UmiDataParser::correctUmisThreaded(const int& umiMismatches, const int& thr
         independantAbScBatches.at( abScLineIdx%thread ).push_back(abScLine);
 
         ++abScLineIdx;
-    }*/
+    }
 
 
 //uncomment to make UMI quality check
@@ -204,7 +206,7 @@ void UmiDataParser::correctUmisThreaded(const int& umiMismatches, const int& thr
     std::cout << "\n";
     //for every batch calculate an UmiData and ABData vector and stats
     int currentUmisCorrected = 0;
-    /*std::cout << "Correcting UMIs and counting ABs\n";
+    std::cout << "Correcting UMIs and counting ABs\n";
     for (int i = 0; i < thread; ++i) 
     {
         workers.push_back(std::thread(&UmiDataParser::correctUmis, this, std::ref(umiMismatches), std::ref(umiStatsThreaded.at(i)), std::ref(umiDataThreaded.at(i)),
@@ -216,7 +218,7 @@ void UmiDataParser::correctUmisThreaded(const int& umiMismatches, const int& thr
             t.join();
         }
     }
-    std::cout << "\n";*/
+    std::cout << "\n";
 
     //combine the three dataSets
      for (int i = 0; i < thread; ++i) 
@@ -354,7 +356,7 @@ void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, st
         //umiDataTmp.push_back(uniqueAbSc.at(uniqueAbSc.size() - 1));
 
         ++tmpCurrentUmisCorrected;
-        if(tmpCurrentUmisCorrected % 100000 == 0)
+        if(tmpCurrentUmisCorrected % (rawData.getUniqueAbSc().size() / 100) == 0)
         {
             lock.lock();
             currentUmisCorrected += tmpCurrentUmisCorrected;
@@ -454,7 +456,7 @@ void UmiDataParser::correctUmisWithStats(const int& umiMismatches, StatsUmi& sta
         umiDataTmp.push_back(uniqueAbSc.at(uniqueAbSc.size() - 1));
 
         ++tmpCurrentUmisCorrected;
-        if(tmpCurrentUmisCorrected % 100000 == 0)
+        if(tmpCurrentUmisCorrected % (rawData.getUniqueAbSc().size() / 100) == 0)
         {
             lock.lock();
             currentUmisCorrected += tmpCurrentUmisCorrected;
@@ -491,7 +493,7 @@ void UmiDataParser::umiQualityCheck(const std::vector< std::vector<dataLinePtr> 
             }
         }
         ++tmpCurrentUmisChecked;
-        if(tmpCurrentUmisChecked % 100 == 0)
+        if(tmpCurrentUmisChecked % (rawData.getUniqueUmis().size() / 100) == 0)
         {
             lock.lock();
             currentUmisChecked += tmpCurrentUmisChecked;
