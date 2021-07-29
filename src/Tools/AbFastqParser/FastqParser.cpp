@@ -427,12 +427,12 @@ void parseBarcodeData(const input& input, std::vector<std::pair<std::string, cha
             bool nonConstantSeq = true;
             char patternType = 'c';
             for (char const &c: seq) {
-                if(!(c=='A' | c=='T' | c=='G' |c=='C' |
-                    c=='a' | c=='t' | c=='g' | c=='c' |
-                    c=='N' | c=='X'))
+                if(!(c=='A' || c=='T' || c=='G' || c=='C' ||
+                    c=='a' || c=='t' || c=='g' || c=='c' ||
+                    c=='N' || c=='X'))
                 {
                     std::cerr << "PARAMETER ERROR: a barcode sequence in barcode file is not a base (A,T,G,C,N)\n";
-                    if(c==' ' | c=='\t' | c=='\n')
+                    if(c==' ' || c=='\t' || c=='\n')
                     {
                         std::cerr << "PARAMETER ERROR: Detected a whitespace in sequence; remove it to continue!\n";
                     }
@@ -441,7 +441,7 @@ void parseBarcodeData(const input& input, std::vector<std::pair<std::string, cha
                 if(c!='N'){nonConstantSeq=false;}
 
                 //determine pattern type and throw error
-                if( (patternType!='c') & (c!='N') & (c!='X') )
+                if( (patternType!='c') && (c!='N') && (c!='X') )
                 {
                     std::cerr << "PARAMETER ERROR: a barcode sequence has bases as well as wildcard 'X' or variable 'N' bases, the combination is not allowed!!!\n";
                     exit(1);
@@ -494,11 +494,11 @@ void parseBarcodeData(const input& input, std::vector<std::pair<std::string, cha
             }
             seq = line;
             for (char const &c: seq) {
-                if(!(c=='A' | c=='T' | c=='G' |c=='C' |
-                        c=='a' | c=='t' | c=='g' | c=='c'))
+                if(!(c=='A' || c=='T' || c=='G' || c=='C' ||
+                        c=='a' || c=='t' || c=='g' || c=='c'))
                         {
                         std::cerr << "PARAMETER ERROR: a barcode sequence in barcode file is not a base (A,T,G,C)\n";
-                        if(c==' ' | c=='\t' | c=='\n')
+                        if(c==' ' || c=='\t' || c=='\n')
                         {
                             std::cerr << "PARAMETER ERROR: Detected a whitespace in sequence; remove it to continue!\n";
                         }

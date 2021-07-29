@@ -111,7 +111,7 @@ int lcp(const std::string& a, const std::string& b)
     unsigned int b_len = b.length();
     unsigned int len = (a_len > b_len) ? b_len : a_len;
 
-    while( (a[lcp] == b[lcp]) & (lcp < len) )
+    while( (a[lcp] == b[lcp]) && (lcp < len) )
     {
         ++lcp;
     }
@@ -284,7 +284,7 @@ inline bool levenshtein(const std::string sequence, std::string pattern, const i
             firstValueIsMin = false;
             levenshtein_value tmp2 = min(subst, tmp1, firstValueIsMin);
 
-            if(upperBoundCheck & (tmp2.val > mismatches) & (j > upperBoundCol) )
+            if(upperBoundCheck && (tmp2.val > mismatches) && (j > upperBoundCol) )
             {
                     upperBoundCol = j-1;
                     break;
@@ -295,7 +295,7 @@ inline bool levenshtein(const std::string sequence, std::string pattern, const i
         }
         //std::cout << "\n";
     }
-    if(upperBoundCheck & (dist[ls][la].val > mismatches)){return false;}
+    if(upperBoundCheck && (dist[ls][la].val > mismatches)){return false;}
     //backtracking to find match start and end
     // start and end are defined as first and last match of bases 
     //(deletion, insertion and substitution are not considered, since they could also be part of the adjacent sequences)
@@ -310,12 +310,12 @@ inline bool levenshtein(const std::string sequence, std::string pattern, const i
         int iNew = dist[i][j].i;
         int jNew = dist[i][j].j;
 
-        if(dist[i][j].val == dist[iNew][jNew].val & i!=iNew & j!=jNew)
+        if(dist[i][j].val == dist[iNew][jNew].val && i!=iNew && j!=jNew)
         {
             start = iNew;
         }
 
-        if( (jNew<la) & noEnd)
+        if( (jNew<la) && noEnd)
         {
             noEnd = false;
             end = i;
@@ -338,4 +338,17 @@ inline bool levenshtein(const std::string sequence, std::string pattern, const i
         return true;
     }
     return false;
+}
+
+void ullong_save_add(unsigned long long& a, const unsigned long long& b)
+{
+   if( (b>0) && ( (ULLONG_MAX - b) < a ) )
+   {
+       std::cerr << "ERROR ULONG OVERFLOW\n";
+       a = ULLONG_MAX;
+   }
+   else
+   {
+       a += b;
+   }
 }

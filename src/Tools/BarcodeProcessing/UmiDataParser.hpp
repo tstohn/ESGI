@@ -33,13 +33,13 @@ struct StatsUmi
 {
     //dict: key = number of mismatches; 
     //value = how often this particular number of mismatches between any two UMIs of same AbSc-idx was observed
-    std::unordered_map<int, int> umiMismatchDict;
+    std::unordered_map<int, unsigned long long> umiMismatchDict;
 };
 
 struct umiQuality
 {
-    int sameUmiDiffAbSc = 0;
-    int sameUmiSameAbSc = 0;
+    unsigned long long sameUmiDiffAbSc = 0;
+    unsigned long long sameUmiSameAbSc = 0;
 };
 
 class UmiDataParser

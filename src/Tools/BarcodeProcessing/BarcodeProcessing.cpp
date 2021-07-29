@@ -113,11 +113,11 @@ void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, C
         }
         seq = line;
         for (char const &c: seq) {
-            if(!(c=='A' | c=='T' | c=='G' |c=='C' |
-                    c=='a' | c=='t' | c=='g' | c=='c'))
+            if(!(c=='A' || c=='T' || c=='G' || c=='C' ||
+                    c=='a' || c=='t' || c=='g' || c=='c'))
                     {
                     std::cerr << "PARAMETER ERROR: a barcode sequence in barcode file is not a base (A,T,G,C)\n";
-                    if(c==' ' | c=='\t' | c=='\n')
+                    if(c==' ' || c=='\t' || c=='\n')
                     {
                         std::cerr << "PARAMETER ERROR: Detected a whitespace in sequence; remove it to continue!\n";
                     }

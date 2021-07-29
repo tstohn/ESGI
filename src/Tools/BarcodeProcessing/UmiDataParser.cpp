@@ -230,14 +230,14 @@ void UmiDataParser::correctUmisThreaded(const int& umiMismatches, const int& thr
         //statistics
 
         //simply add integer values
-        qual.sameUmiDiffAbSc += umiQualThreaded.at(i).sameUmiDiffAbSc;
-        qual.sameUmiSameAbSc += umiQualThreaded.at(i).sameUmiSameAbSc;
+        ullong_save_add(qual.sameUmiDiffAbSc, umiQualThreaded.at(i).sameUmiDiffAbSc);
+        ullong_save_add(qual.sameUmiSameAbSc, umiQualThreaded.at(i).sameUmiSameAbSc);
         //add each element of Dict to master dict
         for(auto dictElem : umiStatsThreaded.at(i).umiMismatchDict)
         {
             if(stats.umiMismatchDict.find(dictElem.first) != stats.umiMismatchDict.end())
             {
-                stats.umiMismatchDict[dictElem.first] += dictElem.second;
+                ullong_save_add(stats.umiMismatchDict[dictElem.first], dictElem.second);
             }
             else
             {
@@ -286,8 +286,8 @@ void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, st
                 int start = 0;
                 int end = 0;
 
-                const int diff = std::strlen(umia) - std::strlen(umib);
-                const int lengthCorrectedMismatches = umiMismatches + ( sqrt(diff*diff));
+                const int diff = umiLength - MIN(std::strlen(umia), std::strlen(umib));
+                const int lengthCorrectedMismatches = umiMismatches + (sqrt(diff*diff));
 
                 //const char * seq = (std::strlen(umia) > std::strlen(umib) ? umia : umib);
                 //const char * pat = (std::strlen(umia) > std::strlen(umib) ? umib : umia);
@@ -330,7 +330,7 @@ void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, st
                 //dist is set inside levenshtein, if its <= mismatches=2
                 if(statsTmp.umiMismatchDict.find(dist) != statsTmp.umiMismatchDict.end())
                 {
-                    ++statsTmp.umiMismatchDict.at(dist);
+                    ullong_save_add(statsTmp.umiMismatchDict.at(dist), 1);
                 }
                 else
                 {
@@ -436,7 +436,7 @@ void UmiDataParser::correctUmisWithStats(const int& umiMismatches, StatsUmi& sta
                 //dist is set inside levenshtein, if its <= mismatches=2
                 if(statsTmp.umiMismatchDict.find(dist) != statsTmp.umiMismatchDict.end())
                 {
-                    ++statsTmp.umiMismatchDict.at(dist);
+                    ullong_save_add(statsTmp.umiMismatchDict.at(dist), 1);
                 }
                 else
                 {
@@ -482,13 +482,13 @@ void UmiDataParser::umiQualityCheck(const std::vector< std::vector<dataLinePtr> 
             {
                 dataLinePtr a = uniqueUmi.at(i);
                 dataLinePtr b = uniqueUmi.at(j);
-                if(strcmp(a->ab_seq, b->ab_seq)==0 & strcmp(a->cell_seq, b->cell_seq)==0)
+                if(strcmp(a->ab_seq, b->ab_seq)==0 && strcmp(a->cell_seq, b->cell_seq)==0)
                 {
-                    ++qualTmp.sameUmiSameAbSc;
+                    ullong_save_add(qualTmp.sameUmiSameAbSc, 1);
                 }
                 else
                 {
-                    ++qualTmp.sameUmiDiffAbSc;
+                    ullong_save_add(qualTmp.sameUmiDiffAbSc, 1);
                 }
             }
         }
