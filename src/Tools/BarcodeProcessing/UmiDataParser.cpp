@@ -487,7 +487,6 @@ void UmiDataParser::umiQualityCheck(const std::vector< std::vector<dataLinePtr> 
                 else
                 {
                     ++qualTmp.sameUmiDiffAbSc;
-                    std::cout << uniqueUmi.at(i)->umi_seq << " " << uniqueUmi.at(j)->umi_seq << "\n";
                 }
             }
         }
