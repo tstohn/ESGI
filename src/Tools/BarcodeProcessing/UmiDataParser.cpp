@@ -354,7 +354,7 @@ void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, st
         //umiDataTmp.push_back(uniqueAbSc.at(uniqueAbSc.size() - 1));
 
         ++tmpCurrentUmisCorrected;
-        if(tmpCurrentUmisCorrected % 100 == 0)
+        if(tmpCurrentUmisCorrected % 100000 == 0)
         {
             lock.lock();
             currentUmisCorrected += tmpCurrentUmisCorrected;
@@ -454,7 +454,7 @@ void UmiDataParser::correctUmisWithStats(const int& umiMismatches, StatsUmi& sta
         umiDataTmp.push_back(uniqueAbSc.at(uniqueAbSc.size() - 1));
 
         ++tmpCurrentUmisCorrected;
-        if(tmpCurrentUmisCorrected % 100 == 0)
+        if(tmpCurrentUmisCorrected % 100000 == 0)
         {
             lock.lock();
             currentUmisCorrected += tmpCurrentUmisCorrected;
