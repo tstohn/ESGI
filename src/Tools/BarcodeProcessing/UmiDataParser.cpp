@@ -272,6 +272,7 @@ void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, st
             if(uniqueAbSc.size() == 1)
             {
                 ++abCount;
+                umiDataTmp.push_back(uniqueAbSc.front());
                 uniqueAbSc.pop_back();
                 break;
             }
@@ -344,7 +345,6 @@ void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, st
                 int pos = deletePositions.at(posIdx);
                 umiDataTmp.push_back(uniqueAbSc.at(pos));
                 uniqueAbSc.erase(uniqueAbSc.begin()+pos);
-
             }
 
             ++abCount;
