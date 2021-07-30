@@ -254,6 +254,7 @@ void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, st
     //correct for UMI mismatches and fill the AbCountvector
     //iterate through same AbScIdx, calculate levenshtein dist for all UMIs and match those with a certain number of mismatches
     int tmpCurrentUmisCorrected = 0;
+    int containerSize = rawData.getUniqueAbSc().size();
     for (auto uniqueAbSc : AbScBucket)
     {
         abLine abLineTmp;
@@ -356,12 +357,12 @@ void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, st
         //umiDataTmp.push_back(uniqueAbSc.at(uniqueAbSc.size() - 1));
 
         ++tmpCurrentUmisCorrected;
-        if(tmpCurrentUmisCorrected % (rawData.getUniqueAbSc().size() / 100) == 0)
+        if(tmpCurrentUmisCorrected % (containerSize / 100) == 0)
         {
             lock.lock();
             currentUmisCorrected += tmpCurrentUmisCorrected;
             tmpCurrentUmisCorrected = 0;
-            double perc = currentUmisCorrected/ (double) rawData.getUniqueAbSc().size();
+            double perc = currentUmisCorrected/ (double) containerSize;
             printProgress(perc);
             lock.unlock();
         }
@@ -374,6 +375,7 @@ void UmiDataParser::correctUmisWithStats(const int& umiMismatches, StatsUmi& sta
     //correct for UMI mismatches and fill the AbCountvector
     //iterate through same AbScIdx, calculate levenshtein dist for all UMIs and match those with a certain number of mismatches
     int tmpCurrentUmisCorrected = 0;
+    int containerSize = rawData.getUniqueAbSc().size();
     for (auto uniqueAbSc : AbScBucket)
     {
         abLine abLineTmp;
@@ -456,12 +458,12 @@ void UmiDataParser::correctUmisWithStats(const int& umiMismatches, StatsUmi& sta
         umiDataTmp.push_back(uniqueAbSc.at(uniqueAbSc.size() - 1));
 
         ++tmpCurrentUmisCorrected;
-        if(tmpCurrentUmisCorrected % (rawData.getUniqueAbSc().size() / 100) == 0)
+        if(tmpCurrentUmisCorrected % ( containerSize / 100) == 0)
         {
             lock.lock();
             currentUmisCorrected += tmpCurrentUmisCorrected;
             tmpCurrentUmisCorrected = 0;
-            double perc = currentUmisCorrected/ (double) rawData.getUniqueAbSc().size();
+            double perc = currentUmisCorrected/ (double) containerSize;
             printProgress(perc);
             lock.unlock();
         }
@@ -473,6 +475,7 @@ void UmiDataParser::umiQualityCheck(const std::vector< std::vector<dataLinePtr> 
 {
     //first quality check, does a unique umi have always the same AbScIdx
     int tmpCurrentUmisChecked =0;
+    int containerSize = rawData.getUniqueUmis().size();
     for(auto uniqueUmi : uniqueUmis)
     {
         //for all AbSc combinations of this unique UMI
@@ -493,12 +496,12 @@ void UmiDataParser::umiQualityCheck(const std::vector< std::vector<dataLinePtr> 
             }
         }
         ++tmpCurrentUmisChecked;
-        if(tmpCurrentUmisChecked % (rawData.getUniqueUmis().size() / 100) == 0)
+        if(tmpCurrentUmisChecked % (containerSize / 100) == 0)
         {
             lock.lock();
             currentUmisChecked += tmpCurrentUmisChecked;
             tmpCurrentUmisChecked = 0;
-            double perc = currentUmisChecked/ (double) rawData.getUniqueUmis().size();
+            double perc = currentUmisChecked/ (double) containerSize;
             printProgress(perc);
             lock.unlock();
         }
