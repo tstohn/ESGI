@@ -357,7 +357,7 @@ void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, st
         //umiDataTmp.push_back(uniqueAbSc.at(uniqueAbSc.size() - 1));
 
         ++tmpCurrentUmisCorrected;
-        if(tmpCurrentUmisCorrected % (containerSize / 100) == 0)
+        if((containerSize >= 100) && (tmpCurrentUmisCorrected % (containerSize / 100) == 0))
         {
             lock.lock();
             currentUmisCorrected += tmpCurrentUmisCorrected;
@@ -458,7 +458,7 @@ void UmiDataParser::correctUmisWithStats(const int& umiMismatches, StatsUmi& sta
         umiDataTmp.push_back(uniqueAbSc.at(uniqueAbSc.size() - 1));
 
         ++tmpCurrentUmisCorrected;
-        if(tmpCurrentUmisCorrected % ( containerSize / 100) == 0)
+        if( (containerSize >= 100) && (tmpCurrentUmisCorrected % ( containerSize / 100) == 0) )
         {
             lock.lock();
             currentUmisCorrected += tmpCurrentUmisCorrected;
@@ -496,7 +496,7 @@ void UmiDataParser::umiQualityCheck(const std::vector< std::vector<dataLinePtr> 
             }
         }
         ++tmpCurrentUmisChecked;
-        if(tmpCurrentUmisChecked % (containerSize / 100) == 0)
+        if( (containerSize >= 100) && (tmpCurrentUmisChecked % (containerSize / 100) == 0) )
         {
             lock.lock();
             currentUmisChecked += tmpCurrentUmisChecked;
