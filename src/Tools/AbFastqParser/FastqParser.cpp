@@ -41,6 +41,10 @@ make a basetype of barcode:
     2.) a file with the actual REAL barcode without mismatches that was mapped on the data
     3.) a file with the statistics of all barcodes, the number of mismatches per barcode
 
+    IN STATS:
+
+     number of perfect matches and moderate matches refers to a whole seq, all liens that were mapped
+
 PLAN:
 - design classes plus a function to calc dist for one or x sequences and return best match
 - parse pattern, mismatches, and barcodeList and store in new Baseclasspointer vector
