@@ -50,6 +50,7 @@ void UmiDataParser::parseBarcodeLines(std::istream* instream, const int& totalRe
         ++currentReads;
         printProgress(perc);        
     }
+    printProgress(1);
     std::cout << "\n";
 }
 
@@ -367,6 +368,9 @@ void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, st
             lock.unlock();
         }
     }
+
+    printProgress(1);
+
 }
 
 void UmiDataParser::correctUmisWithStats(const int& umiMismatches, StatsUmi& statsTmp, std::vector<dataLinePtr>& umiDataTmp, std::vector<abLine>& abDataTmp, 
@@ -469,6 +473,8 @@ void UmiDataParser::correctUmisWithStats(const int& umiMismatches, StatsUmi& sta
         }
     }
 
+    printProgress(1);
+
 }
 
 void UmiDataParser::umiQualityCheck(const std::vector< std::vector<dataLinePtr> >& uniqueUmis, umiQuality& qualTmp, int& currentUmisChecked)
@@ -506,6 +512,9 @@ void UmiDataParser::umiQualityCheck(const std::vector< std::vector<dataLinePtr> 
             lock.unlock();
         }
     }
+
+    printProgress(1);
+
 }
 
 void UmiDataParser::writeStats(std::string output)

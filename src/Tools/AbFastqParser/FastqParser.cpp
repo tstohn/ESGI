@@ -45,10 +45,6 @@ make a basetype of barcode:
 
      number of perfect matches and moderate matches refers to a whole seq, all liens that were mapped
 
-PLAN:
-- design classes plus a function to calc dist for one or x sequences and return best match
-- parse pattern, mismatches, and barcodeList and store in new Baseclasspointer vector
-
 */
 
 #include "seqtk/kseq.h"
@@ -106,6 +102,11 @@ bool parse_arguments(char** argv, int argc, input& input)
 
 }
 
+void calculate_string_of_mismatches(std::vector<int>& mismatches, const std::string& mismatchString)
+{
+    
+}
+
 void write_file(std::string output, BarcodeMappingVector barcodes, BarcodeMappingVector realBarcodes, const std::vector<std::pair<std::string, char> > patterns)
 {
     //write actually found barcodes
@@ -133,11 +134,11 @@ void write_file(std::string output, BarcodeMappingVector barcodes, BarcodeMappin
     std::size_t found = output.find_last_of("/");
     if(found == std::string::npos)
     {
-        output = "CORRECTED" + output;
+        output = "BarcodeMapping_" + output;
     }
     else
     {
-        output = output.substr(0,found) + "/" + "CORRECTED" + output.substr(found+1);
+        output = output.substr(0,found) + "/" + "BarcodeMapping_" + output.substr(found+1);
     }
     outputFile.open (output, std::ofstream::app);
     //write header line
@@ -619,6 +620,22 @@ void initializeStats(fastqStats& stats, const BarcodePatternVectorPtr barcodePat
     }
 }
 
+void initialize(std::string output)
+{
+    std::size_t found = output.find_last_of("/");
+    if(found == std::string::npos)
+    {
+        output = "BarcodeMapping_" + output;
+    }
+    else
+    {
+        output = output.substr(0,found) + "/" + "BarcodeMapping_" + output.substr(found+1);
+    }
+
+    std::remove(output.c_str()); // remove outputfile if it exists
+
+}
+
 int main(int argc, char** argv)
 {
     input input;
@@ -630,8 +647,8 @@ int main(int argc, char** argv)
     if(parse_arguments(argv, argc, input))
     {
         BarcodePatternVectorPtr barcodePatterns = generate_barcode_patterns(input, patterns);
+        initialize(input.outFile);
         initializeStats(fastqStats, barcodePatterns);
-        std::remove(input.outFile.c_str()); // remove outputfile if it exists
         split_barcodes(input, mappedBarcodes, realBarcodes, barcodePatterns, fastqStats, patterns);
         writeStats(input.outFile, fastqStats);
     }
