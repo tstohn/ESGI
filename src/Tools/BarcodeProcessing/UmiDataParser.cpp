@@ -301,7 +301,7 @@ void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, st
                 //if mismatches are within range, change UMI seq
                 //the new 'correct' UMI sequence is the one of umiLength, if both r of
                 //same length, its the first occuring UMI
-                if(dist <= umiMismatches)
+                if(dist <= lengthCorrectedMismatches)
                 {
                     if(dist!=0)
                     {
