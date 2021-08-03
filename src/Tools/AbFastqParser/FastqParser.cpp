@@ -139,7 +139,6 @@ void write_file(std::string output, BarcodeMappingVector barcodes, BarcodeMappin
     {
         output = output.substr(0,found) + "/" + "CORRECTED" + output.substr(found+1);
     }
-    std::remove(output.c_str());
     outputFile.open (output, std::ofstream::app);
     //write header line
     /*for(int i =0; i < patterns.size(); ++i)
@@ -233,7 +232,7 @@ bool split_line_into_barcode_mappings(const std::string& seq, input* input, Barc
 
         assert(realBarcode != "");
         //add barcode data to statistics dictionary
-        int dictvectorIndex = (score <= (*patternItr)->mismatches ? score : (score + 1) );
+        int dictvectorIndex = (score <= (*patternItr)->mismatches ? score : ( ((*patternItr)->mismatches) + 1) );
         ++stats.mapping_dict[realBarcode].at(dictvectorIndex);
         
         //squeeze in the last wildcard match if there was one 
@@ -632,8 +631,8 @@ int main(int argc, char** argv)
     {
         BarcodePatternVectorPtr barcodePatterns = generate_barcode_patterns(input, patterns);
         initializeStats(fastqStats, barcodePatterns);
+        std::remove(input.outFile.c_str()); // remove outputfile if it exists
         split_barcodes(input, mappedBarcodes, realBarcodes, barcodePatterns, fastqStats, patterns);
-        //write_file(input.outFile, mappedBarcodes, realBarcodes, patterns);
         writeStats(input.outFile, fastqStats);
     }
  
