@@ -109,16 +109,11 @@ void calculate_string_of_mismatches(std::vector<int>& mismatches, const std::str
 
 void write_file(std::string output, BarcodeMappingVector barcodes, BarcodeMappingVector realBarcodes, const std::vector<std::pair<std::string, char> > patterns)
 {
-    //write actually found barcodes
     std::ofstream outputFile;
-    /*outputFile.open (output);
-    //write header line
-    for(int i =0; i < patterns.size(); ++i)
-    {
-        outputFile << patterns.at(i).first << "\t";
-    }
-    outputFile << "\n";
 
+
+    //write actually found barcodes
+/*
     //write all information lines
     for(int i = 0; i < barcodes.size(); ++i)
     {
@@ -141,12 +136,6 @@ void write_file(std::string output, BarcodeMappingVector barcodes, BarcodeMappin
         output = output.substr(0,found) + "/" + "BarcodeMapping_" + output.substr(found+1);
     }
     outputFile.open (output, std::ofstream::app);
-    //write header line
-    /*for(int i =0; i < patterns.size(); ++i)
-    {
-        outputFile << patterns.at(i).first << "\t";
-    }
-    outputFile << "\n";*/
 
     //write all information lines
     for(int i = 0; i < realBarcodes.size(); ++i)
@@ -620,7 +609,7 @@ void initializeStats(fastqStats& stats, const BarcodePatternVectorPtr barcodePat
     }
 }
 
-void initialize(std::string output)
+void initializeOutput(std::string output, const std::vector<std::pair<std::string, char> > patterns)
 {
     std::size_t found = output.find_last_of("/");
     if(found == std::string::npos)
@@ -634,6 +623,20 @@ void initialize(std::string output)
 
     std::remove(output.c_str()); // remove outputfile if it exists
 
+
+    //write header line
+    std::ofstream outputFile;   
+    outputFile.open (output, std::ofstream::app);
+    for(int i =0; i < patterns.size(); ++i)
+    {
+        outputFile << patterns.at(i).first;
+        if( i!=(patterns.size() - 1) )
+        {
+           outputFile << "\t";
+        }
+    }
+    outputFile << "\n";
+    outputFile.close();
 }
 
 int main(int argc, char** argv)
@@ -647,7 +650,7 @@ int main(int argc, char** argv)
     if(parse_arguments(argv, argc, input))
     {
         BarcodePatternVectorPtr barcodePatterns = generate_barcode_patterns(input, patterns);
-        initialize(input.outFile);
+        initializeOutput(input.outFile, patterns);
         initializeStats(fastqStats, barcodePatterns);
         split_barcodes(input, mappedBarcodes, realBarcodes, barcodePatterns, fastqStats, patterns);
         writeStats(input.outFile, fastqStats);
