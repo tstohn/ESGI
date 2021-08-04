@@ -62,6 +62,7 @@ struct input{
     std::string mismatchLine;
     std::string patternLine;
 
+    bool storeRealSequences = false;
     int threads = 5;
 };
 

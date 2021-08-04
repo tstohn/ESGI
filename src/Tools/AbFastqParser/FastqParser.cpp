@@ -78,6 +78,8 @@ bool parse_arguments(char** argv, int argc, input& input)
             This should be a comma seperated list of numbers for each substring of the sequence enclosed in squared brackets. E.g.: 2,1,2,1,2")
            
             ("threat,t", value<int>(&(input.threads))->default_value(5), "number of threads")
+            ("realSequences,r", value<bool>(&(input.storeRealSequences))->default_value(false), "set flag if next to the mapped barcodes also a table of the actual \
+            reads, including mismatches should be printed\n")
 
             ("help,h", "help message");
 
@@ -107,26 +109,36 @@ void calculate_string_of_mismatches(std::vector<int>& mismatches, const std::str
     
 }
 
-void write_file(std::string output, BarcodeMappingVector barcodes, BarcodeMappingVector realBarcodes, const std::vector<std::pair<std::string, char> > patterns)
+void write_file(const input& input, BarcodeMappingVector barcodes, BarcodeMappingVector realBarcodes, const std::vector<std::pair<std::string, char> > patterns)
 {
+    std::string output = input.outFile;
     std::ofstream outputFile;
 
-
     //write actually found barcodes
-/*
     //write all information lines
+    std::size_t found = output.find_last_of("/");
+    std::string outputReal;
+    if(found == std::string::npos)
+    {
+        outputReal = "RealBarcodeSequence_" + output;
+    }
+    else
+    {
+        outputReal = output.substr(0,found) + "/" + "RealBarcodeSequence_" + output.substr(found+1);
+    }
+    outputFile.open (outputReal, std::ofstream::app);
     for(int i = 0; i < barcodes.size(); ++i)
     {
         for(int j = 0; j < patterns.size(); ++j)
         {
-            outputFile << *(barcodes.at(i).at(j)) << "\t";
+            outputFile << *(barcodes.at(i).at(j));
+            if(j!=patterns.size()-1){outputFile << "\t";}
         }
         outputFile << "\n";
     }
-    outputFile.close();*/
+    outputFile.close();
 
     //write the barcodes we mapped
-    std::size_t found = output.find_last_of("/");
     if(found == std::string::npos)
     {
         output = "BarcodeMapping_" + output;
@@ -279,7 +291,7 @@ void map_pattern_to_fastq_lines(const std::vector<std::string>& fastqLines, inpu
 void writeCurrentResults(BarcodeMappingVector& barcodes, BarcodeMappingVector& realBarcodes, fastqStats& fastqStatsFinal, input& input, 
                          const std::vector<std::pair<std::string, char> >& patterns)
 {
-    write_file(input.outFile, barcodes, realBarcodes, patterns);
+    write_file(input, barcodes, realBarcodes, patterns);
 
     barcodes.clear();
     realBarcodes.clear();
@@ -596,22 +608,31 @@ void initializeStats(fastqStats& stats, const BarcodePatternVectorPtr barcodePat
 
 void initializeOutput(std::string output, const std::vector<std::pair<std::string, char> > patterns)
 {
+    //remove output
+    std::string outputStats;
+    std::string outputReal;
+    std::string outputMapped;
     std::size_t found = output.find_last_of("/");
     if(found == std::string::npos)
     {
-        output = "BarcodeMapping_" + output;
+        outputMapped = "BarcodeMapping_" + output;
+        outputStats = "StatsBarcodeMappingErrors_" + output;
+        outputReal = "RealBarcodeSequence_" + output;
     }
     else
     {
-        output = output.substr(0,found) + "/" + "BarcodeMapping_" + output.substr(found+1);
+        outputMapped = output.substr(0,found) + "/" + "BarcodeMapping_" + output.substr(found+1);
+        outputStats = output.substr(0,found) + "/" + "StatsBarcodeMappingErrors_" + output.substr(found+1);
+        outputReal = output.substr(0,found) + "/" + "RealBarcodeSequence_" + output.substr(found+1);
     }
-
-    std::remove(output.c_str()); // remove outputfile if it exists
-
+    // remove outputfile if it exists
+    std::remove(outputMapped.c_str());
+    std::remove(outputStats.c_str());
+    std::remove(outputReal.c_str());
 
     //write header line
     std::ofstream outputFile;   
-    outputFile.open (output, std::ofstream::app);
+    outputFile.open (outputMapped, std::ofstream::app);
     for(int i =0; i < patterns.size(); ++i)
     {
         outputFile << patterns.at(i).first;
