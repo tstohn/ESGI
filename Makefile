@@ -24,6 +24,7 @@ testParser:
 #test processing of the barcodes, includes several UMIs with mismatches, test the mapping of barcodes to unique CellIDs, ABids, treatments
 testProcessing:
 	./bin/processing -i ./src/test/test_data/testSet.txt.gz -o ./Output/processed_out.tsv -t 1 -b ./src/test/test_data/processingBarcodeFile.txt  -c 0,2,3,4 -a ./src/test/test_data/antibody.txt -x 1 -g ./src/test/test_data/treatment.txt -y 2 -m 2
-	diff ./src/test/test_data/UMIprocessed_out ./Output/UMIprocessed_out.tsv 
+	(head -n 1 ./Output/UMIprocessed_out.tsv && tail -n +2 ./Output/UMIprocessed_out.tsv | sort) > ./Output/sortedUMIprocessed_out.tsv
+	diff ./src/test/test_data/UMIprocessed_out ./Output/sortedUMIprocessed_out.tsv 
 	diff ./src/test/test_data/STATSprocessed_out ./Output/STATSprocessed_out.tsv
 	diff ./src/test/test_data/ABprocessed_out ./Output/ABprocessed_out.tsv
