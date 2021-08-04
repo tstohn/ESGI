@@ -8,44 +8,37 @@
 
 #include "Barcode.hpp"
 
-/** @param:
- *  sequence pattern: could be a sequence of constant and variable nucleotides: e.g.: [xxxxx][AGCGTACGCGAGT][xxxxx][AAGCGtAGCTTC][xxxxx] 
- *  mismatches per sequence in bracket: e.g.: 1,2,1,2,1
+/** 
+ * A tool to map fastq lines (stitched to one read, use e.g. fastq-join) to a certain barcode pattern,
+ * this pattern must be given as an input parameter plus additional files for patterns with multiple
+ * possible barcodes
  * 
- * 
- **/
-
-/*
-HOW TO ALGORITHM:
+ * HOW TO ALGORITHM:
     iterate over patterns and match it to substring plus/minus mismatches on both sides
     allow mismatches at beginning and end (plus/minus those mismatches, bcs imagine a barcode match with a mismatch in the end,
     we then donnt know if its  really a msimatch, or a deletion of the barcode and already part of the next barcode...)
     each matched barcodes is described by the first and last match of the sequence (therefore can be shorter, than real sequence, but not longer)
     UMI or WildcardBarcodes are matched according to the two last matches in the neighboring sequences
-
-*/
-
-//TODO:
-/*
-make a basetype of barcode:
- - derived classes of constant codes with ONE string and variables one with X strings
- - iterate through barcodes and match them in increasing order
-
- - if everything matches within the order of mismatches reporta vector of matches
-
- INPUT: pattern plus mismatches and barcode sequences
- => vector of barcode pointer which inherits to constant and variable (difference std::stirng anf vector of strings)
-
- OUTPUT: three files (TAB seperated)
-    1.) a files with the real data strings that were amtched to barcodes
-    2.) a file with the actual REAL barcode without mismatches that was mapped on the data
-    3.) a file with the statistics of all barcodes, the number of mismatches per barcode
-
-    IN STATS:
-
-     number of perfect matches and moderate matches refers to a whole seq, all liens that were mapped
-
-*/
+ * @param <input> input fastq file (gzipped), considers only full length fastq reads, FW/RV must be stitched together in advance
+ * @param <output> output extension, that will be added to the output files, see return
+ * @param <sequencePattern> a string with all the barcode patterns, each pattern is enclosed by suqare brackets, valid chars are AGTC ofr bases, N for a sequences
+ *                          that hold a fixed number of different combinations, must be declared in the barcodeList file, and X for wildcard sequences, that can
+ *                          be anything (e.g. for UMIs): e.g.: [xxxxx][AGCGTACGCGAGT][xxxxx][AAGCGtAGCTTC][xxxxx] 
+ * @param <barcodeList> a file of discrete barcodes, that can be mapped to the [N...] sequences, each row is one pattern, they r in the order as in the sequence pattern and
+ *                      barcodes must be comma seperated
+ * @param <mismatches> comma seperated list of mismatches, one entry for each sequence pattern declared above: e.g.: 1,2,1,2,1
+ *  
+ * @return  writes a tab seperated file with barcodes, a file with statistical information, and if flag <-r> set, also a tab seperated file
+ *          of corresponding reads with their real sequence, including mismatches.
+ *          After running a line of perfect, moderate and mismatches is printed. Each count refers to a whole line (all barcodes matched perfectly,
+ *          at least one matched only with mismatches, at least one did not match at all. The number of duplicate barcodes is per barcode, and thus might
+ *          be greater than the total number of mismatches.)
+ * 
+ *          barcode file: Output file starts with 'BarcodeMapping_' and ends with the ending extension declared with the -o paramter
+ *          stats file: a list where for each barcode in the fastq file, the number of found mismatches is written, the columns start with zero mismatches
+ *          to the maximum number of mismtaches declared in mismatches parameter plus one, this last columns sums up all cases of more than max-num mismatches.
+ *          real barcode file: like barcode file with uncorrected sequences, starts with RealBarcodeSequence
+ **/
 
 #include "seqtk/kseq.h"
 
@@ -79,7 +72,7 @@ bool parse_arguments(char** argv, int argc, input& input)
            
             ("threat,t", value<int>(&(input.threads))->default_value(5), "number of threads")
             ("realSequences,r", value<bool>(&(input.storeRealSequences))->default_value(false), "set flag if next to the mapped barcodes also a table of the actual \
-            reads, including mismatches should be printed\n")
+            reads - including mismatches - should be printed\n")
 
             ("help,h", "help message");
 
