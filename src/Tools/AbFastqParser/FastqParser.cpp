@@ -47,7 +47,6 @@
 
 KSEQ_INIT(gzFile, gzread)
 
-//old data types
 typedef std::vector< std::shared_ptr<std::string> > BarcodeMapping;
 typedef std::vector<BarcodeMapping> BarcodeMappingVector;
 using namespace boost::program_options;
@@ -107,8 +106,7 @@ void write_file(const input& input, BarcodeMappingVector barcodes, BarcodeMappin
     std::string output = input.outFile;
     std::ofstream outputFile;
 
-    //write actually found barcodes
-    //write all information lines
+    //write real sequences that map to barcodes
     std::size_t found = output.find_last_of("/");
     std::string outputReal;
     if(found == std::string::npos)
@@ -141,8 +139,6 @@ void write_file(const input& input, BarcodeMappingVector barcodes, BarcodeMappin
         output = output.substr(0,found) + "/" + "BarcodeMapping_" + output.substr(found+1);
     }
     outputFile.open (output, std::ofstream::app);
-
-    //write all information lines
     for(int i = 0; i < realBarcodes.size(); ++i)
     {
         for(int j = 0; j < patterns.size(); ++j)
@@ -216,11 +212,10 @@ bool split_line_into_barcode_mappings(const std::string& seq, input* input, Barc
         int start=0, end=0, score = 0;
         if(!(*patternItr)->match_pattern(seq, offset, start, end, score, realBarcode, stats))
         {
-            //std::cout << "ERROR IN: " << seq << " : " << (*patternItr)->get_patterns().at(0) << " score: " << score << "from "<< offset << "\n";
             ++stats.noMatches;
             return false;
         }
-        //std::cout << "pattern matched" << realBarcode << "\n";
+
         std::string mappedBarcode = seq.substr(offset + start, end-start);
         offset += end;
         score_sum += score;
@@ -318,7 +313,7 @@ void split_barcodes(input& input, BarcodeMappingVector& barcodes, BarcodeMapping
 
     ks = kseq_init(fp);
     std::vector<std::string> fastqLines;
-    fastqStats emptyStats = fastqStatsFinal; //an empty statistic with already the right keys for each barcode in the dictionary, used to initialize hte stats for each thread
+    fastqStats emptyStats = fastqStatsFinal; //an empty statistic with already the right keys for each barcode in the dictionary, used to initialize the stats for each thread
 
     bool readsLeft = true;
     int totalCurrentReadNum = 0;
@@ -531,24 +526,6 @@ BarcodePatternVectorPtr generate_barcode_patterns(input input, std::vector<std::
     //fill the upper three vectors and handle as many errors as possible
     parseBarcodeData(input, patterns, mismatches, varyingBarcodes);
 
-/*
-//DEBUG OUTPUT TO CHECK PARSED PARAMETERS TO BUILD BARCODE PATTERNS
-    int x = 0;
-    for(int i=0; i< patterns.size(); ++i)
-    {
-        std::cout << patterns.at(i).first << "_"<< patterns.at(i).second << "\n";
-        std::cout << mismatches.at(i) << "\n";
-        if(patterns.at(i).second)
-        {
-            for(int j =0; j<varyingBarcodes.at(x).size(); ++j)
-            {
-                std::cout << varyingBarcodes.at(x).at(j);
-            }
-            std::cout << "\n";
-            ++x;
-        }
-    }
-*/
     //iterate over patterns and fill BarcodePatternVector instance
     BarcodePatternVector barcodeVector;
     int variableBarcodeIdx = 0; // index for variable barcode sequences is shorter than the vector of patterns in total
