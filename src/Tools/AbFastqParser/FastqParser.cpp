@@ -285,7 +285,7 @@ void writeCurrentResults(BarcodeMappingVector& barcodes, BarcodeMappingVector& r
     realBarcodes.clear();
 }
 
-void iterate_over_fastq(input& input, BarcodeMappingVector& barcodes, BarcodeMappingVector& realBarcodes, BarcodePatternVectorPtr barcodePatterns, fastqStats& fastqStatsFinal,
+void split_barcodes(input& input, BarcodeMappingVector& barcodes, BarcodeMappingVector& realBarcodes, BarcodePatternVectorPtr barcodePatterns, fastqStats& fastqStatsFinal,
                         const std::vector<std::pair<std::string, char> >& patterns)
 {
     //read all fastq lines into str vector
@@ -572,21 +572,6 @@ BarcodePatternVectorPtr generate_barcode_patterns(input input, std::vector<std::
     BarcodePatternVectorPtr barcodePatternVector = std::make_shared<BarcodePatternVector>(barcodeVector);
 
     return barcodePatternVector;
-}
-
-//TODO: so far only implemented for a single fastq file,
-//implement a function to iterate over all fastq files in a directory and combine data
-//e.g. if we have several files for different batches etc. ...
-void split_barcodes(input input, BarcodeMappingVector& barcodes, BarcodeMappingVector& realBarcodes, BarcodePatternVectorPtr barcodePatterns, fastqStats& fastqStatsFinal,
-                    const std::vector<std::pair<std::string, char> >& patterns)
-{
-    //if directory iterate over all fastqs
-
-        //combine data to one
-
-    //if file
-    iterate_over_fastq(input, barcodes, realBarcodes, barcodePatterns, fastqStatsFinal, patterns);
-
 }
 
 //initialize the dictionary of mismatches in each specific barcode
