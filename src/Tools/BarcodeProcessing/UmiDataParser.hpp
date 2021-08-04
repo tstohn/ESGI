@@ -54,7 +54,7 @@ class UmiDataParser
 
         //correct the umis, so that UmiData holds the same UMI for UMIs within a certain mismatch range
         //concurrently fills AbData, while iterating over AbSc lines, count the Ab occurence if this UMI has not been seen before
-        void correctUmisThreaded(const int& umiMismatches, const int& thread);
+        void processBarcodeMapping(const int& umiMismatches, const int& thread);
 
         void writeStats(std::string output);
         void writeUmiCorrectedData(const std::string& output);

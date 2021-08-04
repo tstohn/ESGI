@@ -151,7 +151,7 @@ void UmiDataParser::getCiBarcodeInWholeSequence(const std::string& line, int& ba
     assert(abIdx != INT_MAX);
 }
 
-void UmiDataParser::correctUmisThreaded(const int& umiMismatches, const int& thread)
+void UmiDataParser::processBarcodeMapping(const int& umiMismatches, const int& thread)
 {
     //split AbSc map into equal parts
     std::vector< std::vector < std::vector<dataLinePtr> > > independantAbScBatches(thread);
@@ -198,6 +198,7 @@ void UmiDataParser::correctUmisThreaded(const int& umiMismatches, const int& thr
     {
         workers.push_back(std::thread(&UmiDataParser::umiQualityCheck, this, std::ref(independantUmiBatches.at(i)), std::ref(umiQualThreaded.at(i)), std::ref(currentUmisChecked) ));
     }
+    printProgress(1);
     for (std::thread &t: workers) 
     {
         if (t.joinable()) {
@@ -213,6 +214,7 @@ void UmiDataParser::correctUmisThreaded(const int& umiMismatches, const int& thr
         workers.push_back(std::thread(&UmiDataParser::correctUmis, this, std::ref(umiMismatches), std::ref(umiStatsThreaded.at(i)), std::ref(umiDataThreaded.at(i)),
                           std::ref(abDataThreaded.at(i)), std::ref(independantAbScBatches.at(i)), std::ref(currentUmisCorrected) ));
     }
+    printProgress(1);
     for (std::thread &t: workers) 
     {
         if (t.joinable()) {
@@ -368,9 +370,6 @@ void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, st
             lock.unlock();
         }
     }
-
-    printProgress(1);
-
 }
 
 void UmiDataParser::correctUmisWithStats(const int& umiMismatches, StatsUmi& statsTmp, std::vector<dataLinePtr>& umiDataTmp, std::vector<abLine>& abDataTmp, 
@@ -472,9 +471,6 @@ void UmiDataParser::correctUmisWithStats(const int& umiMismatches, StatsUmi& sta
             lock.unlock();
         }
     }
-
-    printProgress(1);
-
 }
 
 void UmiDataParser::umiQualityCheck(const std::vector< std::vector<dataLinePtr> >& uniqueUmis, umiQuality& qualTmp, int& currentUmisChecked)
@@ -512,9 +508,6 @@ void UmiDataParser::umiQualityCheck(const std::vector< std::vector<dataLinePtr> 
             lock.unlock();
         }
     }
-
-    printProgress(1);
-
 }
 
 void UmiDataParser::writeStats(std::string output)
