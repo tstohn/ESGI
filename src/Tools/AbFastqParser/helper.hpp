@@ -63,6 +63,7 @@ struct input{
     std::string patternLine;
 
     bool storeRealSequences = false;
+    int fastqReadBucketSize = 10000000;
     int threads = 5;
 };
 

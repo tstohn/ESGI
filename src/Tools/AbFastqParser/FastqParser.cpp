@@ -72,6 +72,8 @@ bool parse_arguments(char** argv, int argc, input& input)
             ("threat,t", value<int>(&(input.threads))->default_value(5), "number of threads")
             ("realSequences,r", value<bool>(&(input.storeRealSequences))->default_value(false), "set flag if next to the mapped barcodes also a table of the actual \
             reads - including mismatches - should be printed\n")
+            ("fastqReadBucketSize,s", value<int>(&(input.fastqReadBucketSize))->default_value(10000000), "number of lines of the fastQ file that should be read into RAM \
+            and be processed, before the next batch of fastq reads is read into RAM and processed.")
 
             ("help,h", "help message");
 
@@ -321,7 +323,7 @@ void split_barcodes(input& input, BarcodeMappingVector& barcodes, BarcodeMapping
     {
         //push a batch of reads into a temporary vector
         fastqLines.clear();
-        int fastqReadThreashold = 10000000;
+        int fastqReadThreashold = input.fastqReadBucketSize;
         int numFastqReads = 0;
         while(numFastqReads<fastqReadThreashold)
         {
