@@ -231,7 +231,6 @@ void UmiDataParser::processBarcodeMapping(const int& umiMismatches, const int& t
         abData.insert(abData.end(), abDataThreaded.at(i).begin(), abDataThreaded.at(i).end());
 
         //statistics
-
         //simply add integer values
         ullong_save_add(qual.sameUmiDiffAbSc, umiQualThreaded.at(i).sameUmiDiffAbSc);
         ullong_save_add(qual.sameUmiSameAbSc, umiQualThreaded.at(i).sameUmiSameAbSc);
@@ -293,13 +292,9 @@ void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, st
 
                 const int diff = umiLength - MIN(std::strlen(umia), std::strlen(umib));
                 const int lengthCorrectedMismatches = umiMismatches + (sqrt(diff*diff));
-
-                //const char * seq = (std::strlen(umia) > std::strlen(umib) ? umia : umib);
-                //const char * pat = (std::strlen(umia) > std::strlen(umib) ? umib : umia);
-                //bool similar = levenshtein(umia, umib, umiMismatches, start, end, dist, true);
+                //calling outputSense algorithm, much faster than levenshtein O(e*max(m,n))
+                //however is recently implemented without backtracking
                 bool similar = outputSense(umia, umib, lengthCorrectedMismatches, dist);
-
-                //if(std::strcmp(abLineTmp.cell_seq, "10295") == 0 & std::strcmp((abLineTmp.ab_seq)->c_str(), "CTD1")==0){std::cout << umia << " " << umib << " => "<< dist << " " << start << " " << end <<  "\n";}
 
                 //if mismatches are within range, change UMI seq
                 //the new 'correct' UMI sequence is the one of umiLength, if both r of

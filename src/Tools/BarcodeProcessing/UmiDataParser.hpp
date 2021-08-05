@@ -23,7 +23,6 @@ struct CIBarcode
 {
     std::vector<std::unordered_map<std::string, int> > barcodeIdDict; // map of barcode to id, maps are in order of their occurence in the fastqRead
     // ids of the CI barcode within the barcode file (includes only barcodes for variable sequence regions)
-
     std::vector<int> ciBarcodeIndices; // more or less only of temporary usage, during generation of barcode map vector
     int tmpTreatmentIdx;
 };

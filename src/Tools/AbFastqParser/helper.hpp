@@ -53,7 +53,7 @@ inline void printProgress(double percentage) {
     std::cout << "\t\r[" << std::string(loadLength, '|') << std::string(emptyLength, ' ') << "] " << val << "%" << std::flush;
 }
 
-//stores all the input parameters
+//stores all the input parameters for the parser tool
 struct input{
     std::string inFile;
     std::string outFile;
@@ -106,6 +106,7 @@ struct frontMatrix
 
     frontMatrix(unsigned int m, unsigned int n): previous(m+n+3, UINT_MAX), current(m+n+3, UINT_MAX){}
 };
+//calculate longest common prefix of two sequences
 int lcp(const std::string& a, const std::string& b)
 {
     unsigned int lcp = 0;
@@ -117,33 +118,26 @@ int lcp(const std::string& a, const std::string& b)
     {
         ++lcp;
     }
-    
     return lcp;
 }
+//calculates the next front
+//idea: how far along all the diagonals that r within x-mismatches can i go in my edit-matrix with x-mismatches
 void front(const std::string& a, const std::string& b, frontMatrix& f)
 {
     unsigned int min = MIN(a.length(), f.d);
     unsigned int max = MIN(b.length(), f.d);
 
-    //hard coded only: for(unsigned int i = f.offset - MIN(f.d-1, a.length()); i<= MIN(f.d-1, b.length()) + f.offset;++i)
-    //however probably assigning whole vector is faster (open for suggestions)
     f.previous = f.current;
-
-    //std::cout << "\n";
 
     unsigned int l = 0;
     for(unsigned int i = (f.offset-min); i <= (f.offset + max); ++i)
     {
-       // std::cout << "  $ offset"<<  f.offset << " d-val " << f.d << " i " << i << "\n";
         unsigned int aVal = 0, bVal = 0, cVal = 0;
         if(f.previous.at(i-1) != UINT_MAX){ aVal = f.previous.at(i-1);}
         if(f.previous.at(i+1) != UINT_MAX){ bVal = f.previous.at(i+1)+1;}
         if(f.previous.at(i) != UINT_MAX){ cVal = f.previous.at(i)+1;}
 
         l = MAX(MAX(aVal, bVal), cVal);
-
-           // std::cout <<  "     "<< a << " <-> " << b << " : l:" << l << " i:" << i << " offset:" << f.offset << "\n";
-           // std::cout << "     i-offset+l"<<i - f.offset + l << "\n";
             
             if(l >= a.length())
             {
@@ -151,23 +145,20 @@ void front(const std::string& a, const std::string& b, frontMatrix& f)
             }
             else if( (i - f.offset + l) >= b.length())
             {
-                //in this case the row must be i, however it already is
+                //in this case the row must be i, however it already is at this point...
                 //to set explicitely uncomment
                 //f.current.at(i) = i;
             }
             else
             {
                 f.current.at(i) = l + lcp( a.substr(l), b.substr(i - f.offset + l) );
-            }
-
-            
-
-            //std::cout << "      I pos for diag: " << i << " is " << f.current.at(i) << " of total length "<< a.length() << "\n";
-    
-
+            }    
     }
 
 }
+
+//output sensitive -> O() depends on the mismatches that we allow, since we allow mostly just for a few it runs super fast...
+//no backtracking implemented for now, only used to align UMIs where we do not care about alingment start, end
 inline bool outputSense(const std::string& sequence, const std::string& pattern, const int& mismatches, int& score)
 {
     const unsigned int m = sequence.length();
@@ -193,7 +184,6 @@ inline bool outputSense(const std::string& sequence, const std::string& pattern,
     ++f.d;
     while(f.d <= MIN(MAX(m,n), mismatches))
     {
-        //std::cout << "# CHECKING D: " << f.d << " " << MAX(m,n) << "\n";
         front(sequence, pattern, f);
         if(f.current.at(n-m+f.offset) == m )
         {
@@ -210,14 +200,14 @@ inline bool outputSense(const std::string& sequence, const std::string& pattern,
         }
         ++f.d;
     }
-    //std::cout << "ENDED IN NOWHERE\n";
 
     //no match found within limits: assign a score > mismatches
     score = mismatches + 1;
     return false;
 }
 
-//function is not overflow safe, in the case that INT_MAX mismatches might occur (not relevant for our small sequences...)
+//levenshtein distance, implemented with backtracking to get start and end of alingment, however slower than output sensitive algorithm:
+//used for parser so far: it has an additional flavor of unpunished deletions at the start and end of the alignment
 inline bool levenshtein(const std::string sequence, std::string pattern, const int& mismatches, int& match_start, int& match_end, int& score,
                         bool upperBoundCheck = false)
 {
@@ -293,6 +283,7 @@ inline bool levenshtein(const std::string sequence, std::string pattern, const i
             }
             
             dist[i][j] = tmp2;
+            //uncomment to show the edit-matrix
             //std::cout << tmp2.val << "(" << sequence[i-1] <<  ","<< pattern[j-1] << ")" << " ";
         }
         //std::cout << "\n";

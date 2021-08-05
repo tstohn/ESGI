@@ -42,40 +42,24 @@ class UmiData
         // add a dataLines to the vector
         void add(std::string& umiStr, std::string& abStr, std::string& singleCellStr, std::string& treatment)
         {
-            //get unique pointer for all three string
+            //get unique pointer for all three strings
             dataLine line;
             line.umi_seq = uniqueChars->getUniqueChar(umiStr.c_str());
             line.ab_seq = uniqueChars->getUniqueChar(abStr.c_str());
             line.cell_seq = uniqueChars->getUniqueChar(singleCellStr.c_str());
             line.treatment_seq = uniqueChars->getUniqueChar(treatment.c_str());
 
-            //make a dataLinePtr from those unique string
+            //make a dataLinePtr from those unique strings
             dataLinePtr linePtr(std::make_shared<dataLine>(line));
 
             //add it to our dataStructure (3 entries have to be set)
-
             addDataLine(linePtr);
         }
 
-        //return all dataLines of this specific UMI
-        std::vector<dataLinePtr> getDataLinesForUmi(const char* umi_seq)
-        {
-            std::vector<dataLinePtr> returnLines;
-
-            return returnLines;
-        }
-        //return all dataLines of this specific AB-SingleCell combination
-        std::vector<dataLinePtr> getDataLinesForABSingleCell(const char* abBarcode, const char* singleCellBarcode)
-        {
-            std::vector<dataLinePtr> returnLines;
-
-            return returnLines;
-        }
-        std::shared_ptr<UniqueCharSet> getUniqueBarcodes()
+        inline std::shared_ptr<UniqueCharSet> getUniqueBarcodes() const
         {
             return uniqueChars;
         }
-
         //return functions for our data, based on positions, UMI or AB/ SC barcodes
         inline const std::vector<dataLinePtr> getData() const
         {
