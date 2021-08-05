@@ -3,14 +3,6 @@
 
 void UmiDataParser::parseFile(const std::string fileName, const int& thread)
 {
-
-    //int score = 0;
-    //int mm = 1;
-    //bool res = outputSense("GGSGA", "GGSGAC", mm, score);
-    //if(res){std::cout << "DONE: " << score << "\n";}
-    //else{std::cout << "FAIL: " << score << "\n";}
-    //exit(1);
-
     int totalReads = totalNumberOfLines(fileName);
     int currentReads = 0;
     //open gz file
@@ -26,7 +18,6 @@ void UmiDataParser::parseFile(const std::string fileName, const int& thread)
     std::istream instream(&inbuf);
     
     parseBarcodeLines(&instream, totalReads, currentReads);
-    //Cleanup
     file.close();
 }
 
@@ -171,8 +162,6 @@ void UmiDataParser::processBarcodeMapping(const int& umiMismatches, const int& t
         ++abScLineIdx;
     }
 
-
-//uncomment to make UMI quality check
     int umiLineIdx = 0;
     for(auto mapElement : rawData.getUniqueUmis())
     {
@@ -249,7 +238,7 @@ void UmiDataParser::processBarcodeMapping(const int& umiMismatches, const int& t
     }
 }
 
-
+//correct for mismatches in the UMI
 void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, std::vector<dataLinePtr>& umiDataTmp, std::vector<abLine>& abDataTmp, 
                                 const std::vector<std::vector<dataLinePtr> >& AbScBucket, int& currentUmisCorrected)
 {
@@ -348,11 +337,9 @@ void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, st
             ++abCount;
 
         }
-        //end new
 
         abLineTmp.ab_cout = abCount;
         abDataTmp.push_back(abLineTmp);
-        //umiDataTmp.push_back(uniqueAbSc.at(uniqueAbSc.size() - 1));
 
         ++tmpCurrentUmisCorrected;
         if((containerSize >= 100) && (tmpCurrentUmisCorrected % (containerSize / 100) == 0))
@@ -367,6 +354,9 @@ void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, st
     }
 }
 
+//unused function, origionally used to compare all UMIs with each other additionally to UMI comparison, to generate
+//a statistic of UMI distances
+/*
 void UmiDataParser::correctUmisWithStats(const int& umiMismatches, StatsUmi& statsTmp, std::vector<dataLinePtr>& umiDataTmp, std::vector<abLine>& abDataTmp, 
                                 const std::vector<std::vector<dataLinePtr> >& AbScBucket, int& currentUmisCorrected)
 {
@@ -466,7 +456,7 @@ void UmiDataParser::correctUmisWithStats(const int& umiMismatches, StatsUmi& sta
             lock.unlock();
         }
     }
-}
+}*/
 
 void UmiDataParser::umiQualityCheck(const std::vector< std::vector<dataLinePtr> >& uniqueUmis, umiQuality& qualTmp, int& currentUmisChecked)
 {
@@ -507,37 +497,7 @@ void UmiDataParser::umiQualityCheck(const std::vector< std::vector<dataLinePtr> 
 
 void UmiDataParser::writeStats(std::string output)
 {
-    /*for(auto uniqueUmiIdx : data.getUniqueUmis())
-    {
-        if(uniqueUmiIdx.second.size() != 1)
-        {
-            std::cout << uniqueUmiIdx.first << " : " << uniqueUmiIdx.second.size() << "\n";
-            auto duplicatedUmis = data.getDataWithUmi(uniqueUmiIdx.first);
-            std::cout << "=>  ";
-            for(auto umi : duplicatedUmis)
-            {
-                std::cout << umi->ab_seq << " " << umi->cell_seq << "; ";
-            }
-            std::cout << "\n";
-        }
-    }
-    std::cout << "###################\n";
-    for(auto uniqueAbScIdx : data.getUniqueAbSc())
-    {
-        if(uniqueAbScIdx.second.size() != 1)
-        {
-            std::cout << uniqueAbScIdx.first << " : " << uniqueAbScIdx.second.size() << "\n";
-            auto duplicatedAbScs = data.getDataWithAbSc(uniqueAbScIdx.first);
-            std::cout << "=>  ";
-            for(auto absc : duplicatedAbScs)
-            {
-                std::cout << absc->umi_seq << " " << absc->ab_seq << " " << absc->cell_seq << "; ";
-            }
-            std::cout << "\n";
-        }
-    }*/
-
-//WRITE INTO FILE
+    //WRITE INTO FILE
     std::ofstream outputFile;
     std::size_t found = output.find_last_of("/");
     if(found == std::string::npos)
