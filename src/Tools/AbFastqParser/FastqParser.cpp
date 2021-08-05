@@ -105,6 +105,8 @@ bool parse_arguments(char** argv, int argc, input& input)
 
 }
 
+//TODO: function to calculate maximum distance between barcodes: use this distance-1 as mismatch threshold
+//return value is a string of all those values for all different barcodes: b4_threshold, ab_threshold, bc1_thrshold, ...
 void calculate_string_of_mismatches(std::vector<int>& mismatches, const std::string& mismatchString)
 {
     
@@ -117,27 +119,30 @@ void write_file(const input& input, BarcodeMappingVector barcodes, BarcodeMappin
 
     //write real sequences that map to barcodes
     std::size_t found = output.find_last_of("/");
-    std::string outputReal;
-    if(found == std::string::npos)
+    if(input.storeRealSequences)
     {
-        outputReal = "RealBarcodeSequence_" + output;
-    }
-    else
-    {
-        outputReal = output.substr(0,found) + "/" + "RealBarcodeSequence_" + output.substr(found+1);
-    }
-    outputFile.open (outputReal, std::ofstream::app);
-    for(int i = 0; i < barcodes.size(); ++i)
-    {
-        for(int j = 0; j < patterns.size(); ++j)
+        std::string outputReal;
+        if(found == std::string::npos)
         {
-            outputFile << *(barcodes.at(i).at(j));
-            if(j!=patterns.size()-1){outputFile << "\t";}
+            outputReal = "RealBarcodeSequence_" + output;
         }
-        outputFile << "\n";
+        else
+        {
+            outputReal = output.substr(0,found) + "/" + "RealBarcodeSequence_" + output.substr(found+1);
+        }
+        outputFile.open (outputReal, std::ofstream::app);
+        for(int i = 0; i < barcodes.size(); ++i)
+        {
+            for(int j = 0; j < patterns.size(); ++j)
+            {
+                outputFile << *(barcodes.at(i).at(j));
+                if(j!=patterns.size()-1){outputFile << "\t";}
+            }
+            outputFile << "\n";
+        }
+        outputFile.close();
     }
-    outputFile.close();
-
+    
     //write the barcodes we mapped
     if(found == std::string::npos)
     {
