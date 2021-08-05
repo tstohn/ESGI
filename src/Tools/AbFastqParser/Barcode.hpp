@@ -150,6 +150,7 @@ class VariableBarcode : public Barcode
         {
             seq_start = best_start;
             seq_end = best_end;
+            score = best_score;
 
             if(offset_shift)
             {
@@ -165,6 +166,7 @@ class VariableBarcode : public Barcode
         {
             seq_start = best_start;
             seq_end = best_end;
+            score = best_score;
 
             if(offset_shift)
             {

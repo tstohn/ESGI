@@ -142,7 +142,7 @@ void write_file(const input& input, BarcodeMappingVector barcodes, BarcodeMappin
         }
         outputFile.close();
     }
-    
+
     //write the barcodes we mapped
     if(found == std::string::npos)
     {
@@ -185,7 +185,8 @@ void writeStats(std::string output, const fastqStats& stats)
         outputFile << mismatchDictEntry.first << "\t";
         for(int mismatchCountIdx = 0; mismatchCountIdx < mismatchDictEntry.second.size(); ++mismatchCountIdx)
         {
-            outputFile << mismatchDictEntry.second.at(mismatchCountIdx) << "\t";
+            outputFile << mismatchDictEntry.second.at(mismatchCountIdx);
+            if(mismatchCountIdx!=mismatchDictEntry.second.size()-1){outputFile << "\t";}
         }
         outputFile << "\n";
     }
@@ -236,7 +237,7 @@ bool split_line_into_barcode_mappings(const std::string& seq, input* input, Barc
 
         assert(realBarcode != "");
         //add barcode data to statistics dictionary
-        int dictvectorIndex = (score <= (*patternItr)->mismatches ? score : ( ((*patternItr)->mismatches) + 1) );
+        int dictvectorIndex = ( (score <= (*patternItr)->mismatches) ? (score) : ( ((*patternItr)->mismatches) + 1) );
         ++stats.mapping_dict[realBarcode].at(dictvectorIndex);
         
         //squeeze in the last wildcard match if there was one 
