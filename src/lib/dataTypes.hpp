@@ -6,26 +6,18 @@
 #include <string.h>
 #include <cstdio>
 
-/**
- *    small functionality of a char* set to not use any duplicate strings
- *    
- * */
-
 class CharHash
 {
     public:
         size_t operator()(const char *s) const
         {
-
             return std::hash<std::string_view>()(std::string_view(s, std::strlen(s)));
         }
 };
 
 struct CharPtrComparator {
    bool operator()(const char* left, const char* right) const {
-      //return ((left != nullptr) && (right != nullptr) && (strcmp(left, right) < 0));
       return ( (strcmp(left, right)) == 0 );
-
    }
 };
 
@@ -87,5 +79,4 @@ class UniqueCharSet
 
    private:
       std::unordered_set<const char*, CharHash, CharPtrComparator> charPtrSet;
-
 };
