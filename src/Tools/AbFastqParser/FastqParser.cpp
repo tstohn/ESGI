@@ -350,8 +350,12 @@ void split_barcodes(input& input, BarcodeMappingVector& barcodes, BarcodeMapping
             ++numFastqReads;
             ++totalCurrentReadNum;
 
-            double perc = totalCurrentReadNum/ (double)totalReads;
-            printProgress(perc);
+            if((totalReads >= 100) && (totalCurrentReadNum % (totalReads / 100) == 0))
+            {
+                double perc = totalCurrentReadNum/ (double)totalReads;
+                printProgress(perc);
+            }
+
         }
         //split input lines into thread buckets
         std::vector<std::vector<std::string> > fastqLinesVector; //vector holding all the buckets of fastq lines to be analyzed by each thread
@@ -404,6 +408,7 @@ void split_barcodes(input& input, BarcodeMappingVector& barcodes, BarcodeMapping
 
         writeCurrentResults(barcodes, realBarcodes, fastqStatsFinal, input, patterns);
     }
+    printProgress(1);
     std::cout << "\nMATCHED: " << fastqStatsFinal.perfectMatches << " | MODERATE MATCH: " << fastqStatsFinal.moderateMatches
               << " | MISMATCHED: " << fastqStatsFinal.noMatches << " | Multiplebarcode: " << fastqStatsFinal.multiBarcodeMatch << "\n";
     kseq_destroy(ks);
