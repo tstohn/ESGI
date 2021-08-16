@@ -116,6 +116,7 @@ class VariableBarcode : public Barcode
 
         for(std::string pattern : patterns)
         {
+
             int slice_end =  pattern.length() + mismatch_length;;
             std::string tmpSequence = sequence.substr(tmpOffset, slice_end);
 
@@ -126,7 +127,7 @@ class VariableBarcode : public Barcode
             if(levenshtein(tmpSequence, pattern, mismatches, seq_start, seq_end, score))
             {
                 //std::cout << "leven for: " << pattern  << "\nin" << tmpSequence << ":" << score << "\n";
-                if( (score <= best_score) & (!found_match))
+                if( (score < best_score))
                 {
                     best_start = seq_start;
                     best_end = seq_end;
@@ -139,6 +140,7 @@ class VariableBarcode : public Barcode
                 {
                     ++match_count;
                 }
+
             }
         }
 
