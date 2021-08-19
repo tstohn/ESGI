@@ -213,7 +213,7 @@ void UmiDataParser::processBarcodeMapping(const int& umiMismatches, const int& t
     std::cout << "\n";
 
     //combine the three dataSets
-     for (int i = 0; i < thread; ++i) 
+    for (int i = 0; i < thread; ++i) 
     {
         //data
         umiData.insert(umiData.end(), umiDataThreaded.at(i).begin(), umiDataThreaded.at(i).end());
