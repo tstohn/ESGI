@@ -165,6 +165,31 @@ void write_file(const input& input, BarcodeMappingVector barcodes, BarcodeMappin
     outputFile.close();
 }
 
+void write_failed_lines(const input& input, const std::vector<std::string>& failedLines)
+{
+    std::string output = input.outFile;
+    std::ofstream outputFile;
+
+    //write real sequences that map to barcodes
+    std::size_t found = output.find_last_of("/");
+    std::string outputFail;
+    if(found == std::string::npos)
+    {
+        outputFail = "FailedLines_" + output;
+    }
+    else
+    {
+        outputFail = output.substr(0,found) + "/" + "FailedLines_" + output.substr(found+1);
+    }
+    outputFile.open (outputFail, std::ofstream::app);
+    for(int i = 0; i < failedLines.size(); ++i)
+    { 
+        outputFile << failedLines.at(i) << "\n";
+    }
+    outputFile.close();
+}
+
+
 void writeStats(std::string output, const fastqStats& stats)
 {
     std::ofstream outputFile;
@@ -275,7 +300,8 @@ bool split_line_into_barcode_mappings(const std::string& seq, input* input, Barc
 }
 
 void map_pattern_to_fastq_lines(const std::vector<std::string>& fastqLines, input* input, BarcodeMappingVector& barcodes, 
-                                BarcodeMappingVector& realBarcodes, fastqStats& stats, BarcodePatternVectorPtr barcodePatterns)
+                                BarcodeMappingVector& realBarcodes, fastqStats& stats, BarcodePatternVectorPtr barcodePatterns,
+                                std::vector<std::string>& failedLines)
 {
     std::map<std::string, std::shared_ptr<std::string> > unique_seq;
     for(const std::string& line : fastqLines)
@@ -288,16 +314,22 @@ void map_pattern_to_fastq_lines(const std::vector<std::string>& fastqLines, inpu
             realBarcodes.push_back(realBarcode);
             barcode.clear();
         }
+        else
+        {
+            failedLines.push_back(line);
+        }
     }
 }
 
 void writeCurrentResults(BarcodeMappingVector& barcodes, BarcodeMappingVector& realBarcodes, fastqStats& fastqStatsFinal, input& input, 
-                         const std::vector<std::pair<std::string, char> >& patterns)
+                         const std::vector<std::pair<std::string, char> >& patterns, std::vector<std::string>& failedLines)
 {
     write_file(input, barcodes, realBarcodes, patterns);
+    write_failed_lines(input, failedLines);
 
     barcodes.clear();
     realBarcodes.clear();
+    failedLines.clear();
 }
 
 void split_barcodes(input& input, BarcodeMappingVector& barcodes, BarcodeMappingVector& realBarcodes, BarcodePatternVectorPtr barcodePatterns, fastqStats& fastqStatsFinal,
@@ -372,6 +404,8 @@ void split_barcodes(input& input, BarcodeMappingVector& barcodes, BarcodeMapping
         }
         //for every bucket call a thread
         //tmp variables to store thread results
+        std::vector<std::string> failedLines;
+        std::vector<std::vector<std::string>> failedLinesThreadlist(input.threads);
         std::vector<BarcodeMappingVector> barcodesThreadList(input.threads); // vector of mappedSequences to be filled
         std::vector<BarcodeMappingVector> realBarcodesThreadList(input.threads); // vector of mappedSequences to be filled with corrected matches
         std::vector<fastqStats> statsThreadList(input.threads, emptyStats); // vector of stats to be filled
@@ -379,7 +413,7 @@ void split_barcodes(input& input, BarcodeMappingVector& barcodes, BarcodeMapping
         for (int i = 0; i < input.threads; ++i) {
             workers.push_back(std::thread(map_pattern_to_fastq_lines, fastqLinesVector.at(i), 
                             &input, std::ref(barcodesThreadList.at(i)), std::ref(realBarcodesThreadList.at(i)), 
-                            std::ref(statsThreadList.at(i)), barcodePatterns));
+                            std::ref(statsThreadList.at(i)), barcodePatterns, std::ref(failedLinesThreadlist.at(i))));
         }
         for (std::thread &t: workers) 
         {
@@ -396,6 +430,7 @@ void split_barcodes(input& input, BarcodeMappingVector& barcodes, BarcodeMapping
             fastqStatsFinal.noMatches += statsThreadList.at(i).noMatches;
             fastqStatsFinal.moderateMatches += statsThreadList.at(i).moderateMatches;
             fastqStatsFinal.multiBarcodeMatch += statsThreadList.at(i).multiBarcodeMatch;
+            failedLines.insert(failedLines.end(), failedLinesThreadlist.at(i).begin(), failedLinesThreadlist.at(i).end());
             //iterate for every thread over the dictionary of mismatches per barcode and fill the final stats data with it
             for(std::pair<std::string, std::vector<int> > mismatchDictEntry : statsThreadList.at(i).mapping_dict)
             {
@@ -406,7 +441,7 @@ void split_barcodes(input& input, BarcodeMappingVector& barcodes, BarcodeMapping
             }
         }
 
-        writeCurrentResults(barcodes, realBarcodes, fastqStatsFinal, input, patterns);
+        writeCurrentResults(barcodes, realBarcodes, fastqStatsFinal, input, patterns, failedLines);
     }
     printProgress(1);
     std::cout << "\nMATCHED: " << fastqStatsFinal.perfectMatches << " | MODERATE MATCH: " << fastqStatsFinal.moderateMatches
