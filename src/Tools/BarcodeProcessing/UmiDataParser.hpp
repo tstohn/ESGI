@@ -41,6 +41,20 @@ struct umiQuality
     unsigned long long sameUmiSameAbSc = 0;
 };
 
+struct umiQualityExtended
+{
+    unsigned long long numOfUmiOccurences = 0;
+    unsigned long long numOfABDifferences = 0;
+
+    unsigned long long numOfBC4Differences = 0;
+    unsigned long long numOfBC1Differences = 0;
+    unsigned long long numOfBC2Differences = 0;
+    unsigned long long numOfBC3Differences = 0;
+};
+
+void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, CIBarcode& barcodeIdData, 
+                          std::vector<std::string>& proteinDict, const int& protIdx, std::vector<std::string>& treatmentDict, const int& treatmentIdx);
+
 class UmiDataParser
 {
 
@@ -66,6 +80,8 @@ class UmiDataParser
             rawData.setProteinDict(map);
         }
 
+        void extended_umi_quality_check(const int& thread, const std::string& output);
+
     private:
 
         //parse the file, store each line in our data structure
@@ -77,6 +93,7 @@ class UmiDataParser
                          const std::vector<std::vector<dataLinePtr> >& AbScBucket, int& currentUmisCorrected);
 
         void umiQualityCheck(const std::vector< std::vector<dataLinePtr> >& uniqueUmis, umiQuality& qualTmp, int& currentUmisChecked);
+        void umiQualityCheckExtended(const std::vector< std::vector<dataLinePtr> >& uniqueUmis, umiQuality& qualTmp, umiQualityExtended& qualExTmp, int& currentUmisChecked, const std::string& output);
 
         //get positions of CIBarcodes
         void getCiBarcodeInWholeSequence(const std::string& line, int& barcodeElements);

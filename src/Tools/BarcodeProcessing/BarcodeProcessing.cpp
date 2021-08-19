@@ -81,7 +81,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
 
 }
 
-void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, CIBarcode& barcodeIdData, 
+/*void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, CIBarcode& barcodeIdData, 
                           std::vector<std::string>& proteinDict, const int& protIdx, std::vector<std::string>& treatmentDict, const int& treatmentIdx)
 {
     //parse barcode file
@@ -160,7 +160,7 @@ void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, C
     proteinDict = barcodeList.at(protIdx);
     treatmentDict = barcodeList.at(treatmentIdx);
 
-}
+}*/
 
 std::unordered_map<std::string, std::shared_ptr<std::string> > generateProteinDict(std::string abFile, int abIdx, 
                                                                                               const std::vector<std::string>& abBarcodes)

@@ -1,6 +1,102 @@
 #include "UmiDataParser.hpp"
 #include "helper.hpp"
 
+void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, CIBarcode& barcodeIdData, 
+                          std::vector<std::string>& proteinDict, const int& protIdx, std::vector<std::string>& treatmentDict, const int& treatmentIdx)
+{
+    //parse barcode file
+    std::vector<std::vector<std::string> > barcodeList;
+    std::ifstream barcodeFileStream(barcodeFile);
+    for(std::string line; std::getline(barcodeFileStream, line);)
+    {
+        std::string delimiter = ",";
+        std::string seq;
+        size_t pos = 0;
+        std::vector<std::string> seqVector;
+        while ((pos = line.find(delimiter)) != std::string::npos) 
+        {
+            seq = line.substr(0, pos);
+            line.erase(0, pos + 1);
+            for (char const &c: seq) {
+                if(!(c=='A' | c=='T' | c=='G' |c=='C' |
+                        c=='a' | c=='t' | c=='g' | c=='c'))
+                        {
+                        std::cerr << "PARAMETER ERROR: a barcode sequence in barcode file is not a base (A,T,G,C)\n";
+                        if(c==' ' | c=='\t' | c=='\n')
+                        {
+                            std::cerr << "PARAMETER ERROR: Detected a whitespace in sequence; remove it to continue!\n";
+                        }
+                        exit(1);
+                        }
+            }
+            seqVector.push_back(seq);
+        }
+        seq = line;
+        for (char const &c: seq) {
+            if(!(c=='A' || c=='T' || c=='G' || c=='C' ||
+                    c=='a' || c=='t' || c=='g' || c=='c'))
+                    {
+                    std::cerr << "PARAMETER ERROR: a barcode sequence in barcode file is not a base (A,T,G,C)\n";
+                    if(c==' ' || c=='\t' || c=='\n')
+                    {
+                        std::cerr << "PARAMETER ERROR: Detected a whitespace in sequence; remove it to continue!\n";
+                    }
+                    exit(1);
+                    }
+        }
+        seqVector.push_back(seq);
+        barcodeList.push_back(seqVector);
+        seqVector.clear();
+    }
+    barcodeFileStream.close();
+
+    //parse the indices of CIbarcodes from line
+    std::stringstream ss;
+    ss.str(barcodeIndices);
+    while(ss.good())
+    {
+        std::string substr;
+        getline(ss, substr, ',' );
+        barcodeIdData.ciBarcodeIndices.push_back(stoi(substr));
+    }
+
+    //vector of barodeList stores all possible barcodes at each index
+    //generate a struct with a dictionary maping a barcode to an index
+    //for every CI Barcode in sequence
+    for(const int& i : barcodeIdData.ciBarcodeIndices)
+    {
+        int barcodeCount = 0;
+        std::unordered_map<std::string, int> barcodeMap;
+        //for all options of this barcode
+        for(const std::string& barcodeEntry : barcodeList.at(i))
+        {
+            barcodeMap.insert(std::pair<std::string, int>(barcodeEntry,barcodeCount));
+            ++barcodeCount;
+        }
+        barcodeIdData.barcodeIdDict.push_back(barcodeMap);
+    }
+    barcodeIdData.tmpTreatmentIdx = treatmentIdx;
+
+    proteinDict = barcodeList.at(protIdx);
+    treatmentDict = barcodeList.at(treatmentIdx);
+
+}
+
+std::vector<std::string> splitByDelimiter(std::string line, const std::string& del)
+{
+    std::vector<std::string> tokens;
+    size_t pos = 0;
+    std::string token;
+    while ((pos = line.find(del)) != std::string::npos) {
+        token = line.substr(0, pos);
+        tokens.push_back(token);
+        line.erase(0, pos + del.length());
+    }
+    tokens.push_back(line);
+
+    return tokens;
+}
+
 void UmiDataParser::parseFile(const std::string fileName, const int& thread)
 {
     int totalReads = totalNumberOfLines(fileName);
@@ -457,6 +553,147 @@ void UmiDataParser::correctUmisWithStats(const int& umiMismatches, StatsUmi& sta
         }
     }
 }*/
+
+void UmiDataParser::extended_umi_quality_check(const int& thread, const std::string& output)
+{
+    //split AbSc map into equal parts
+    std::vector< std::vector < std::vector<dataLinePtr> > > independantUmiBatches(thread);
+
+    int element_number = rawData.getUniqueAbSc().size() / thread;
+
+    //iterate through map, and add one element after the other ot the vector (each element is itself a vector
+    //of all the lines with the same AB and SingleCell)    
+    int umiLineIdx = 0;
+    for(auto mapElement : rawData.getUniqueUmis())
+    {
+        std::vector<dataLinePtr> umiLine = mapElement.second;
+        independantUmiBatches.at( umiLineIdx%thread ).push_back(umiLine);
+        ++umiLineIdx;
+    }
+
+    //temporary vectors to store all the thread outputs
+    std::vector<StatsUmi> umiStatsThreaded(thread);
+    std::vector<umiQualityExtended> umiQualExThreaded(thread);
+    std::vector<umiQuality> umiQualThreaded(thread);
+
+    std::vector<std::vector<dataLinePtr> > umiDataThreaded(thread);
+    std::vector<std::vector<abLine> > abDataThreaded(thread);
+
+    //for every batch calcualte the unique umis with same/different AbSc barcodes
+    std::vector<std::thread> workers;
+    int currentUmisChecked = 0;
+    std::cout << "Checking Extended Quality of UMIs\n";
+    for (int i = 0; i < thread; ++i) 
+    {
+        workers.push_back(std::thread(&UmiDataParser::umiQualityCheckExtended, this, std::ref(independantUmiBatches.at(i)), 
+                        std::ref(umiQualThreaded.at(i)), std::ref(umiQualExThreaded.at(i)), std::ref(currentUmisChecked), output ));
+    }
+    printProgress(1);
+    for (std::thread &t: workers) 
+    {
+        if (t.joinable()) {
+            t.join();
+        }
+    }
+    std::cout << "\n";
+
+}
+
+void UmiDataParser::umiQualityCheckExtended(const std::vector< std::vector<dataLinePtr> >& uniqueUmis, umiQuality& qualTmp, 
+                                            umiQualityExtended& qualExTmp, int& currentUmisChecked,
+                                            const std::string& output)
+{
+    //first quality check, does a unique umi have always the same AbScIdx
+    int tmpCurrentUmisChecked =0;
+    int containerSize = rawData.getUniqueUmis().size();
+    for(auto uniqueUmi : uniqueUmis)
+    {
+        //for all AbSc combinations of this unique UMI
+        for(int i = 0; i < (uniqueUmi.size() - 1); ++i)
+        {
+            for(int j = i+1; j < uniqueUmi.size(); ++j)
+            {
+                dataLinePtr a = uniqueUmi.at(i);
+                dataLinePtr b = uniqueUmi.at(j);
+                if(strcmp(a->ab_seq, b->ab_seq)==0 && strcmp(a->cell_seq, b->cell_seq)==0)
+                {
+                    ullong_save_add(qualTmp.sameUmiSameAbSc, 1);
+                }
+                else
+                {
+                    ullong_save_add(qualTmp.sameUmiDiffAbSc, 1);
+                    
+                    // run extended comparison here
+                    if(a->ab_seq != b->ab_seq)
+                    {
+                        ++qualExTmp.numOfABDifferences;
+                    }
+
+                    std::vector<std::string> aVec = splitByDelimiter(a->cell_seq, ".");
+                    std::vector<std::string> bVec = splitByDelimiter(b->cell_seq, ".");
+
+//DELETE JUST QUAL CHECK
+                    std::cout << a->cell_seq << "\n";
+                    for(auto el : aVec)
+                    {
+                        std::cout << el << " ";
+                    }
+                    std::cout << "\n";
+//DELETE END
+
+                    assert(aVec.size() == 4 && bVec.size() == 4);
+                    if(aVec.at(0) != bVec.at(0))
+                    {
+                        ++qualExTmp.numOfBC4Differences;
+                    }
+                    if(aVec.at(1) != bVec.at(1))
+                    {
+                        ++qualExTmp.numOfBC1Differences;
+                    }
+                    if(aVec.at(2) != bVec.at(2))
+                    {
+                        ++qualExTmp.numOfBC2Differences;
+                    }
+                    if(aVec.at(3) != bVec.at(3))
+                    {
+                        ++qualExTmp.numOfBC3Differences;
+                    }
+
+                }
+            }
+        }
+        qualExTmp.numOfUmiOccurences = uniqueUmi.size();
+
+        std::ofstream outputFile;
+        std::size_t found = output.find_last_of("/");
+
+        //STORE RAW UMI CORRECTED DATA
+        std::string umiOutput = output;
+        if(found == std::string::npos)
+        {
+            umiOutput = "UMIQUAL_" + output;
+        }
+        else
+        {
+            umiOutput = output.substr(0,found) + "/" + "UMIQUAL_" + output.substr(found+1);
+        }
+        outputFile.open (umiOutput, std::ofstream::app);
+        outputFile << qualExTmp.numOfUmiOccurences << "\t" << qualExTmp.numOfABDifferences << "\t" << qualExTmp.numOfBC4Differences << "\t" << qualExTmp.numOfBC1Differences << "\t" << qualExTmp.numOfBC2Differences << "\t" << qualExTmp.numOfBC3Differences << "\n"; 
+        outputFile.close();
+
+        //Update Progress
+        ++tmpCurrentUmisChecked;
+        if( (containerSize >= 100) && (tmpCurrentUmisChecked % (containerSize / 100) == 0) )
+        {
+            lock.lock();
+            currentUmisChecked += tmpCurrentUmisChecked;
+            tmpCurrentUmisChecked = 0;
+            double perc = currentUmisChecked/ (double) containerSize;
+            printProgress(perc);
+            lock.unlock();
+        }
+    }
+}
 
 void UmiDataParser::umiQualityCheck(const std::vector< std::vector<dataLinePtr> >& uniqueUmis, umiQuality& qualTmp, int& currentUmisChecked)
 {

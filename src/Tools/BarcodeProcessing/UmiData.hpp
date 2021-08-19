@@ -11,7 +11,6 @@
 
 #include "dataTypes.hpp"
 
-
 struct abLine
 {
     std::shared_ptr<std::string> ab_seq;
@@ -169,7 +168,7 @@ class UmiData
         //set of all the unique barcodes we use, and we only pass pointers to those
         std::shared_ptr<UniqueCharSet> uniqueChars;
 
-        //dictionaries to map a barcode-sequence to the treatment, and Protein
+        //dictionaries to map a barcode-sequence to the treatment, and Protein, will only be used in correct UMI to write down also correct treatment and AB instead of barcode
         std::unordered_map<std::string, std::shared_ptr<std::string> > treatmentDict;
         std::unordered_map<std::string, std::shared_ptr<std::string> > proteinDict;
 };
