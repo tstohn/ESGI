@@ -636,15 +636,6 @@ void UmiDataParser::umiQualityCheckExtended(const std::vector< std::vector<dataL
                     std::vector<std::string> aVec = splitByDelimiter(a->cell_seq, ".");
                     std::vector<std::string> bVec = splitByDelimiter(b->cell_seq, ".");
 
-//DELETE JUST QUAL CHECK
-                    std::cout << a->cell_seq << "\n";
-                    for(auto el : aVec)
-                    {
-                        std::cout << el << " ";
-                    }
-                    std::cout << "\n";
-//DELETE END
-
                     assert(aVec.size() == 4 && bVec.size() == 4);
                     if(aVec.at(0) != bVec.at(0))
                     {
@@ -672,6 +663,7 @@ void UmiDataParser::umiQualityCheckExtended(const std::vector< std::vector<dataL
         std::size_t found = output.find_last_of("/");
 
         //STORE RAW UMI CORRECTED DATA
+        //TODO: delete in beginning if already there !!!
         std::string umiOutput = output;
         if(found == std::string::npos)
         {
