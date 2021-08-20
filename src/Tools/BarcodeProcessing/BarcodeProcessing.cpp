@@ -251,7 +251,7 @@ int main(int argc, char** argv)
     
     //generate the dictionary of barcode alternatives to idx
     CIBarcode barcodeIdData;
-    generateBarcodeDicts(barcodeFile, barcodeIndices, barcodeIdData, abBarcodes, abIdx, treatmentBarcodes, treatmentIdx);
+    generateBarcodeDicts(barcodeFile, barcodeIndices, barcodeIdData, abBarcodes, abIdx, &treatmentBarcodes, treatmentIdx);
     UmiDataParser dataParser(barcodeIdData);
 
     if(!abFile.empty())

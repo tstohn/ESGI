@@ -2,7 +2,7 @@
 #include "helper.hpp"
 
 void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, CIBarcode& barcodeIdData, 
-                          std::vector<std::string>& proteinDict, const int& protIdx, std::vector<std::string>& treatmentDict, const int& treatmentIdx)
+                          std::vector<std::string>& proteinDict, const int& protIdx, std::vector<std::string>* treatmentDict, const int& treatmentIdx)
 {
     //parse barcode file
     std::vector<std::vector<std::string> > barcodeList;
@@ -78,7 +78,11 @@ void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, C
     barcodeIdData.tmpTreatmentIdx = treatmentIdx;
 
     proteinDict = barcodeList.at(protIdx);
-    treatmentDict = barcodeList.at(treatmentIdx);
+
+    if(treatmentDict != nullptr)
+    {
+        *treatmentDict = barcodeList.at(treatmentIdx);
+    }
 
 }
 

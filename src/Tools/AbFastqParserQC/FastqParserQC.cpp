@@ -33,6 +33,7 @@ bool parse_arguments(char** argv, int argc, std::string& inputFails, std::string
             ("inputFails,f", value<std::string>(&inputFails)->required(), "lines of nucleotide sequences that failed the analysis")
             ("inputBarcodes,i", value<std::string>(&inputBarcodeMapping)->required(), "lines of tab seperated barcode mappings")
             ("output,o", value<std::string>(&(output))->required(), "output file with all split barcodes")
+            
             ("antibodyIndex,x", value<int>(&abIdx), "Index used for antibody distinction.")
             ("GroupingIndex,y", value<int>(&treatmentIdx), "Index used to group cells(e.g. by treatment). This is the x-th barcode from the barcodeFile (0 indexed).")
             
@@ -80,22 +81,22 @@ void analyse_failed_lines()
 
 }
 
-void analyse_same_umis(std::string& inputBarcodeMapping, std::string& output, int& abIdx, int& treatmentIdx, const int& threads,
+void analyse_same_umis(std::string& inputBarcodeMapping, std::string& output, int& abIdx, const int& threads,
                     const std::string& barcodeFile, const std::string& barcodeIndices)
 {
     //data for protein(ab) and treatment information
     std::string abFile; 
     std::string treatmentFile;
     std::vector<std::string> abBarcodes;
-    std::vector<std::string> treatmentBarcodes;
 
     //generate the dictionary of barcode alternatives to idx
     CIBarcode barcodeIdData;
-    generateBarcodeDicts(barcodeFile, barcodeIndices, barcodeIdData, abBarcodes, abIdx, treatmentBarcodes, treatmentIdx);
+
+    generateBarcodeDicts(barcodeFile, barcodeIndices, barcodeIdData, abBarcodes, abIdx);
 
     UmiDataParser dataParser(barcodeIdData);
-
     //parse the information
+
     dataParser.parseFile(inputBarcodeMapping, threads);
 
     //analyse all UMIS
@@ -116,7 +117,7 @@ int main(int argc, char** argv)
     int threads;
     if(parse_arguments(argv, argc, inputFails, inputBarcodeMapping, output, abIdx, treatmentIdx, threads, barcodeFile, barcodeIndices))
     {
-        analyse_same_umis(inputBarcodeMapping, output, abIdx, treatmentIdx, threads, barcodeFile, barcodeIndices);
+        analyse_same_umis(inputBarcodeMapping, output, abIdx, threads, barcodeFile, barcodeIndices);
         analyse_failed_lines();
     }
  

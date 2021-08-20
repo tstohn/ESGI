@@ -53,7 +53,7 @@ struct umiQualityExtended
 };
 
 void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, CIBarcode& barcodeIdData, 
-                          std::vector<std::string>& proteinDict, const int& protIdx, std::vector<std::string>& treatmentDict, const int& treatmentIdx);
+                          std::vector<std::string>& proteinDict, const int& protIdx, std::vector<std::string>* treatmentDict = nullptr, const int& treatmentIdx = 0);
 
 class UmiDataParser
 {
