@@ -31,7 +31,7 @@ bool parse_arguments(char** argv, int argc, std::string& inputFails, std::string
         options_description desc("Options");
         desc.add_options()
             ("inputFails,f", value<std::string>(&inputFails)->required(), "lines of nucleotide sequences that failed the analysis")
-            ("inputBarcodes,b", value<std::string>(&inputBarcodeMapping)->required(), "lines of tab seperated barcode mappings")
+            ("inputBarcodes,i", value<std::string>(&inputBarcodeMapping)->required(), "lines of tab seperated barcode mappings")
             ("output,o", value<std::string>(&(output))->required(), "output file with all split barcodes")
             ("antibodyIndex,x", value<int>(&abIdx), "Index used for antibody distinction.")
             ("GroupingIndex,y", value<int>(&treatmentIdx), "Index used to group cells(e.g. by treatment). This is the x-th barcode from the barcodeFile (0 indexed).")
