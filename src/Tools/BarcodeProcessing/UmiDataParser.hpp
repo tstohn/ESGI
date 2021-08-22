@@ -93,7 +93,7 @@ class UmiDataParser
                          const std::vector<std::vector<dataLinePtr> >& AbScBucket, int& currentUmisCorrected);
 
         void umiQualityCheck(const std::vector< std::vector<dataLinePtr> >& uniqueUmis, umiQuality& qualTmp, int& currentUmisChecked);
-        void umiQualityCheckExtended(const std::vector< std::vector<dataLinePtr> >& uniqueUmis, umiQuality& qualTmp, umiQualityExtended& qualExTmp, int& currentUmisChecked, const std::string& output);
+        void umiQualityCheckExtended(const std::vector< std::vector<dataLinePtr> >& uniqueUmis, umiQuality& qualTmp, int& currentUmisChecked, const std::string& output);
 
         //get positions of CIBarcodes
         void getCiBarcodeInWholeSequence(const std::string& line, int& barcodeElements);

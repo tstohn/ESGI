@@ -577,7 +577,6 @@ void UmiDataParser::extended_umi_quality_check(const int& thread, const std::str
 
     //temporary vectors to store all the thread outputs
     std::vector<StatsUmi> umiStatsThreaded(thread);
-    std::vector<umiQualityExtended> umiQualExThreaded(thread);
     std::vector<umiQuality> umiQualThreaded(thread);
 
     std::vector<std::vector<dataLinePtr> > umiDataThreaded(thread);
@@ -590,7 +589,7 @@ void UmiDataParser::extended_umi_quality_check(const int& thread, const std::str
     for (int i = 0; i < thread; ++i) 
     {
         workers.push_back(std::thread(&UmiDataParser::umiQualityCheckExtended, this, std::ref(independantUmiBatches.at(i)), 
-                        std::ref(umiQualThreaded.at(i)), std::ref(umiQualExThreaded.at(i)), std::ref(currentUmisChecked), output ));
+                        std::ref(umiQualThreaded.at(i)), std::ref(currentUmisChecked), output ));
     }
     printProgress(1);
     for (std::thread &t: workers) 
@@ -604,14 +603,14 @@ void UmiDataParser::extended_umi_quality_check(const int& thread, const std::str
 }
 
 void UmiDataParser::umiQualityCheckExtended(const std::vector< std::vector<dataLinePtr> >& uniqueUmis, umiQuality& qualTmp, 
-                                            umiQualityExtended& qualExTmp, int& currentUmisChecked,
-                                            const std::string& output)
+                                            int& currentUmisChecked, const std::string& output)
 {
     //first quality check, does a unique umi have always the same AbScIdx
     int tmpCurrentUmisChecked =0;
     int containerSize = rawData.getUniqueUmis().size();
     for(auto uniqueUmi : uniqueUmis)
     {
+        umiQualityExtended qualExTmp;
         //for all AbSc combinations of this unique UMI
         for(int i = 0; i < (uniqueUmi.size() - 1); ++i)
         {
