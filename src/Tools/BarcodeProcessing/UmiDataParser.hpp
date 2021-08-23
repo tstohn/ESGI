@@ -44,12 +44,18 @@ struct umiQuality
 struct umiQualityExtended
 {
     unsigned long long numOfUmiOccurences = 0;
-    unsigned long long numOfABDifferences = 0;
 
+    unsigned long long numOfABDifferences = 0;
     unsigned long long numOfBC4Differences = 0;
     unsigned long long numOfBC1Differences = 0;
     unsigned long long numOfBC2Differences = 0;
     unsigned long long numOfBC3Differences = 0;
+
+    std::vector<unsigned long long> AbBarcodeDistribution;
+    std::vector<unsigned long long> BC4Distribution;
+    std::vector<unsigned long long> BC1Distribution;
+    std::vector<unsigned long long> BC2Distribution;
+    std::vector<unsigned long long> BC3Distribution;
 };
 
 void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, CIBarcode& barcodeIdData, 
@@ -93,7 +99,9 @@ class UmiDataParser
                          const std::vector<std::vector<dataLinePtr> >& AbScBucket, int& currentUmisCorrected);
 
         void umiQualityCheck(const std::vector< std::vector<dataLinePtr> >& uniqueUmis, umiQuality& qualTmp, int& currentUmisChecked);
-        void umiQualityCheckExtended(const std::vector< std::vector<dataLinePtr> >& uniqueUmis, umiQuality& qualTmp, int& currentUmisChecked, const std::string& output);
+        void umiQualityCheckExtended(const std::vector< std::vector<dataLinePtr> >& uniqueUmis, int& currentUmisChecked, 
+                                     std::vector<std::pair<unsigned long long, unsigned long long>>& uniqueUmiToDiffAbSc, 
+                                     std::vector<umiQualityExtended>& extendedQuality, const std::string& output);
 
         //get positions of CIBarcodes
         void getCiBarcodeInWholeSequence(const std::string& line, int& barcodeElements);

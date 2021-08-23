@@ -1,5 +1,106 @@
 #include "UmiDataParser.hpp"
 #include "helper.hpp"
+#include <unordered_set>
+#include <set>
+
+int calcualtePercentages(std::vector<unsigned long long> groups, int num, double perc)
+{
+    double readCount = perc * num;
+    int sumOfReads = 0;
+    int sumBCs = 0;
+    std::sort(groups.begin(), groups.end(), std::greater<int>());
+    for(auto el : groups)
+    {
+        if(groups.size() > 1){std::cout << "#" << el << "\t" << sumOfReads << "\t" << sumBCs << "\n";}
+
+        sumOfReads += el;
+        ++sumBCs;
+        if(double(sumOfReads) >= readCount)
+        {
+            std::cout << "=>" << el << "\t" << sumOfReads << "\t" << sumBCs << " "<< groups.size()<< " : " << sumBCs/groups.size() << "\n";
+            return(sumBCs/groups.size());
+        }
+    }
+}
+
+void writeExtendedData(const std::string& output, std::vector<std::vector<std::pair<unsigned long long, unsigned long long>>>& uniqueUmiToAbScVec, 
+                       std::vector<std::vector<umiQualityExtended>> extendedQualityVec)
+{
+    //write everything to a file
+    std::ofstream outputFile;
+    std::size_t found = output.find_last_of("/");
+    //STORE RAW UMI CORRECTED DATA
+    //TODO: delete in beginning if already there !!!
+    //STORE BARCODE SPECIFIC
+    std::string umiOutput1 = output;
+    if(found == std::string::npos)
+    {
+        umiOutput1 = "UMIQUAL_" + output;
+    }
+    else
+    {
+        umiOutput1 = output.substr(0,found) + "/" + "UMIQUAL_" + output.substr(found+1);
+    }
+    std::remove(umiOutput1.c_str());
+    outputFile.open (umiOutput1, std::ofstream::app);
+    outputFile << "NumberOfReadsForUMI\tNumberOfDifferentAbSc\n";
+    for(int i = 0; i < uniqueUmiToAbScVec.size(); ++i)
+    {
+        for(int j = 0; j < uniqueUmiToAbScVec.at(i).size(); ++j)
+        {
+            outputFile << uniqueUmiToAbScVec.at(i).at(j).first << "\t" << uniqueUmiToAbScVec.at(i).at(j).second << "\n"; 
+        }
+    }
+    outputFile.close();
+
+    //STORE UMI COUNTS
+    std::string umiOutput2 = output;
+    if(found == std::string::npos)
+    {
+        umiOutput2 = "UMICOUNT_" + output;
+    }
+    else
+    {
+        umiOutput2 = output.substr(0,found) + "/" + "UMICOUNT_" + output.substr(found+1);
+    }
+    std::remove(umiOutput2.c_str());
+    outputFile.open (umiOutput2, std::ofstream::app);
+    outputFile << "UmiNumber\tBCAb\tBC4\tBC1\tBC2\tBC3\tBCAb_30\tBCAb_60\tBCAb_90\tBC4_30\tBC4_60\tBC4_90\tBC1_30\tBC1_60\tBC1_90\tBC2_30\tBC2_60\tBC2_90\tBC3_30\tBC3_60\tBC3_90\n";
+    for(int i = 0; i < uniqueUmiToAbScVec.size(); ++i)
+    {
+        for(int j = 0; j < uniqueUmiToAbScVec.at(i).size(); ++j)
+        {
+            std::cout << "|" << i << " " << j << "\n";
+            umiQualityExtended qualEx = extendedQualityVec.at(i).at(j);
+            outputFile << qualEx.numOfUmiOccurences << "\t" << qualEx.numOfABDifferences << "\t" << 
+            qualEx.numOfBC4Differences << "\t" << qualEx.numOfBC1Differences << "\t" << 
+            qualEx.numOfBC2Differences << "\t" << qualEx.numOfBC3Differences << "\t";
+
+            // add a list with how many different barcodes you have to add to reach 30%, 60%, 90% of data
+            //meaning: how many percent of the number of different barcodes do i need, to get 30,etc. % of the number of reads 
+            outputFile << calcualtePercentages(qualEx.AbBarcodeDistribution, qualEx.numOfUmiOccurences, 0.3) << "\t";
+            outputFile << calcualtePercentages(qualEx.AbBarcodeDistribution, qualEx.numOfUmiOccurences, 0.6) << "\t";
+            outputFile << calcualtePercentages(qualEx.AbBarcodeDistribution, qualEx.numOfUmiOccurences, 0.9) << "\t";
+
+            outputFile << calcualtePercentages(qualEx.BC4Distribution, qualEx.numOfUmiOccurences, 0.3) << "\t";
+            outputFile << calcualtePercentages(qualEx.BC4Distribution, qualEx.numOfUmiOccurences, 0.6) << "\t";
+            outputFile << calcualtePercentages(qualEx.BC4Distribution, qualEx.numOfUmiOccurences, 0.9) << "\t";
+
+            outputFile << calcualtePercentages(qualEx.BC1Distribution, qualEx.numOfUmiOccurences, 0.3) << "\t";
+            outputFile << calcualtePercentages(qualEx.BC1Distribution, qualEx.numOfUmiOccurences, 0.6) << "\t";
+            outputFile << calcualtePercentages(qualEx.BC1Distribution, qualEx.numOfUmiOccurences, 0.9) << "\t";
+
+            outputFile << calcualtePercentages(qualEx.BC2Distribution, qualEx.numOfUmiOccurences, 0.3) << "\t";
+            outputFile << calcualtePercentages(qualEx.BC2Distribution, qualEx.numOfUmiOccurences, 0.6) << "\t";
+            outputFile << calcualtePercentages(qualEx.BC2Distribution, qualEx.numOfUmiOccurences, 0.9) << "\t";
+
+            outputFile << calcualtePercentages(qualEx.BC3Distribution, qualEx.numOfUmiOccurences, 0.3) << "\t";
+            outputFile << calcualtePercentages(qualEx.BC3Distribution, qualEx.numOfUmiOccurences, 0.6) << "\t";
+            outputFile << calcualtePercentages(qualEx.BC3Distribution, qualEx.numOfUmiOccurences, 0.9) << "\n";
+        }
+    }
+    outputFile.close();
+}
 
 void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, CIBarcode& barcodeIdData, 
                           std::vector<std::string>& proteinDict, const int& protIdx, std::vector<std::string>* treatmentDict, const int& treatmentIdx)
@@ -575,12 +676,9 @@ void UmiDataParser::extended_umi_quality_check(const int& thread, const std::str
         ++umiLineIdx;
     }
 
-    //temporary vectors to store all the thread outputs
-    std::vector<StatsUmi> umiStatsThreaded(thread);
-    std::vector<umiQuality> umiQualThreaded(thread);
-
-    std::vector<std::vector<dataLinePtr> > umiDataThreaded(thread);
-    std::vector<std::vector<abLine> > abDataThreaded(thread);
+    //vectors to be filled in threads
+    std::vector<std::vector<std::pair<unsigned long long, unsigned long long>>> uniqueUmiToDiffAbScVec(thread);
+    std::vector<std::vector<umiQualityExtended>> extendedQualityVec(thread);
 
     //for every batch calcualte the unique umis with same/different AbSc barcodes
     std::vector<std::thread> workers;
@@ -589,7 +687,8 @@ void UmiDataParser::extended_umi_quality_check(const int& thread, const std::str
     for (int i = 0; i < thread; ++i) 
     {
         workers.push_back(std::thread(&UmiDataParser::umiQualityCheckExtended, this, std::ref(independantUmiBatches.at(i)), 
-                        std::ref(umiQualThreaded.at(i)), std::ref(currentUmisChecked), output ));
+                          std::ref(currentUmisChecked),
+                          std::ref(uniqueUmiToDiffAbScVec.at(i)), std::ref(extendedQualityVec.at(i)), output ));
     }
     printProgress(1);
     for (std::thread &t: workers) 
@@ -600,81 +699,132 @@ void UmiDataParser::extended_umi_quality_check(const int& thread, const std::str
     }
     std::cout << "\n";
 
+    //combine vector for threads while writing
+    writeExtendedData(output, uniqueUmiToDiffAbScVec, extendedQualityVec);
+
 }
 
-void UmiDataParser::umiQualityCheckExtended(const std::vector< std::vector<dataLinePtr> >& uniqueUmis, umiQuality& qualTmp, 
-                                            int& currentUmisChecked, const std::string& output)
+void UmiDataParser::umiQualityCheckExtended(const std::vector< std::vector<dataLinePtr> >& uniqueUmis,
+                                            int& currentUmisChecked, std::vector<std::pair<unsigned long long, unsigned long long>>& uniqueUmiToDiffAbSc, 
+                                            std::vector<umiQualityExtended>& extendedQuality, const std::string& output)
 {
     //first quality check, does a unique umi have always the same AbScIdx
     int tmpCurrentUmisChecked =0;
     int containerSize = rawData.getUniqueUmis().size();
     for(auto uniqueUmi : uniqueUmis)
     {
+        //structures to fill and push back into result vectors
         umiQualityExtended qualExTmp;
-        //for all AbSc combinations of this unique UMI
-        for(int i = 0; i < (uniqueUmi.size() - 1); ++i)
+
+        //tmp values during iteration over reads for same UMI
+        std::vector<std::string> uniqueUmis_1;
+        std::vector<std::string> uniqueUmis_2;
+        std::vector<std::string> uniqueUmis_3;
+        std::vector<std::string> uniqueUmis_4;
+        std::vector<const char*> uniqueUmis_AB;
+
+        std::vector<unsigned long long> AbBarcodeDistribution;
+        std::vector<unsigned long long> BC4Distribution;
+        std::vector<unsigned long long> BC1Distribution;
+        std::vector<unsigned long long> BC2Distribution;
+        std::vector<unsigned long long> BC3Distribution;
+
+        std::unordered_set<std::string> AbScVector;
+        for(int i = 0; i < uniqueUmi.size(); ++i)
         {
-            for(int j = i+1; j < uniqueUmi.size(); ++j)
+
+            dataLinePtr a = uniqueUmi.at(i);
+            //keep unique absc in a vector
+            std::string ab = a->ab_seq;
+            std::string absc = ab + a->cell_seq;
+            //make a unique set of all AbSc possibilities for all reads of same UMI
+            if(AbScVector.find(absc) == AbScVector.end())
             {
-                dataLinePtr a = uniqueUmi.at(i);
-                dataLinePtr b = uniqueUmi.at(j);
-                if(strcmp(a->ab_seq, b->ab_seq)==0 && strcmp(a->cell_seq, b->cell_seq)==0)
-                {
-                    ullong_save_add(qualTmp.sameUmiSameAbSc, 1);
-                }
-                else
-                {
-                    ullong_save_add(qualTmp.sameUmiDiffAbSc, 1);
-                    
-                    // run extended comparison here
-                    if(a->ab_seq != b->ab_seq)
-                    {
-                        ++qualExTmp.numOfABDifferences;
-                    }
+                AbScVector.insert(absc);
+            }
 
-                    std::vector<std::string> aVec = splitByDelimiter(a->cell_seq, ".");
-                    std::vector<std::string> bVec = splitByDelimiter(b->cell_seq, ".");
+            //same for all different barcodes
+            std::vector<const char*>::iterator it = std::find(uniqueUmis_AB.begin(), uniqueUmis_AB.end(), a->ab_seq);
+            if(it == uniqueUmis_AB.end())
+            {
+                uniqueUmis_AB.push_back(a->ab_seq);
+                AbBarcodeDistribution.push_back(1);
+            }
+            else
+            {
+                ++AbBarcodeDistribution.at(std::distance(uniqueUmis_AB.begin(), it));
+            }
 
-                    assert(aVec.size() == 4 && bVec.size() == 4);
-                    if(aVec.at(0) != bVec.at(0))
-                    {
-                        ++qualExTmp.numOfBC4Differences;
-                    }
-                    if(aVec.at(1) != bVec.at(1))
-                    {
-                        ++qualExTmp.numOfBC1Differences;
-                    }
-                    if(aVec.at(2) != bVec.at(2))
-                    {
-                        ++qualExTmp.numOfBC2Differences;
-                    }
-                    if(aVec.at(3) != bVec.at(3))
-                    {
-                        ++qualExTmp.numOfBC3Differences;
-                    }
+            std::vector<std::string> aVec = splitByDelimiter(a->cell_seq, ".");
+            std::cout << a->cell_seq << "\n";
+            assert(aVec.size() == 4);
+            std::vector<std::string>::iterator it2;
 
-                }
+            it2 = std::find(uniqueUmis_4.begin(), uniqueUmis_4.end(), aVec.at(0));
+            std::cout << "checking " << aVec.at(0) << "\n";
+            if(it2 == uniqueUmis_4.end())
+            {
+                uniqueUmis_4.push_back(aVec.at(0));
+                BC4Distribution.push_back(1);
+            }
+            else
+            {
+                ++BC4Distribution.at(std::distance(uniqueUmis_4.begin(), it2));
+            }
+
+            it2 = std::find(uniqueUmis_1.begin(), uniqueUmis_1.end(), aVec.at(1));
+            if(it2 == uniqueUmis_1.end())
+            {
+                uniqueUmis_1.push_back(aVec.at(1));
+                BC1Distribution.push_back(1);
+            }
+            else
+            {
+                ++BC1Distribution.at(std::distance(uniqueUmis_1.begin(), it2));
+            }
+
+            it2 = std::find(uniqueUmis_2.begin(), uniqueUmis_2.end(), aVec.at(2));
+            if(it2 == uniqueUmis_2.end())
+            {
+                uniqueUmis_2.push_back(aVec.at(2));
+                BC2Distribution.push_back(1);
+            }
+            else
+            {
+                ++BC2Distribution.at(std::distance(uniqueUmis_2.begin(), it2));
+            }
+                        
+            it2 = std::find(uniqueUmis_3.begin(), uniqueUmis_3.end(), aVec.at(3));
+            if(it2 == uniqueUmis_3.end())
+            {
+                std::cout << "  insert first\n";
+
+                uniqueUmis_3.push_back(aVec.at(3));
+                BC3Distribution.push_back(1);
+            }
+            else
+            {
+                ++BC3Distribution.at(std::distance(uniqueUmis_3.begin(), it2));
+                std::cout << "  "<< aVec.at(3) << "SIZE: " << uniqueUmis_3.size() << " Ditance: "<< std::distance(uniqueUmis_3.begin(), it2) << " COUNT: "<< BC3Distribution.at(std::distance(uniqueUmis_3.begin(), it2)) << "\n";
+
             }
         }
+
         qualExTmp.numOfUmiOccurences = uniqueUmi.size();
+        qualExTmp.numOfABDifferences = uniqueUmis_AB.size();
+        qualExTmp.numOfBC4Differences = uniqueUmis_4.size();
+        qualExTmp.numOfBC1Differences = uniqueUmis_1.size();
+        qualExTmp.numOfBC2Differences = uniqueUmis_2.size();
+        qualExTmp.numOfBC3Differences = uniqueUmis_3.size();
 
-        std::ofstream outputFile;
-        std::size_t found = output.find_last_of("/");
+        qualExTmp.AbBarcodeDistribution = AbBarcodeDistribution;
+        qualExTmp.BC4Distribution = BC4Distribution;
+        qualExTmp.BC1Distribution = BC1Distribution;
+        qualExTmp.BC2Distribution = BC2Distribution;
+        qualExTmp.BC3Distribution = BC3Distribution;
 
-        //STORE RAW UMI CORRECTED DATA
-        //TODO: delete in beginning if already there !!!
-        std::string umiOutput = output;
-        if(found == std::string::npos)
-        {
-            umiOutput = "UMIQUAL_" + output;
-        }
-        else
-        {
-            umiOutput = output.substr(0,found) + "/" + "UMIQUAL_" + output.substr(found+1);
-        }
-        outputFile.open (umiOutput, std::ofstream::app);
-        outputFile << qualExTmp.numOfUmiOccurences << "\t" << qualExTmp.numOfABDifferences << "\t" << qualExTmp.numOfBC4Differences << "\t" << qualExTmp.numOfBC1Differences << "\t" << qualExTmp.numOfBC2Differences << "\t" << qualExTmp.numOfBC3Differences << "\n"; 
-        outputFile.close();
+        extendedQuality.push_back(qualExTmp);
+        uniqueUmiToDiffAbSc.push_back(std::make_pair<unsigned long long, unsigned long long>(uniqueUmi.size(), AbScVector.size()));
 
         //Update Progress
         ++tmpCurrentUmisChecked;
@@ -687,7 +837,7 @@ void UmiDataParser::umiQualityCheckExtended(const std::vector< std::vector<dataL
             printProgress(perc);
             lock.unlock();
         }
-    }
+    } // UMI end
 }
 
 void UmiDataParser::umiQualityCheck(const std::vector< std::vector<dataLinePtr> >& uniqueUmis, umiQuality& qualTmp, int& currentUmisChecked)
