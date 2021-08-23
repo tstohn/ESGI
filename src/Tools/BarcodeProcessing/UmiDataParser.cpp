@@ -3,7 +3,7 @@
 #include <unordered_set>
 #include <set>
 
-int calcualtePercentages(std::vector<unsigned long long> groups, int num, double perc)
+double calcualtePercentages(std::vector<unsigned long long> groups, int num, double perc)
 {
     double readCount = perc * num;
     int sumOfReads = 0;
@@ -15,7 +15,7 @@ int calcualtePercentages(std::vector<unsigned long long> groups, int num, double
         ++sumBCs;
         if(double(sumOfReads) >= readCount)
         {
-            return(sumBCs/groups.size());
+            return((double)sumBCs/groups.size());
         }
     }
     assert(groups.size() != 0);
