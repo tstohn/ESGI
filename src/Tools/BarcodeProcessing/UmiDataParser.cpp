@@ -8,19 +8,18 @@ int calcualtePercentages(std::vector<unsigned long long> groups, int num, double
     double readCount = perc * num;
     int sumOfReads = 0;
     int sumBCs = 0;
-    std::sort(groups.begin(), groups.end(), std::greater<int>());
+    std::sort(groups.begin(), groups.end(), std::greater<unsigned long long>());
     for(auto el : groups)
     {
-        if(groups.size() > 1){std::cout << "#" << el << "\t" << sumOfReads << "\t" << sumBCs << "\n";}
-
         sumOfReads += el;
         ++sumBCs;
         if(double(sumOfReads) >= readCount)
         {
-            std::cout << "=>" << el << "\t" << sumOfReads << "\t" << sumBCs << " "<< groups.size()<< " : " << sumBCs/groups.size() << "\n";
             return(sumBCs/groups.size());
         }
     }
+    assert(groups.size() != 0);
+    return(-1);
 }
 
 void writeExtendedData(const std::string& output, std::vector<std::vector<std::pair<unsigned long long, unsigned long long>>>& uniqueUmiToAbScVec, 
@@ -70,7 +69,6 @@ void writeExtendedData(const std::string& output, std::vector<std::vector<std::p
     {
         for(int j = 0; j < uniqueUmiToAbScVec.at(i).size(); ++j)
         {
-            std::cout << "|" << i << " " << j << "\n";
             umiQualityExtended qualEx = extendedQualityVec.at(i).at(j);
             outputFile << qualEx.numOfUmiOccurences << "\t" << qualEx.numOfABDifferences << "\t" << 
             qualEx.numOfBC4Differences << "\t" << qualEx.numOfBC1Differences << "\t" << 
@@ -756,12 +754,10 @@ void UmiDataParser::umiQualityCheckExtended(const std::vector< std::vector<dataL
             }
 
             std::vector<std::string> aVec = splitByDelimiter(a->cell_seq, ".");
-            std::cout << a->cell_seq << "\n";
             assert(aVec.size() == 4);
             std::vector<std::string>::iterator it2;
 
             it2 = std::find(uniqueUmis_4.begin(), uniqueUmis_4.end(), aVec.at(0));
-            std::cout << "checking " << aVec.at(0) << "\n";
             if(it2 == uniqueUmis_4.end())
             {
                 uniqueUmis_4.push_back(aVec.at(0));
@@ -797,16 +793,12 @@ void UmiDataParser::umiQualityCheckExtended(const std::vector< std::vector<dataL
             it2 = std::find(uniqueUmis_3.begin(), uniqueUmis_3.end(), aVec.at(3));
             if(it2 == uniqueUmis_3.end())
             {
-                std::cout << "  insert first\n";
-
                 uniqueUmis_3.push_back(aVec.at(3));
                 BC3Distribution.push_back(1);
             }
             else
             {
                 ++BC3Distribution.at(std::distance(uniqueUmis_3.begin(), it2));
-                std::cout << "  "<< aVec.at(3) << "SIZE: " << uniqueUmis_3.size() << " Ditance: "<< std::distance(uniqueUmis_3.begin(), it2) << " COUNT: "<< BC3Distribution.at(std::distance(uniqueUmis_3.begin(), it2)) << "\n";
-
             }
         }
 
