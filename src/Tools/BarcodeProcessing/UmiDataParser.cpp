@@ -1,6 +1,7 @@
 #include "UmiDataParser.hpp"
 #include "helper.hpp"
 #include <unordered_set>
+#include <unordered_map>
 #include <set>
 
 double calcualtePercentages(std::vector<unsigned long long> groups, int num, double perc)
@@ -378,6 +379,8 @@ void UmiDataParser::processBarcodeMapping(const int& umiMismatches, const int& t
     std::vector<std::vector<dataLinePtr> > umiDataThreaded(thread);
     std::vector<std::vector<abLine> > abDataThreaded(thread);
 
+    std::vector<std::vector<dataLinePtr> > dataLinesToDeleteThreaded(thread);
+
     //for every batch calcualte the unique umis with same/different AbSc barcodes
     std::vector<std::thread> workers;
     int currentUmisChecked = 0;
@@ -394,13 +397,39 @@ void UmiDataParser::processBarcodeMapping(const int& umiMismatches, const int& t
         }
     }
     std::cout << "\n";
+
+    //get all datalinePtrs that should be deleted since they are probably background noise (additional reads that are not 90% of AbSC combination for a UMI)
+    std::cout << "Removing false reads by wrong Single Cells IDs for reads of same UMI\n";
+    int currentReadsRemoved = 0;
+    std::vector<dataLinePtr> dataLinesToDelete;
+    for (int i = 0; i < thread; ++i) 
+    {
+        workers.push_back(std::thread(&UmiDataParser::removeFalseSingleCellsFromUmis, this, std::ref(independantUmiBatches.at(i)), std::ref(currentReadsRemoved),
+        std::ref(dataLinesToDeleteThreaded.at(i))
+        ));
+    }
+    printProgress(1);
+    for (std::thread &t: workers) 
+    {
+        if (t.joinable()) {
+            t.join();
+        }
+    }
+    for (int i = 0; i < thread; ++i) 
+    {
+        //combine threaded data
+        dataLinesToDelete.insert(dataLinesToDelete.end(), dataLinesToDeleteThreaded.at(i).begin(), dataLinesToDeleteThreaded.at(i).end());
+    }
+    std::cout << "\n";
+
+
     //for every batch calculate an UmiData and ABData vector and stats
     int currentUmisCorrected = 0;
     std::cout << "Correcting UMIs and counting ABs\n";
     for (int i = 0; i < thread; ++i) 
     {
         workers.push_back(std::thread(&UmiDataParser::correctUmis, this, std::ref(umiMismatches), std::ref(umiStatsThreaded.at(i)), std::ref(umiDataThreaded.at(i)),
-                          std::ref(abDataThreaded.at(i)), std::ref(independantAbScBatches.at(i)), std::ref(currentUmisCorrected) ));
+                          std::ref(abDataThreaded.at(i)), std::ref(independantAbScBatches.at(i)), std::ref(currentUmisCorrected), std::ref(dataLinesToDelete)));
     }
     printProgress(1);
     for (std::thread &t: workers) 
@@ -437,9 +466,19 @@ void UmiDataParser::processBarcodeMapping(const int& umiMismatches, const int& t
     }
 }
 
+bool UmiDataParser::checkDataLineValidityDueToUmiBackground(const dataLinePtr& line, const std::vector<dataLinePtr>& dataLinesToDelete)
+{
+    if(std::find(dataLinesToDelete.begin(), dataLinesToDelete.end(),line) != dataLinesToDelete.end())
+    {
+        return true;
+    }
+    return false;
+}
+
 //correct for mismatches in the UMI
 void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, std::vector<dataLinePtr>& umiDataTmp, std::vector<abLine>& abDataTmp, 
-                                const std::vector<std::vector<dataLinePtr> >& AbScBucket, int& currentUmisCorrected)
+                                const std::vector<std::vector<dataLinePtr> >& AbScBucket, int& currentUmisCorrected, 
+                                const std::vector<dataLinePtr>& dataLinesToDelete)
 {
     //correct for UMI mismatches and fill the AbCountvector
     //iterate through same AbScIdx, calculate levenshtein dist for all UMIs and match those with a certain number of mismatches
@@ -456,8 +495,18 @@ void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, st
         //for umis with several occurences the last occurence will increment the count, the very last UMI is never checked and is always
         //incrementing the count, therefore initialized with 1
         
+        //we take always first element in vector of read of same AB and SC ID
+        //then store all reads wwhere UMIs are within distance, and delete those line, and sum up the AB count by one
         while(!uniqueAbSc.empty())
         {
+            //check if we have to delete element anyways, since it s a read of false UMI background
+            //in this case we simply delete this line and check the next one
+            if(checkDataLineValidityDueToUmiBackground(uniqueAbSc.at(0), dataLinesToDelete))
+            {
+                uniqueAbSc.pop_back();
+                continue;
+            }
+
             //if in last element
             if(uniqueAbSc.size() == 1)
             {
@@ -538,7 +587,7 @@ void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, st
         }
 
         abLineTmp.ab_cout = abCount;
-        abDataTmp.push_back(abLineTmp);
+        if(abCount>0){abDataTmp.push_back(abLineTmp);}
 
         ++tmpCurrentUmisCorrected;
         if((containerSize >= 100) && (tmpCurrentUmisCorrected % (containerSize / 100) == 0))
@@ -856,6 +905,68 @@ void UmiDataParser::umiQualityCheck(const std::vector< std::vector<dataLinePtr> 
                 }
             }
         }
+        ++tmpCurrentUmisChecked;
+        if( (containerSize >= 100) && (tmpCurrentUmisChecked % (containerSize / 100) == 0) )
+        {
+            lock.lock();
+            currentUmisChecked += tmpCurrentUmisChecked;
+            tmpCurrentUmisChecked = 0;
+            double perc = currentUmisChecked/ (double) containerSize;
+            printProgress(perc);
+            lock.unlock();
+        }
+    }
+}
+
+void UmiDataParser::removeFalseSingleCellsFromUmis(const std::vector< std::vector<dataLinePtr> >& uniqueUmis, int& currentUmisChecked,
+                                                                       std::vector<dataLinePtr>& dataLinesToDelete)
+{
+    // go over UMi data: safe all ABSc combos that have to be deleted
+    //delete by Ab_id, sc_id and umi_id
+    int containerSize = rawData.getUniqueUmis().size();
+    int tmpCurrentUmisChecked =0;
+    for(auto uniqueUmi : uniqueUmis)
+    {
+        //for all AbSc combinations of this unique UMI
+        std::unordered_map<std::string, long> umiCountMap;
+        for(int i = 0; i < uniqueUmi.size(); ++i)
+        {
+            std::unordered_map<std::string, long>::iterator umiCountMapIt = umiCountMap.find(uniqueUmi.at(i)->cell_seq);
+            if( umiCountMapIt != umiCountMap.end())
+            {
+                ++(umiCountMapIt->second);
+            }
+            else
+            {
+                umiCountMap.insert(std::make_pair(uniqueUmi.at(i)->cell_seq, 1));
+            }
+        }
+
+        std::string realSingleCellID;
+        bool realSingleCellExists = false;
+        for(auto singleCellCountPair : umiCountMap)
+        {
+            double singleCellPerc = singleCellCountPair.second/umiCountMap.size();
+            if( singleCellPerc >= 0.9 )
+            {
+                realSingleCellID = singleCellCountPair.first;
+                realSingleCellExists = true;
+            }
+        }
+
+        if(!realSingleCellExists){continue;}
+        else
+        {
+            for(int i = 0; i < uniqueUmi.size(); ++i)
+            {
+                if(uniqueUmi.at(i)->cell_seq != realSingleCellID)
+                {
+                    dataLinesToDelete.push_back(uniqueUmi.at(i));
+                }
+            }
+
+        }
+
         ++tmpCurrentUmisChecked;
         if( (containerSize >= 100) && (tmpCurrentUmisChecked % (containerSize / 100) == 0) )
         {

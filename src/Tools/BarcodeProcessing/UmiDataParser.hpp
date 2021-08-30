@@ -94,7 +94,11 @@ class UmiDataParser
         void addFastqReadToUmiData(const std::string& line, const int& elements);
         void parseBarcodeLines(std::istream* instream, const int& totalReads, int& currentReads);
         void correctUmis(const int& umiMismatches, StatsUmi& statsTmp, std::vector<dataLinePtr>& umiDataTmp, std::vector<abLine>& abDataTmp, 
-                         const std::vector<std::vector<dataLinePtr> >& AbScBucket, int& currentUmisCorrected);
+                         const std::vector<std::vector<dataLinePtr> >& AbScBucket, int& currentUmisCorrected, 
+                         const std::vector<dataLinePtr>& dataLinesToDelete);
+        bool checkDataLineValidityDueToUmiBackground(const dataLinePtr& line, const std::vector<dataLinePtr>& dataLinesToDelete);
+
+        void removeFalseSingleCellsFromUmis(const std::vector< std::vector<dataLinePtr> >& uniqueUmis, int& currentUmisChecked, std::vector<dataLinePtr>& dataLinesToDelete);
         void correctUmisWithStats(const int& umiMismatches, StatsUmi& statsTmp, std::vector<dataLinePtr>& umiDataTmp, std::vector<abLine>& abDataTmp, 
                          const std::vector<std::vector<dataLinePtr> >& AbScBucket, int& currentUmisCorrected);
 

@@ -60,14 +60,14 @@ class UmiData
             return uniqueChars;
         }
         //return functions for our data, based on positions, UMI or AB/ SC barcodes
-        inline const std::vector<dataLinePtr> getData() const
+        /*inline const std::vector<dataLinePtr> getData() const
         {
             return data;
         }
         inline dataLinePtr getDataAt(int pos) const
         {
             return data.at(pos);
-        }
+        }*/
         inline std::vector<dataLinePtr> getDataWithUmi(const char* umi) const
         {
             return positionsOfUmi.at(umi);
@@ -120,7 +120,7 @@ class UmiData
         void addDataLine(dataLinePtr line)
         {
             //1.) ADD LINE
-            data.push_back(line);
+            //data.push_back(line);
 
             //2.) INSERT UMI POSITIONS
             //if umi already exists also store this new position
@@ -160,7 +160,7 @@ class UmiData
             return id;
         }
 
-        std::vector<dataLinePtr> data;
+        //std::vector<dataLinePtr> data;
         std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator> positionsOfUmi;
         std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator> positonsOfABSingleCell;
 
