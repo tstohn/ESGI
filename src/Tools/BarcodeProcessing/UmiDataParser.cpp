@@ -927,6 +927,15 @@ void UmiDataParser::removeFalseSingleCellsFromUmis(const std::vector< std::vecto
     int tmpCurrentUmisChecked =0;
     for(auto uniqueUmi : uniqueUmis)
     {
+        //delete reads of UMIs with less than 10 reads
+        if(uniqueUmi.size() < 10)
+        {
+            for(int i = 0; i < uniqueUmi.size(); ++i)
+            {
+                dataLinesToDelete.push_back(uniqueUmi.at(i));
+            }
+            continue;
+        }
         //for all AbSc combinations of this unique UMI
         std::unordered_map<std::string, long> umiCountMap;
         for(int i = 0; i < uniqueUmi.size(); ++i)
