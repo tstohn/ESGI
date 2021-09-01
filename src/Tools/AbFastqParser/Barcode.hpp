@@ -99,6 +99,11 @@ class VariableBarcode : public Barcode
     bool is_wildcard(){return false;}
 
     private:
+    // IMPROVE FUNCTION:
+    //      window size is: bases unmatched at end of previous sequence + mismatches for this barcode
+    //      instead of one long seq with more allowed mismatches: move along a window and get barcode
+
+    // first only for number of skipped bases call a sequences window; if this leads to nothing add more windows until number mismatches in barcode is reached
     bool private_match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, std::string& realBarcode, fastqStats& stats, bool allowMismatches)
     {
         int match_count = 0;

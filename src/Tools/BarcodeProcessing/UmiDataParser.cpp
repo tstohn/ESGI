@@ -1,5 +1,6 @@
 #include "UmiDataParser.hpp"
 #include "helper.hpp"
+
 #include <unordered_set>
 #include <unordered_map>
 #include <set>
@@ -184,21 +185,6 @@ void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, C
         *treatmentDict = barcodeList.at(treatmentIdx);
     }
 
-}
-
-std::vector<std::string> splitByDelimiter(std::string line, const std::string& del)
-{
-    std::vector<std::string> tokens;
-    size_t pos = 0;
-    std::string token;
-    while ((pos = line.find(del)) != std::string::npos) {
-        token = line.substr(0, pos);
-        tokens.push_back(token);
-        line.erase(0, pos + del.length());
-    }
-    tokens.push_back(line);
-
-    return tokens;
 }
 
 void UmiDataParser::parseFile(const std::string fileName, const int& thread)

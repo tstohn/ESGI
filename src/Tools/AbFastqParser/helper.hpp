@@ -107,7 +107,7 @@ struct frontMatrix
     frontMatrix(unsigned int m, unsigned int n): previous(m+n+3, UINT_MAX), current(m+n+3, UINT_MAX){}
 };
 //calculate longest common prefix of two sequences
-int lcp(const std::string& a, const std::string& b)
+inline int lcp(const std::string& a, const std::string& b)
 {
     unsigned int lcp = 0;
     unsigned int a_len = a.length();
@@ -122,7 +122,7 @@ int lcp(const std::string& a, const std::string& b)
 }
 //calculates the next front
 //idea: how far along all the diagonals that r within x-mismatches can i go in my edit-matrix with x-mismatches
-void front(const std::string& a, const std::string& b, frontMatrix& f)
+inline void front(const std::string& a, const std::string& b, frontMatrix& f)
 {
     unsigned int min = MIN(a.length(), f.d);
     unsigned int max = MIN(b.length(), f.d);
@@ -337,7 +337,7 @@ inline bool levenshtein(const std::string sequence, std::string pattern, const i
     return false;
 }
 
-void ullong_save_add(unsigned long long& a, const unsigned long long& b)
+inline void ullong_save_add(unsigned long long& a, const unsigned long long& b)
 {
    if( (b>0) && ( (ULLONG_MAX - b) < a ) )
    {
@@ -348,4 +348,19 @@ void ullong_save_add(unsigned long long& a, const unsigned long long& b)
    {
        a += b;
    }
+}
+
+inline std::vector<std::string> splitByDelimiter(std::string line, const std::string& del)
+{
+    std::vector<std::string> tokens;
+    size_t pos = 0;
+    std::string token;
+    while ((pos = line.find(del)) != std::string::npos) {
+        token = line.substr(0, pos);
+        tokens.push_back(token);
+        line.erase(0, pos + del.length());
+    }
+    tokens.push_back(line);
+
+    return tokens;
 }

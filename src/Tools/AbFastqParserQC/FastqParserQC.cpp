@@ -10,6 +10,8 @@
 #include <boost/program_options/options_description.hpp>
 
 #include "UmiDataParser.hpp"
+#include "helper.hpp"
+#include "dataTypes.hpp"
 
 using namespace boost::program_options;
 
@@ -23,9 +25,15 @@ using namespace boost::program_options;
 
 */
 
+struct umiRead
+{
+    const char* sc;
+    const char* ab;
+};
+
 bool parse_arguments(char** argv, int argc, std::string& inputFails, std::string& inputBarcodeMapping, std::string& output, 
                      int& abIdx, int& treatmentIdx, int& threads, std::string& barcodeFile, std::string& barcodeIndices,
-                     std::string& seqpattern, int& mismatches)
+                     std::string& seqpattern, int& mismatches,std::string& correctredUmiFile)
 {
     try
     {
@@ -51,6 +59,7 @@ bool parse_arguments(char** argv, int argc, std::string& inputFails, std::string
             combinatorial indexing and should distinguish a unique cell. Be aware that this is the index of the line inside the barcodeList file (see above). \
             This file ONLY includes lines for the varying sequences (except UMI). Therefore the index is not the same as the position in the whole sequence \
             if constant or UMI-seq are present. Index starts with zero.")
+            ("correctredUmiFile,u", value<std::string>(&correctredUmiFile)->required(), "output file of barcode mapping with the corrected UMI reads (+ AB and SC ids)")
 
             ("thread,t", value<int>(&threads)->default_value(5), "number of threads")
 
@@ -110,6 +119,113 @@ void analyse_same_umis(std::string& inputBarcodeMapping, std::string& output, in
     dataParser.extended_umi_quality_check(threads, output);
 }
 
+void analyse_corrected_umis(const std::string& correctredUmiFile, const std::string& output)
+{
+    //remove previous file and open for reading as append later
+    std::ifstream barcodeFileStream(correctredUmiFile);
+    std::ofstream outputFile;
+    std::size_t found = output.find_last_of("/");
+    std::string umiOutput = output;
+    if(found == std::string::npos)
+    {
+        umiOutput = "UMICORRECTED_" + output;
+    }
+    else
+    {
+        umiOutput = output.substr(0,found) + "/" + "UMICORRECTED_" + output.substr(found+1);
+    }
+    std::remove(umiOutput.c_str());
+    outputFile.open (umiOutput, std::ofstream::app);
+    outputFile << "UMI\tREAD_COUNT\tPERCENTAGES\n";
+    outputFile.close();
+
+    //dict storing for each Umi all reads
+    std::unordered_map<const char*, std::vector<umiRead>, CharHash, CharPtrComparator> umiToDatalines;
+    UniqueCharSet uniqueChars;
+    int currentLineCount = 0;
+    int totalDataSize = totalNumberOfLines(correctredUmiFile);
+
+    std::cout << "Reading Data into Memory\n";
+    for(std::string line; std::getline(barcodeFileStream, line);)
+    {
+        std::string delimiter = "\t";
+        std::vector<std::string> splitLine = splitByDelimiter(line, delimiter);
+        if(strcmp(splitLine.at(0).c_str(),"UMI") == 0){continue;}
+        //order in vector: UMI AB_BARCODE SC_BCID_COMBINATION
+        umiRead newRead;
+        newRead.ab = uniqueChars.getUniqueChar(splitLine.at(1).c_str());
+        newRead.sc = uniqueChars.getUniqueChar(splitLine.at(2).c_str());
+
+        if(umiToDatalines.find(uniqueChars.getUniqueChar(splitLine.at(0).c_str())) == umiToDatalines.end())
+        {
+            std::vector<umiRead> vec;
+            vec.push_back(newRead);
+            umiToDatalines.insert(std::make_pair(uniqueChars.getUniqueChar(splitLine.at(0).c_str()), vec));
+        }
+        //if not add this new umi with this actual position to map
+        else
+        {
+            umiToDatalines[uniqueChars.getUniqueChar(splitLine.at(0).c_str())].push_back(newRead);
+        }
+
+        ++currentLineCount;
+        if( (totalDataSize >= 100) && (currentLineCount % (totalDataSize / 100) == 0) )
+        {
+            double perc = currentLineCount/ (double) totalDataSize;
+            printProgress(perc);
+        }
+    }
+
+    //for each umi calculate a vector of percentages
+    std::cout << "\nCalculate read distributions for UMI\n";
+    currentLineCount = 0;
+    totalDataSize = umiToDatalines.size();
+    for (std::unordered_map<const char*, std::vector<umiRead>, CharHash, CharPtrComparator>::iterator umiIt = umiToDatalines.begin(); 
+         umiIt != umiToDatalines.end(); ++umiIt)
+    {
+        std::string umiSeq = umiIt->first;
+        std::vector<umiRead> reads = umiIt->second;
+        unsigned long totalCount = reads.size();
+        std::vector<double> percReads;
+        while(!reads.empty())
+        {
+            std::vector<umiRead> newReads;
+            umiRead read = reads.at(0);
+            unsigned long readCount = 1;
+            for(int i =1; i < reads.size(); ++i)
+            {
+
+                if(strcmp(read.ab, reads.at(i).ab) == 0 && strcmp(read.sc, reads.at(i).sc))
+                {
+                    ++readCount;
+                }
+                else
+                {
+                    newReads.push_back(reads.at(i));
+                }
+            }
+            reads = newReads;
+            percReads.push_back(double(readCount)/totalCount);
+        }
+
+        // write UMI, numer of reads and percentages to file
+        outputFile.open (umiOutput, std::ofstream::app);
+        for(int i = 0; i < percReads.size(); ++i)
+        {
+                outputFile << umiSeq << "\t" << "\t" << totalCount << "\t" << percReads.at(i) <<  "\n"; 
+        }
+        outputFile.close();
+
+        ++currentLineCount;
+        if( (totalDataSize >= 100) && (currentLineCount % (totalDataSize / 100) == 0) )
+        {
+            double perc = currentLineCount/ (double) totalDataSize;
+            printProgress(perc);
+        }
+    }
+}
+
+
 int main(int argc, char** argv)
 {
     std::string inputFails;
@@ -119,15 +235,19 @@ int main(int argc, char** argv)
     std::string barcodeFile;
     std::string barcodeIndices;
     std::string seqpattern;
+    std::string correctredUmiFile;
 
     int abIdx;
     int treatmentIdx;
     int threads;
     int mismatches;
-    if(parse_arguments(argv, argc, inputFails, inputBarcodeMapping, output, abIdx, treatmentIdx, threads, barcodeFile, barcodeIndices, seqpattern, mismatches))
+    if(parse_arguments(argv, argc, inputFails, inputBarcodeMapping, output, abIdx, treatmentIdx, threads, 
+                       barcodeFile, barcodeIndices, seqpattern, mismatches, correctredUmiFile))
     {
-        analyse_same_umis(inputBarcodeMapping, output, abIdx, threads, barcodeFile, barcodeIndices);
-        analyse_failed_lines(inputFails);
+
+        //analyse_same_umis(inputBarcodeMapping, output, abIdx, threads, barcodeFile, barcodeIndices);
+        analyse_corrected_umis(correctredUmiFile, output);
+        //analyse_failed_lines(inputFails);
     }
  
     return EXIT_SUCCESS;
