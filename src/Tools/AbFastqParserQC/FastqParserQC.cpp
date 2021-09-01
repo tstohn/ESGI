@@ -183,7 +183,7 @@ void analyse_corrected_umis(const std::string& correctredUmiFile, const std::str
     for (std::unordered_map<const char*, std::vector<umiRead>, CharHash, CharPtrComparator>::iterator umiIt = umiToDatalines.begin(); 
          umiIt != umiToDatalines.end(); ++umiIt)
     {
-        std::string umiSeq = umiIt->first;
+        const char* umiSeq = umiIt->first;
         std::vector<umiRead> reads = umiIt->second;
         unsigned long totalCount = reads.size();
         std::vector<double> percReads;
@@ -195,7 +195,7 @@ void analyse_corrected_umis(const std::string& correctredUmiFile, const std::str
             for(int i =1; i < reads.size(); ++i)
             {
 
-                if(strcmp(read.ab, reads.at(i).ab) == 0 && strcmp(read.sc, reads.at(i).sc))
+                if( read.ab == reads.at(i).ab && read.sc == reads.at(i).sc)
                 {
                     ++readCount;
                 }
@@ -245,9 +245,9 @@ int main(int argc, char** argv)
                        barcodeFile, barcodeIndices, seqpattern, mismatches, correctredUmiFile))
     {
 
-        analyse_same_umis(inputBarcodeMapping, output, abIdx, threads, barcodeFile, barcodeIndices);
+        //analyse_same_umis(inputBarcodeMapping, output, abIdx, threads, barcodeFile, barcodeIndices);
         analyse_corrected_umis(correctredUmiFile, output);
-        analyse_failed_lines(inputFails);
+        //analyse_failed_lines(inputFails);
     }
  
     return EXIT_SUCCESS;
