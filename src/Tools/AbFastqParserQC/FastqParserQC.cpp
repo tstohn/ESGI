@@ -245,9 +245,9 @@ int main(int argc, char** argv)
                        barcodeFile, barcodeIndices, seqpattern, mismatches, correctredUmiFile))
     {
 
-        //analyse_same_umis(inputBarcodeMapping, output, abIdx, threads, barcodeFile, barcodeIndices);
+        analyse_same_umis(inputBarcodeMapping, output, abIdx, threads, barcodeFile, barcodeIndices);
         analyse_corrected_umis(correctredUmiFile, output);
-        //analyse_failed_lines(inputFails);
+        analyse_failed_lines(inputFails);
     }
  
     return EXIT_SUCCESS;
