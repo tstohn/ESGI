@@ -128,11 +128,11 @@ void analyse_corrected_umis(const std::string& correctredUmiFile, const std::str
     std::string umiOutput = output;
     if(found == std::string::npos)
     {
-        umiOutput = "UMICORRECTED_" + output;
+        umiOutput = "QC_CorrectedUmiDist_" + output;
     }
     else
     {
-        umiOutput = output.substr(0,found) + "/" + "UMICORRECTED_" + output.substr(found+1);
+        umiOutput = output.substr(0,found) + "/" + "QC_CorrectedUmiDist_" + output.substr(found+1);
     }
     std::remove(umiOutput.c_str());
     outputFile.open (umiOutput, std::ofstream::app);
@@ -212,7 +212,7 @@ void analyse_corrected_umis(const std::string& correctredUmiFile, const std::str
         outputFile.open (umiOutput, std::ofstream::app);
         for(int i = 0; i < percReads.size(); ++i)
         {
-                outputFile << umiSeq << "\t" << "\t" << totalCount << "\t" << percReads.at(i) <<  "\n"; 
+                outputFile << umiSeq << "\t" << totalCount << "\t" << percReads.at(i) <<  "\n"; 
         }
         outputFile.close();
 
@@ -245,7 +245,7 @@ int main(int argc, char** argv)
                        barcodeFile, barcodeIndices, seqpattern, mismatches, correctredUmiFile))
     {
 
-        //analyse_same_umis(inputBarcodeMapping, output, abIdx, threads, barcodeFile, barcodeIndices);
+        analyse_same_umis(inputBarcodeMapping, output, abIdx, threads, barcodeFile, barcodeIndices);
         analyse_corrected_umis(correctredUmiFile, output);
         //analyse_failed_lines(inputFails);
     }
