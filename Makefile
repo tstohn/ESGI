@@ -6,9 +6,9 @@ install:
 
 #parse fastq lines and map abrcodes to each sequence
 parser:
-	g++ src/Tools/AbFastqParser/FastqParser.cpp -o bin/parser -pthread -lz -lboost_program_options -I ./Tools/ --std=c++17
+	g++ src/Tools/AbFastqParser/FastqParser.cpp -o bin/parser -pthread -lz -lboost_program_options -I ./Tools/ -I ./src/lib --std=c++17
 
-parserQC:
+qualityControl:
 	g++ -c src/Tools/BarcodeProcessing/UmiDataParser.cpp -I ./Tools/ -I ./src/lib -I ./src/Tools/AbFastqParser --std=c++17
 	g++ -c src/Tools/AbFastqParserQC/FastqParserQC.cpp -I ./Tools/ -I ./src/Tools/AbFastqParser -I ./src/Tools/BarcodeProcessing -I ./src/lib --std=c++17
 	g++ FastqParserQC.o UmiDataParser.o -o ./bin/parserQC -lpthread -lz -lboost_program_options -lboost_iostreams

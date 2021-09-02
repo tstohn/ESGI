@@ -244,8 +244,9 @@ int main(int argc, char** argv)
     if(parse_arguments(argv, argc, inputFails, inputBarcodeMapping, output, abIdx, treatmentIdx, threads, 
                        barcodeFile, barcodeIndices, seqpattern, mismatches, correctredUmiFile))
     {
-
+        //analyse the read number per UMI, distribution of BC combinations, etc
         analyse_same_umis(inputBarcodeMapping, output, abIdx, threads, barcodeFile, barcodeIndices);
+        //after BarcodeProcessing (UMI MisMatch correction) analyze the occurence of UMIs: number of reads, BC combination percentages
         analyse_corrected_umis(correctredUmiFile, output);
         //analyse_failed_lines(inputFails);
     }
