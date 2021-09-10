@@ -22,7 +22,7 @@ processing:
 #small test script for the parser, includes 1 perfect match, 6 matches with different types of mismatches below threshold, 2 mismatches above threshold
 #and four mismatches due to barcodes that can not be uniquely identified
 testParser:
-	./bin/parser -i ./src/test/test_data/inFastqTest.fastq -o ./Output/output.tsv -p [NNNN][ATCAGTCAACAGATAAGCGA][NNNN][XXX][TTT] -m 1,2,1,1,1 -t 1 -b ./src/test/test_data/barcodeFile.txt
+	./bin/parser -i ./src/test/test_data/inFastqTest.fastq -o ./Output/output.tsv -p [NNNN][ATCAGTCAACAGATAAGCGA][NNNN][XXX][GATCAT] -m 1,4,1,1,2 -t 1 -b ./src/test/test_data/barcodeFile.txt
 	diff ./src/test/test_data/BarcodeMapping_output.tsv ./Output/BarcodeMapping_output.tsv
 	diff ./src/test/test_data/StatsBarcodeMappingErrors_output.tsv ./Output/StatsBarcodeMappingErrors_output.tsv
 

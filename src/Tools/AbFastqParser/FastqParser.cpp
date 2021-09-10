@@ -226,14 +226,14 @@ bool split_line_into_barcode_mappings(const std::string& seq, input* input, Barc
 {
     //temporary vecotr of all matches
     std::vector<std::string> barcodeSequences;
-
+    std::cout << "++++++++++++++++++++++\n";
     //iterate over BarcodeMappingVector
     int offset = 0;
     int score_sum = 0;
 
     int old_offset = offset;
     bool wildCardToFill = false;
-    int wildCardLength = 0;
+    int wildCardLength = 0, differenceInBarcodeLength = 0;
     for(BarcodePatternVector::iterator patternItr = barcodePatterns->begin(); 
         patternItr < barcodePatterns->end(); 
         ++patternItr)
@@ -241,21 +241,31 @@ bool split_line_into_barcode_mappings(const std::string& seq, input* input, Barc
         //if we have a wildcard skip this matching, we match again the next sequence
         if((*patternItr)->is_wildcard())
         {
+            std::cout << "searching wildcard between: ";
             old_offset = offset;
             wildCardLength = (*patternItr)->get_patterns().at(0).length();
             offset += wildCardLength;
             wildCardToFill = true;
+            std::cout << old_offset << " " << offset << "\n";
             continue;
         }
         //for every barcodeMapping element find a match
         std::string realBarcode = ""; //the actual real barcode that we find (mismatch corrected)
         int start=0, end=0, score = 0;
-        if(!(*patternItr)->match_pattern(seq, offset, start, end, score, realBarcode, stats))
+        std::cout << offset << "\n";
+        bool startCorrection = false;
+        if(wildCardToFill){startCorrection = true;} // sart correction checks if we have to move our mapping window to the 5' direction
+        // could happen in the case of deletions in the UMI sequence...
+        if(!(*patternItr)->match_pattern(seq, offset, start, end, score, realBarcode, differenceInBarcodeLength, stats, startCorrection))
         {
             ++stats.noMatches;
+            std::cout << "fail" << offset << "\n";
             return false;
         }
 
+        std::cout << "mapped to " << offset + start << "-" << end - start << " " << realBarcode << "\n";
+
+        differenceInBarcodeLength = realBarcode.length() - (end-start);
         std::string mappedBarcode = seq.substr(offset + start, end-start);
         offset += end;
         score_sum += score;
@@ -270,9 +280,12 @@ bool split_line_into_barcode_mappings(const std::string& seq, input* input, Barc
         if(wildCardToFill == true)
         {
             wildCardToFill = false;
+            startCorrection = false;
             std::string oldWildcardMappedBarcode = seq.substr(old_offset, (offset+start-end) - old_offset);
             barcodeMap.emplace_back(std::make_shared<std::string>(oldWildcardMappedBarcode));
             realBarcodeMap.emplace_back(std::make_shared<std::string>(oldWildcardMappedBarcode));
+            std::cout << "wildcard anchor ppts: " << old_offset << " " << offset << " " << start << " " << end << "\n";
+            std::cout << "define widlcard in between: " << oldWildcardMappedBarcode << " "<< old_offset << " " << (offset+start-end) - old_offset << "\n";
         }
         //add this match to the BarcodeMapping
         barcodeMap.emplace_back(std::make_shared<std::string>(mappedBarcode));
