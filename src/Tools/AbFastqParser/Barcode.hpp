@@ -45,21 +45,23 @@ class ConstantBarcode : public Barcode
         bool offsetShiftBool = false;
         int offsetShiftValue = 0;
         //increment offset each round
-        while(!private_match_pattern(sequence, tmpOffset, offsetShiftValue, seq_start, seq_end,score ,
-                                     realBarcode ,stats, offsetShiftBool, startCorrection) && (tries > 0) )
+        while(tries >= 0)
         {
+            bool matchResult = private_match_pattern(sequence, tmpOffset, offsetShiftValue, seq_start, seq_end,score ,
+                                     realBarcode ,stats, offsetShiftBool, startCorrection);
+            if(matchResult){return true;}
+
             if( (++tmpOffset) > sequence.length() )
             {
-                break;
+                return false;
             }
+            
             offsetShiftBool = true;
             ++offsetShiftValue;
             --tries;
-
-            if(tries == 0){return false;} //if also the last try failed
         }
-        //if a match pattern worked return true
-        return true;
+        //if no mapping for each try worked
+        return false;
     }
     std::vector<std::string> get_patterns()
     {
@@ -127,9 +129,13 @@ class VariableBarcode : public Barcode
         int offsetShiftValue = 0;
         int tmpScore = mismatches + 1;
         int numberOfSameScoreResults = 0;
-        while(!private_match_pattern(sequence, tmpOffset, offsetShiftValue, seq_start, seq_end,score ,
-                                     realBarcode ,stats, offsetShiftBool, startCorrection) && (tries > 0) )
+        while(tries >= 0)
         {
+            bool matchResult = private_match_pattern(sequence, tmpOffset, offsetShiftValue, seq_start, seq_end,score ,
+                                     realBarcode ,stats, offsetShiftBool, numberOfSameScoreResults, startCorrection);
+
+            if(matchResult && score == 0){return true;}
+            
             if( (++tmpOffset) > sequence.length() )
             {
                 break;
@@ -140,20 +146,14 @@ class VariableBarcode : public Barcode
 
             //if we iterate through several windows, make sure we do not find multiple euqally good solutions
             //equally good solutions within ONE window are handled in private_match_pattern
-            if( (tries>1) && score != 0)
-            {
+            
                 if(tmpScore == score)
                 {
                     ++numberOfSameScoreResults;
                 }
-                else if(tmpScore > score)
-                {
-                    numberOfSameScoreResults = 0;
-                }
                 tmpScore = score;
-            }
 
-            if(tries == 0){return false;} //if also the last try failed
+            if( (tries < 0) && (score > mismatches)){return false;} //if also the last try failed
         }
 
         if(numberOfSameScoreResults > 0){return false;}
@@ -173,7 +173,7 @@ class VariableBarcode : public Barcode
 
     // first only for number of skipped bases call a sequences window; if this leads to nothing add more windows until number mismatches in barcode is reached
     bool private_match_pattern(std::string sequence, const int& offset, const int& offsetShiftValue, int& seq_start, int& seq_end, int& score, 
-                               std::string& realBarcode, fastqStats& stats, const bool& offsetShiftBool, bool startCorrection = false)
+                               std::string& realBarcode, fastqStats& stats, const bool& offsetShiftBool, int& numberOfSameScoreResults, bool startCorrection = false)
     {
         int match_count = 0;
         bool found_match = false;
@@ -236,6 +236,7 @@ class VariableBarcode : public Barcode
         //compare all results for different patterns
         if(match_count == 0)
         {
+            numberOfSameScoreResults = 0;
             return false;
         }
         else if(match_count > 1)
@@ -251,6 +252,7 @@ class VariableBarcode : public Barcode
             }
 
             ++stats.multiBarcodeMatch;
+            ++numberOfSameScoreResults;
 
             return false;
         }
@@ -265,6 +267,7 @@ class VariableBarcode : public Barcode
                 seq_start = seq_start-mismatches;
                 seq_end = seq_end-mismatches;
             }
+            numberOfSameScoreResults = 0;
 
             return true;
         }
