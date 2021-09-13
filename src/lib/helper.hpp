@@ -346,6 +346,7 @@ int backBarcodeMappingExtension(const std::string& sequence, const std::string& 
     //check if the end of sequebnces still maps for deletions
     for(int i =0; i < (pattern.length() - patternEnd); ++i)
     {
+        if( (seq_end + i) >= sequence.length()){return elongation;} //special case, the sequence ends before finishing of the whole pattern
         if( sequence.at(seq_end+i) == pattern.at(patternEnd + i) )
         {
             ++elongation;

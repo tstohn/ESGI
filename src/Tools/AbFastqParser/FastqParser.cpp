@@ -257,6 +257,7 @@ bool split_line_into_barcode_mappings(const std::string& seq, input* input, Barc
             ++stats.noMatches;
             return false;
         }
+
         //set the length difference after barcode mapping
         //for the case of insertions inside the barcode sequence set the difference explicitely to zero 
         //(we only focus on deletions that we can not distinguish from substitutions)

@@ -158,6 +158,7 @@ class VariableBarcode : public Barcode
 
         if( (numberOfSameScoreResults == 0) && (score <= mismatches)){return true;}
         //if a match pattern worked return true
+
         return false;
     }
     std::vector<std::string> get_patterns()
@@ -197,6 +198,7 @@ class VariableBarcode : public Barcode
                     seq_end = seq_end+offsetShiftValue;
                 }
                 int diffEnd = pattern.length()-endInPattern;
+
                 if(diffEnd != 0)
                 {
                     std::string subSequenceElongated = sequence.substr(offset, pattern.length() + diffEnd);
@@ -206,6 +208,7 @@ class VariableBarcode : public Barcode
                         seq_end += extension;
                     }
                 }
+
                 if( (startInPattern > 0) && (offset >startInPattern) && startCorrection )
                 {
                     //we have startInPattern additional bases to check before sequence

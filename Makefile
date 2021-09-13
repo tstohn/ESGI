@@ -33,3 +33,7 @@ testProcessing:
 	diff ./src/test/test_data/UMIprocessed_out ./Output/sortedUMIprocessed_out.tsv 
 	diff ./src/test/test_data/STATSprocessed_out ./Output/STATSprocessed_out.tsv
 	diff ./src/test/test_data/ABprocessed_out ./Output/ABprocessed_out.tsv
+
+bigTest:
+	./bin/parser -i /Users/t.stohn/Desktop/test2000fastq.gz -o ./Output/output.tsv -p [NNNNNNNN][CTTGTGGAAAGGACGAAACACCG][XXXXXXXXXXXXXXX][NNNNNNNNNN][GTTTTAGAGCTAGAAATAGCAA][NNNNNNNN][CGAATGCTCTGGCCTACGC][NNNNNNNN][CGAAGTCGTACGCCGATG][NNNNNNNN] -m 3,6,3,3,6,3,6,3,6,3 -t 1 -b /Users/t.stohn/Desktop/Normalization/PIPELINE/SingleCellGenomeTools/src/test/test_data/processingBarcodeFile.txt
+
