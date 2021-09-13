@@ -156,7 +156,7 @@ class VariableBarcode : public Barcode
             if( (tries < 0) && (score > mismatches)){return false;} //if also the last try failed
         }
 
-        if( (numberOfSameScoreResults == 0) && (score <= mismatches)){return true;}
+        if( (numberOfSameScoreResults == 0) && (score <= mismatches)){std::cout << realBarcode << "\n"; return true;}
         //if a match pattern worked return true
         return false;
     }
