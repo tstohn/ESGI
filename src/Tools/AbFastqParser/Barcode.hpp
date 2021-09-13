@@ -124,6 +124,7 @@ class VariableBarcode : public Barcode
                        const int& differenceInBarcodeLength, fastqStats& stats, bool startCorrection = false)
     {
         int tries = differenceInBarcodeLength;
+        std::cout << tries << "\n";
         int tmpOffset = offset;
         bool offsetShiftBool = false;
         int offsetShiftValue = 0;
