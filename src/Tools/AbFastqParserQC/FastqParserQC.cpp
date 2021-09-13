@@ -9,6 +9,7 @@
 #include <boost/program_options.hpp>
 #include <boost/program_options/options_description.hpp>
 
+#include "FastqParser.cpp"
 #include "UmiDataParser.hpp"
 #include "helper.hpp"
 #include "dataTypes.hpp"
@@ -92,8 +93,12 @@ bool parse_arguments(char** argv, int argc, std::string& inputFails, std::string
     return true;
 }
 
-void analyse_failed_lines(const std::string& inputFails)
+void analyse_failed_lines(const input& input)
 {
+    std::vector<std::pair<std::string, char> > patterns; // vector of all string patterns, 
+                                                        //second entry is c=constant, v=varying, w=wildcard
+    BarcodePatternVectorPtr barcodePatterns = generate_barcode_patterns(input, patterns);
+    //read lines into memory
 
 }
 
@@ -225,7 +230,6 @@ void analyse_corrected_umis(const std::string& correctredUmiFile, const std::str
     }
 }
 
-
 int main(int argc, char** argv)
 {
     std::string inputFails;
@@ -248,7 +252,15 @@ int main(int argc, char** argv)
         analyse_same_umis(inputBarcodeMapping, output, abIdx, threads, barcodeFile, barcodeIndices);
         //after BarcodeProcessing (UMI MisMatch correction) analyze the occurence of UMIs: number of reads, BC combination percentages
         analyse_corrected_umis(correctredUmiFile, output);
-        //analyse_failed_lines(inputFails);
+
+        //analze lines that could not be mapped
+        input input;
+        input.barcodeFile = barcodeFile;
+        input.inFile = inputFails;
+        input.outFile = output;
+        input.patternLine = seqpattern;
+        input.mismatchLine = mismatches;
+        analyse_failed_lines(input);
     }
  
     return EXIT_SUCCESS;

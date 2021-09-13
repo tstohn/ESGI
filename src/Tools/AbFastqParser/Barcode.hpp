@@ -160,11 +160,13 @@ class VariableBarcode : public Barcode
                 numberOfSameScoreResults = tmpNumberOfSameScoreResults;
             }
 
+            //if no try results in a better mapping than mismatches plus 1, report false
             if( (tries < 0) && (tmpScore > mismatches))
             {
                 return false;
             } //if also the last try failed
         }
+        //if the best match has several times this score, report also false and a MultiBarcodeMatch
         if(numberOfSameScoreResults > 0)
         {            
             ++stats.multiBarcodeMatch;
