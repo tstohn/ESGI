@@ -124,7 +124,6 @@ class VariableBarcode : public Barcode
                        const int& differenceInBarcodeLength, fastqStats& stats, bool startCorrection = false)
     {
         int tries = differenceInBarcodeLength;
-        std::cout << tries << "\n";
         int tmpOffset = offset;
         bool offsetShiftBool = false;
         int offsetShiftValue = 0;
@@ -157,7 +156,7 @@ class VariableBarcode : public Barcode
             if( (tries < 0) && (score > mismatches)){return false;} //if also the last try failed
         }
 
-        if( (numberOfSameScoreResults == 0) && (score <= mismatches)){std::cout << realBarcode << "\n"; return true;}
+        if( (numberOfSameScoreResults == 0) && (score <= mismatches)){return true;}
         //if a match pattern worked return true
         return false;
     }
@@ -188,7 +187,6 @@ class VariableBarcode : public Barcode
             seq_start = 0;
             seq_end = 0;
             int endInPattern = 0; // store the number of missing bases in the pattern (in this case we might have to elongate the mapped sequence)
-            //std::cout << "# " << pattern << "\n";
             int startInPattern = 0;
 
             if(levenshtein(subSequence, pattern, mismatches, seq_start, seq_end, score, endInPattern, startInPattern))
