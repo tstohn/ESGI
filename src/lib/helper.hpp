@@ -296,16 +296,15 @@ inline bool levenshtein(const std::string sequence, std::string pattern, const i
     i = ls;
     j =la;
     bool noEnd = true;
-    while(j!=1 && i!=1) //only go until i==2, in this care the new value would be one. For the final result we must substract one to get to zero
+    while(j!=0 && i!=0) //only go until i==2, in this care the new value would be one. For the final result we must substract one to get to zero
     {
-
         int iNew = dist[i][j].i;
         int jNew = dist[i][j].j;
 
         if(dist[i][j].val == dist[iNew][jNew].val && i!=iNew && j!=jNew)
         {
-            start = iNew;
-            startInPattern = jNew;
+            start = i;
+            startInPattern = j;
         }
 
         if( (jNew<la) && noEnd && dist[i][j].val == dist[iNew][jNew].val)
@@ -317,13 +316,12 @@ inline bool levenshtein(const std::string sequence, std::string pattern, const i
 
         i = iNew;
         j = jNew;
-        assert(j!=0);
     }
     //in case number of mismatches is less or equal to threshold
     if((dist[ls][la]).val <= mismatches)
     {
-        assert(start!=0); // both starts get the 'old' value of row and column for the last time that the values in the dist matrix are the same for the new and old cell
         // asser that those values can never get zero
+        assert(start!=0);
         assert(startInPattern!=0);
         // end is the first index out of sequence, since our strings in matrix are 1-indexed end is fine
         // start has to be start -= 1, to be the start in a 0-indexed string

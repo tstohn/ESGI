@@ -616,6 +616,16 @@ BarcodePatternVectorPtr generate_barcode_patterns(input input, std::vector<std::
     }
     BarcodePatternVectorPtr barcodePatternVector = std::make_shared<BarcodePatternVector>(barcodeVector);
 
+    //check that number of mismatches does not exceed number of bases in patter
+    for(int i = 0; i < barcodePatternVector->size(); i++)
+    {
+        if(barcodePatternVector->at(i)->get_patterns().at(0).length() <= barcodePatternVector->at(i)->mismatches)
+        {
+            std::cerr << "Number of mismatches should not exceed the number of bases in pattern. Please correct in parameters.\n";
+            exit(1);
+        }
+    }
+
     return barcodePatternVector;
 }
 
