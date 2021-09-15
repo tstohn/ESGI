@@ -53,16 +53,18 @@ inline void printProgress(double percentage) {
     std::cout << "\t\r[" << std::string(loadLength, '|') << std::string(emptyLength, ' ') << "] " << val << "%" << std::flush;
 }
 
-//stores all the input parameters for the parser tool
+//stores all the input parameters for the mapping tools
 struct input{
     std::string inFile;
     std::string outFile;
 
-    std::string barcodeFile;
-    std::string mismatchLine;
-    std::string patternLine;
+    std::string barcodeFile; //file of all barcode-vectors, each line sequentially representing a barcode 
+    std::string mismatchLine; //coma seperated list of mismathces per barcode
+    std::string patternLine; //list of patterns in abstract form
 
+    //additional informations
     bool storeRealSequences = false;
+    bool analyseUnmappedPatterns = false; 
     int fastqReadBucketSize = 10000000;
     int threads = 5;
 };
@@ -338,7 +340,7 @@ inline bool levenshtein(const std::string sequence, std::string pattern, const i
     return false;
 }
 
-int backBarcodeMappingExtension(const std::string& sequence, const std::string& pattern, int seq_end, const int& patternEnd)
+inline int backBarcodeMappingExtension(const std::string& sequence, const std::string& pattern, int seq_end, const int& patternEnd)
 {
     int elongation = 0;
     //check if the end of sequebnces still maps for deletions
@@ -357,7 +359,7 @@ int backBarcodeMappingExtension(const std::string& sequence, const std::string& 
     return elongation;
 }
 
-int frontBarcodeMappingExtension(const std::string& sequence, const std::string& pattern, const int& seq_start, const int& patternStart)
+inline int frontBarcodeMappingExtension(const std::string& sequence, const std::string& pattern, const int& seq_start, const int& patternStart)
 {
     int elongation = 0;
     //check if the end of sequebnces still maps for deletions

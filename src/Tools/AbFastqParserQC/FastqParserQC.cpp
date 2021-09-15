@@ -9,10 +9,8 @@
 #include <boost/program_options.hpp>
 #include <boost/program_options/options_description.hpp>
 
-#include "FastqParser.cpp"
 #include "UmiDataParser.hpp"
-#include "helper.hpp"
-#include "dataTypes.hpp"
+#include "mapping.hpp"
 
 using namespace boost::program_options;
 
@@ -34,7 +32,7 @@ struct umiRead
 
 bool parse_arguments(char** argv, int argc, std::string& inputFails, std::string& inputBarcodeMapping, std::string& output, 
                      int& abIdx, int& treatmentIdx, int& threads, std::string& barcodeFile, std::string& barcodeIndices,
-                     std::string& seqpattern, int& mismatches,std::string& correctredUmiFile)
+                     std::string& seqpattern, std::string& mismatches,std::string& correctredUmiFile)
 {
     try
     {
@@ -50,19 +48,19 @@ bool parse_arguments(char** argv, int argc, std::string& inputFails, std::string
             ("sequencePattern,p", value<std::string>(&seqpattern), "pattern for the sequence to match, \
             every substring that should be matched is enclosed with square brackets. N is a wild card match, a substring \
             should not be a combination of wild card chars and constant chars : [AGCTATCACGTAGC][NNNNNN][AGAGCATGCCTTCAG][NNNNNN]")
-            ("mismatches,m", value<int>(&(mismatches))->default_value(1), "list of mismatches allowed for each bracket enclosed sequence substring. \
+            ("mismatches,m", value<std::string>(&(mismatches)), "list of mismatches allowed for each bracket enclosed sequence substring. \
             This should be a comma seperated list of numbers for each substring of the sequence enclosed in squared brackets. E.g.: 2,1,2,1,2")
 
             //parameters for UMI CHECK
-            ("inputBarcodes,i", value<std::string>(&inputBarcodeMapping)->required(), "lines of tab seperated barcode mappings")
+            ("inputBarcodes,i", value<std::string>(&inputBarcodeMapping), "lines of tab seperated barcode mappings")
             ("antibodyIndex,x", value<int>(&abIdx), "Index used for antibody distinction.")
-            ("CombinatorialIndexingBarcodeIndices,c", value<std::string>(&(barcodeIndices))->required(), "comma seperated list of indexes, that are used during \
+            ("CombinatorialIndexingBarcodeIndices,c", value<std::string>(&(barcodeIndices)), "comma seperated list of indexes, that are used during \
             combinatorial indexing and should distinguish a unique cell. Be aware that this is the index of the line inside the barcodeList file (see above). \
             This file ONLY includes lines for the varying sequences (except UMI). Therefore the index is not the same as the position in the whole sequence \
             if constant or UMI-seq are present. Index starts with zero.")
-            ("correctredUmiFile,u", value<std::string>(&correctredUmiFile)->required(), "output file of barcode mapping with the corrected UMI reads (+ AB and SC ids)")
+            ("correctredUmiFile,u", value<std::string>(&correctredUmiFile), "output file of barcode mapping with the corrected UMI reads (+ AB and SC ids)")
 
-            ("thread,t", value<int>(&threads)->default_value(5), "number of threads")
+            ("thread,t", value<int>(&threads)->default_value(1), "number of threads")
 
             ("help,h", "help message");
 
@@ -93,12 +91,62 @@ bool parse_arguments(char** argv, int argc, std::string& inputFails, std::string
     return true;
 }
 
-void analyse_failed_lines(const input& input)
+void analyse_failed_lines(input& input)
 {
+
+    BarcodeMappingVector barcodes;
+    BarcodeMappingVector realBarcodes;
+    std::vector<std::string> fastqLines;
     std::vector<std::pair<std::string, char> > patterns; // vector of all string patterns, 
                                                         //second entry is c=constant, v=varying, w=wildcard
     BarcodePatternVectorPtr barcodePatterns = generate_barcode_patterns(input, patterns);
+
+    //initialize stats
+    fastqStats fastqStatsFinal;
+    initializeStats(fastqStatsFinal, barcodePatterns);
+    initializeOutput(input.outFile, patterns);
+
     //read lines into memory
+    std::ifstream fileStream(input.inFile);
+    int totalReads = std::count(std::istreambuf_iterator<char>(fileStream), std::istreambuf_iterator<char>(), '\n');
+    fileStream.clear();
+    fileStream.seekg(0);
+    bool readsLeft = true;
+    int totalCurrentReadNum = 0;
+    fastqStats emptyStats = fastqStatsFinal;
+    while(readsLeft)
+    {
+        //push a batch of reads into a temporary vector
+        fastqLines.clear();
+        int fastqReadThreashold = input.fastqReadBucketSize;
+        int numFastqReads = 0;
+        while(numFastqReads<fastqReadThreashold)
+        {
+            //get next fastq line
+            std::string line;
+            if(! std::getline(fileStream, line))
+            {
+                readsLeft = false;
+                numFastqReads = fastqReadThreashold;
+                continue;
+            }
+            line.erase(std::remove(line.begin(), line.end(), '\n'), line.end());
+
+            fastqLines.push_back(line);
+            ++numFastqReads;
+            ++totalCurrentReadNum;
+
+            if((totalReads >= 100) && (totalCurrentReadNum % (totalReads / 100) == 0))
+            {
+                double perc = totalCurrentReadNum/ (double)totalReads;
+                //printProgress(perc);
+            }
+
+        }
+
+        split_barcodes_in_subset(input, barcodes, realBarcodes, barcodePatterns, fastqStatsFinal, patterns, fastqLines, emptyStats);
+
+    }
 
 }
 
@@ -244,14 +292,14 @@ int main(int argc, char** argv)
     int abIdx;
     int treatmentIdx;
     int threads;
-    int mismatches;
+    std::string mismatches;
     if(parse_arguments(argv, argc, inputFails, inputBarcodeMapping, output, abIdx, treatmentIdx, threads, 
                        barcodeFile, barcodeIndices, seqpattern, mismatches, correctredUmiFile))
     {
         //analyse the read number per UMI, distribution of BC combinations, etc
-        analyse_same_umis(inputBarcodeMapping, output, abIdx, threads, barcodeFile, barcodeIndices);
+    //  analyse_same_umis(inputBarcodeMapping, output, abIdx, threads, barcodeFile, barcodeIndices);
         //after BarcodeProcessing (UMI MisMatch correction) analyze the occurence of UMIs: number of reads, BC combination percentages
-        analyse_corrected_umis(correctredUmiFile, output);
+    //  analyse_corrected_umis(correctredUmiFile, output);
 
         //analze lines that could not be mapped
         input input;
@@ -260,6 +308,9 @@ int main(int argc, char** argv)
         input.outFile = output;
         input.patternLine = seqpattern;
         input.mismatchLine = mismatches;
+        input.analyseUnmappedPatterns = true;
+        input.threads = threads;
+
         analyse_failed_lines(input);
     }
  

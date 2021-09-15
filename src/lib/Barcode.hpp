@@ -72,6 +72,7 @@ class ConstantBarcode : public Barcode
                                int& score, std::string& realBarcode, fastqStats& stats, const bool& offsetShiftBool, bool startCorrection = false)
     {
      
+        std::cout << "const" << offset << " " <<  pattern.length() << "\n";
         std::string subSequence = sequence.substr(offset, pattern.length());
 
         int endInPattern = 0; // store the number of missing bases in the pattern (in this case we might have to elongate the mapped sequence)
@@ -200,7 +201,6 @@ class VariableBarcode : public Barcode
         for(std::string pattern : patterns)
         {
             std::string subSequence = sequence.substr(offset, pattern.length());
-
             score = 0;
             seq_start = 0;
             seq_end = 0;

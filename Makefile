@@ -6,7 +6,9 @@ install:
 
 #parse fastq lines and map abrcodes to each sequence
 parser:
-	g++ src/Tools/AbFastqParser/FastqParser.cpp -o bin/parser -pthread -lz -lboost_program_options -I ./Tools/ -I ./src/lib --std=c++17
+	g++ -c src/lib/mapping.cpp -I ./Tools/ -I ./src/lib -I src/Tools/AbFastqParser --std=c++17
+	g++ -c src/Tools/AbFastqParser/FastqParser.cpp -I ./Tools/ -I ./src/lib -I src/Tools/AbFastqParser --std=c++17
+	g++ FastqParser.o mapping.o -o ./bin/parser -lpthread -lz -lboost_program_options -lboost_iostreams
 
 qualityControl:
 	g++ -c src/Tools/BarcodeProcessing/UmiDataParser.cpp -I ./Tools/ -I ./src/lib -I ./src/Tools/AbFastqParser --std=c++17
@@ -36,4 +38,5 @@ testProcessing:
 
 bigTest:
 	./bin/parser -i ./src/test/test_data/test2000fastq.gz -o ./Output/output.tsv -p [NNNNNNNN][CTTGTGGAAAGGACGAAACACCG][XXXXXXXXXXXXXXX][NNNNNNNNNN][GTTTTAGAGCTAGAAATAGCAA][NNNNNNNN][CGAATGCTCTGGCCTACGC][NNNNNNNN][CGAAGTCGTACGCCGATG][NNNNNNNN] -m 7,13,0,8,13,6,13,4,13,4 -t 1 -b /Users/t.stohn/Desktop/Normalization/PIPELINE/SingleCellGenomeTools/src/test/test_data/processingBarcodeFile.txt
-
+bigFailure:
+	/Users/t.stohn/Desktop/Normalization/PIPELINE/SingleCellGenomeTools/bin/parserQC -t 1 -f /Users/t.stohn/Desktop/Normalization/PIPELINE/SingleCellGenomeTools/Output/FailedLines_output.tsv  -o FAILURE.txt -b /Users/t.stohn/Desktop/Normalization/PIPELINE/SingleCellGenomeTools/src/test/test_data/processingBarcodeFile.txt -p [NNNNNNNN][CTTGTGGAAAGGACGAAACACCG][XXXXXXXXXXXXXXX][NNNNNNNNNN][GTTTTAGAGCTAGAAATAGCAA][NNNNNNNN][CGAATGCTCTGGCCTACGC][NNNNNNNN][CGAAGTCGTACGCCGATG][NNNNNNNN] -m 3,5,0,3,5,3,5,3,5,3
