@@ -144,9 +144,11 @@ void analyse_failed_lines(input& input)
 
         }
 
-        split_barcodes_in_subset(input, barcodes, realBarcodes, barcodePatterns, fastqStatsFinal, patterns, fastqLines, emptyStats);
+        ditribute_jobs_to_threads(input, barcodes, realBarcodes, barcodePatterns, fastqStatsFinal, patterns, fastqLines, emptyStats);
 
     }
+
+    fileStream.close();
 
 }
 

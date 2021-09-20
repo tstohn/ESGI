@@ -63,6 +63,7 @@ struct input{
     std::string patternLine; //list of patterns in abstract form
 
     //additional informations
+    bool withStats = true;
     bool storeRealSequences = false;
     bool analyseUnmappedPatterns = false; 
     int fastqReadBucketSize = 10000000;

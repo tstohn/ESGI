@@ -24,36 +24,123 @@ typedef std::vector<BarcodeMapping> BarcodeMappingVector;
 //if a pattern can not be found the read is idscarded
 class MapEachBarcodeSequentiallyPolicy
 {
-
+    public:
+    bool split_line_into_barcode_patterns(const std::string& seq, const input& input, BarcodeMapping& barcodeMap, BarcodeMapping& realBarcodeMap,
+                                      fastqStats& stats, std::map<std::string, std::shared_ptr<std::string> >& unique_seq,
+                                      BarcodePatternVectorPtr barcodePatterns);
 };
 
 //mapping sequentially each barcode, however, if a pattern can not be found do not discard it
 //but jump to next pattern
-class MapEachBarcodeSequenciallyWithLeaveOutsPolicy
-{
+//class MapEachBarcodeSequenciallyWithLeaveOutsPolicy
+//{
     
-};
+//};
 
 //mapping only constant barocdes as anchor first
-class MapAroundConstantBarcodesAsAnchorPolicy
+//class MapAroundConstantBarcodesAsAnchorPolicy
+//{
+
+//};
+
+class ExtractLinesFromTxtFilesPolicy
 {
+    void init_file(const std::string& inFile)
+    {
+        
+    }
+
+    bool get_next_line(std::string& line);
+
+    void close_file();
     
+    private:
+        std::ifstream fileStream;
+};
+
+class ExtractLinesFromFastqFilePolicy
+{
+    public:
+    void init_file(const std::string& inFile)
+    {
+        fp = gzopen(inFile.c_str(),"r");
+        if(NULL == fp)
+        {
+            fprintf(stderr,"Fail to open file: %s\n", inFile.c_str());
+        }
+        totalReads = 0;
+        unsigned char buffer[1000];
+        while(!gzeof(fp))
+        {
+            gzread(fp, buffer, 999);
+            for (const char &c : buffer) 
+            {
+                if ( c == '\n' )
+                {
+                    ++totalReads;
+                }
+            }
+        }
+        totalReads = totalReads/4;
+        gzrewind(fp);
+        ks = kseq_init(fp);
+    }
+
+    bool get_next_line(std::string& line)
+    {
+        if(kseq_read(ks) < 0)
+        {
+            return false;
+        }
+
+        line = std::string(ks->seq.s);
+        return true;
+    }
+
+    void close_file()
+    {
+        kseq_destroy(ks);
+        gzclose(fp);
+    }
+
+    kseq_t* ks;
+    int totalReads;
+    gzFile fp;
+
 };
 
 //class for barcode mappings, the mapping algorithm is chosen by the 
 //mapping policy
-template<typename MappingPolicy>
-class Mapping : private MappingPolicy
+template<typename MappingPolicy, typename FilePolicy>
+class Mapping : private MappingPolicy, private FilePolicy
 {
-    public:
-    //process all the input information and check for validity
-    //e.g. delete old output files if present, parse barcode from barcodeFile, match them to their
-    //number of mismatches etc.
-    void initialize_mapping();
+    private:
 
-    //run the actual mapping by using MappingPolicy
-    bool run_mapping(const std::string& seq, input* input, BarcodeMapping& barcodeMap, BarcodeMapping& realBarcodeMap,
-                    fastqStats& stats, std::map<std::string, std::shared_ptr<std::string> >& unique_seq,
-                    BarcodePatternVectorPtr barcodePatterns);
+
+        void map_pattern_to_fastq_lines(std::vector<std::string>& fastqLines, const input& input, BarcodeMappingVector& barcodes, 
+                                BarcodeMappingVector& realBarcodes, fastqStats& stats, BarcodePatternVectorPtr barcodePatterns,
+                                std::vector<std::string>& failedLines);
+        void ditribute_jobs_to_threads(const input& input, std::vector<std::string>& fastqLines);
+
+
+        //process all the input information and check for validity
+        //e.g. delete old output files if present, parse barcode from barcodeFile, match them to their
+        //number of mismatches etc.
+        void initialize_mapping(const input& input);
+
+        //run the actual mapping by using MappingPolicy
+        void run_mapping(const input& input);
+
+
+        BarcodeMappingVector sequenceBarcodes; // uncorrectedSequenceBarcode for later
+        BarcodeMappingVector realBarcodes; // vector or all the patterns that we map
+        BarcodePatternVectorPtr barcodePatterns; // representation of the pattern structure we use fopr mapping
+
+        std::shared_ptr<fastqStats> fastqStatsPtr;
+
+    public:
+        void run(const input& input);
+
+
 
 };

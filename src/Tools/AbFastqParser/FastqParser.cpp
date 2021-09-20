@@ -105,18 +105,10 @@ bool parse_arguments(char** argv, int argc, input& input)
 int main(int argc, char** argv)
 {
     input input;
-    std::vector<std::pair<std::string, char> > patterns; // vector of all string patterns, 
-                                                        //second entry is c=constant, v=varying, w=wildcard
-    BarcodeMappingVector mappedBarcodes;
-    BarcodeMappingVector realBarcodes;
-    fastqStats fastqStats;
     if(parse_arguments(argv, argc, input))
     {
-        BarcodePatternVectorPtr barcodePatterns = generate_barcode_patterns(input, patterns);
-        initializeOutput(input.outFile, patterns);
-        initializeStats(fastqStats, barcodePatterns);
-        split_barcodes(input, mappedBarcodes, realBarcodes, barcodePatterns, fastqStats, patterns);
-        writeStats(input.outFile, fastqStats);
+        Mapping<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromFastqFilePolicy> mapping;
+        mapping.run(input);
     }
  
     return EXIT_SUCCESS;
