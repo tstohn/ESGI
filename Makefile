@@ -11,9 +11,10 @@ parser:
 	g++ FastqParser.o mapping.o -o ./bin/parser -lpthread -lz -lboost_program_options -lboost_iostreams
 
 qualityControl:
+	g++ -c src/lib/mapping.cpp -I ./Tools/ -I ./src/lib -I src/Tools/AbFastqParser --std=c++17
 	g++ -c src/Tools/BarcodeProcessing/UmiDataParser.cpp -I ./Tools/ -I ./src/lib -I ./src/Tools/AbFastqParser --std=c++17
 	g++ -c src/Tools/AbFastqParserQC/FastqParserQC.cpp -I ./Tools/ -I ./src/Tools/AbFastqParser -I ./src/Tools/BarcodeProcessing -I ./src/lib --std=c++17
-	g++ FastqParserQC.o UmiDataParser.o -o ./bin/parserQC -lpthread -lz -lboost_program_options -lboost_iostreams
+	g++ FastqParserQC.o UmiDataParser.o mapping.o -o ./bin/parserQC -lpthread -lz -lboost_program_options -lboost_iostreams
 
 #process the mapped sequences: correct for UMI-mismatches, then map barcodes to Protein, treatment, SinglecellIDs
 processing:

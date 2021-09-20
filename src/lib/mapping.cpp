@@ -576,8 +576,6 @@ void Mapping<MappingPolicy, FilePolicy>::map_pattern_to_fastq_lines(std::vector<
     }
 }
 
-void xxx(std::vector<std::string>& fastqLines, const input& input){}
-
 template <typename MappingPolicy, typename FilePolicy>
 void Mapping<MappingPolicy, FilePolicy>::ditribute_jobs_to_threads(const input& input, std::vector<std::string>& fastqLines)
 {
@@ -712,5 +710,5 @@ void split_barcodes(input& input, BarcodeMappingVector& barcodes, BarcodeMapping
 */
 
 template class Mapping<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromFastqFilePolicy>;
-//template class Mapping<MapEachBarcodeSequenciallyWithLeaveOutsPolicy, ExtractLinesFromTxtFilesPolicy>;
+template class Mapping<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromTxtFilesPolicy>;
 //template class Mapping<MapAroundConstantBarcodesAsAnchorPolicy, ExtractLinesFromTxtFilesPolicy>;

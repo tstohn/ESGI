@@ -91,67 +91,6 @@ bool parse_arguments(char** argv, int argc, std::string& inputFails, std::string
     return true;
 }
 
-void analyse_failed_lines(input& input)
-{
-
-    BarcodeMappingVector barcodes;
-    BarcodeMappingVector realBarcodes;
-    std::vector<std::string> fastqLines;
-    std::vector<std::pair<std::string, char> > patterns; // vector of all string patterns, 
-                                                        //second entry is c=constant, v=varying, w=wildcard
-    BarcodePatternVectorPtr barcodePatterns = generate_barcode_patterns(input, patterns);
-
-    //initialize stats
-    fastqStats fastqStatsFinal;
-    initializeStats(fastqStatsFinal, barcodePatterns);
-    initializeOutput(input.outFile, patterns);
-
-    //read lines into memory
-    std::ifstream fileStream(input.inFile);
-    int totalReads = std::count(std::istreambuf_iterator<char>(fileStream), std::istreambuf_iterator<char>(), '\n');
-    fileStream.clear();
-    fileStream.seekg(0);
-    bool readsLeft = true;
-    int totalCurrentReadNum = 0;
-    fastqStats emptyStats = fastqStatsFinal;
-    while(readsLeft)
-    {
-        //push a batch of reads into a temporary vector
-        fastqLines.clear();
-        int fastqReadThreashold = input.fastqReadBucketSize;
-        int numFastqReads = 0;
-        while(numFastqReads<fastqReadThreashold)
-        {
-            //get next fastq line
-            std::string line;
-            if(! std::getline(fileStream, line))
-            {
-                readsLeft = false;
-                numFastqReads = fastqReadThreashold;
-                continue;
-            }
-            line.erase(std::remove(line.begin(), line.end(), '\n'), line.end());
-
-            fastqLines.push_back(line);
-            ++numFastqReads;
-            ++totalCurrentReadNum;
-
-            if((totalReads >= 100) && (totalCurrentReadNum % (totalReads / 100) == 0))
-            {
-                double perc = totalCurrentReadNum/ (double)totalReads;
-                //printProgress(perc);
-            }
-
-        }
-
-        ditribute_jobs_to_threads(input, barcodes, realBarcodes, barcodePatterns, fastqStatsFinal, patterns, fastqLines, emptyStats);
-
-    }
-
-    fileStream.close();
-
-}
-
 void analyse_same_umis(std::string& inputBarcodeMapping, std::string& output, int& abIdx, const int& threads,
                     const std::string& barcodeFile, const std::string& barcodeIndices)
 {
@@ -313,7 +252,9 @@ int main(int argc, char** argv)
         input.analyseUnmappedPatterns = true;
         input.threads = threads;
 
-        analyse_failed_lines(input);
+        Mapping<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromTxtFilesPolicy> mapping;
+        mapping.run(input);
+
     }
  
     return EXIT_SUCCESS;

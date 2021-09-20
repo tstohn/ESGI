@@ -32,10 +32,13 @@ class MapEachBarcodeSequentiallyPolicy
 
 //mapping sequentially each barcode, however, if a pattern can not be found do not discard it
 //but jump to next pattern
-//class MapEachBarcodeSequenciallyWithLeaveOutsPolicy
-//{
-    
-//};
+class MapEachBarcodeSequenciallyWithLeaveOutsPolicy
+{
+    public:
+    bool split_line_into_barcode_patterns(const std::string& seq, const input& input, BarcodeMapping& barcodeMap, BarcodeMapping& realBarcodeMap,
+                                    fastqStats& stats, std::map<std::string, std::shared_ptr<std::string> >& unique_seq,
+                                    BarcodePatternVectorPtr barcodePatterns);
+};
 
 //mapping only constant barocdes as anchor first
 //class MapAroundConstantBarcodesAsAnchorPolicy
@@ -45,17 +48,36 @@ class MapEachBarcodeSequentiallyPolicy
 
 class ExtractLinesFromTxtFilesPolicy
 {
+    public:
     void init_file(const std::string& inFile)
     {
-        
+        fileStream.open(inFile);
+        totalReads = std::count(std::istreambuf_iterator<char>(fileStream), std::istreambuf_iterator<char>(), '\n');
+        fileStream.clear();
+        fileStream.seekg(0);
     }
 
-    bool get_next_line(std::string& line);
+    bool get_next_line(std::string& line)
+    {   bool returnValue = true;
+        if(!std::getline(fileStream, line))
+        {
+            returnValue = false;
+        }
+        if(returnValue)
+        {
+            line.erase(std::remove(line.begin(), line.end(), '\n'), line.end());
+        }
 
-    void close_file();
+        return(returnValue);
+    }
+
+    void close_file()
+    {
+        fileStream.close();
+    }
     
-    private:
-        std::ifstream fileStream;
+    std::ifstream fileStream;
+    int totalReads;
 };
 
 class ExtractLinesFromFastqFilePolicy
