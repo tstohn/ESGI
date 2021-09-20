@@ -30,21 +30,14 @@ class MapEachBarcodeSequentiallyPolicy
                                       BarcodePatternVectorPtr barcodePatterns);
 };
 
-//mapping sequentially each barcode, however, if a pattern can not be found do not discard it
-//but jump to next pattern
-class MapEachBarcodeSequenciallyWithLeaveOutsPolicy
+//mapping only constant barocdes as anchor first
+class MapAroundConstantBarcodesAsAnchorPolicy
 {
     public:
     bool split_line_into_barcode_patterns(const std::string& seq, const input& input, BarcodeMapping& barcodeMap, BarcodeMapping& realBarcodeMap,
-                                    fastqStats& stats, std::map<std::string, std::shared_ptr<std::string> >& unique_seq,
-                                    BarcodePatternVectorPtr barcodePatterns);
+                                      fastqStats& stats, std::map<std::string, std::shared_ptr<std::string> >& unique_seq,
+                                      BarcodePatternVectorPtr barcodePatterns);
 };
-
-//mapping only constant barocdes as anchor first
-//class MapAroundConstantBarcodesAsAnchorPolicy
-//{
-
-//};
 
 class ExtractLinesFromTxtFilesPolicy
 {

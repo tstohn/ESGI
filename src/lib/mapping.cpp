@@ -450,8 +450,7 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
                                       fastqStats& stats, std::map<std::string, std::shared_ptr<std::string> >& unique_seq,
                                       BarcodePatternVectorPtr barcodePatterns)
 {
-    //temporary vecotr of all matches
-    std::vector<std::string> barcodeSequences;
+
     //iterate over BarcodeMappingVector
     int offset = 0;
     int score_sum = 0;
@@ -549,6 +548,66 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
     else
     {
         ++stats.moderateMatches;
+    }
+    return true;
+}
+
+bool MapAroundConstantBarcodesAsAnchorPolicy::split_line_into_barcode_patterns(const std::string& seq, const input& input, BarcodeMapping& barcodeMap, BarcodeMapping& realBarcodeMap,
+                                      fastqStats& stats, std::map<std::string, std::shared_ptr<std::string> >& unique_seq,
+                                      BarcodePatternVectorPtr barcodePatterns)
+{
+    int offset = 0;
+
+    int oldEnd = 0;
+
+    //map each constant barcode
+    int barcodePosition = 0;
+    for(BarcodePatternVector::iterator patternItr = barcodePatterns->begin(); 
+        patternItr < barcodePatterns->end(); 
+        ++patternItr)
+    {
+        //exclude non constant
+        if(!(*patternItr)->is_constant()){++barcodePosition;continue;}
+        
+        //map next constant region
+        int start=0, end=0, score = 0, differenceInBarcodeLength = 0;
+        std::string realBarcode = ""; //the actual real barcode that we find (mismatch corrected)
+        if(!(*patternItr)->match_pattern(seq, offset, start, end, score, realBarcode, differenceInBarcodeLength, stats, false, true))
+        {
+            ++barcodePosition;
+            continue;
+        }
+
+        std::string mappedBarcode = seq.substr(offset + start, end-start);
+
+        if(start < oldEnd){return false;} //we have in this case barcodes that are non sequential
+
+        int currentPosition = barcodeMap.size();
+        for(int i = currentPosition; i <= barcodePosition; ++i)
+        {
+            std::string skippedBarcodes = seq.substr(oldEnd, start-oldEnd);
+            //the first barcode which is not the constant barcode
+            if(i ==  currentPosition)
+            {
+                barcodeMap.emplace_back(std::make_shared<std::string>(skippedBarcodes));
+                realBarcodeMap.emplace_back(std::make_shared<std::string>(skippedBarcodes));
+            }
+            //if it is the constant barcode
+            else if(i == barcodePosition)
+            {
+                barcodeMap.emplace_back(std::make_shared<std::string>(mappedBarcode));
+                realBarcodeMap.emplace_back(std::make_shared<std::string>(realBarcode));
+            }
+            //every other barcode
+            else
+            {
+                barcodeMap.emplace_back(std::make_shared<std::string>(""));
+                realBarcodeMap.emplace_back(std::make_shared<std::string>(""));
+            }
+
+        }
+        oldEnd = end;
+        ++barcodePosition;
     }
     return true;
 }
@@ -711,4 +770,4 @@ void split_barcodes(input& input, BarcodeMappingVector& barcodes, BarcodeMapping
 
 template class Mapping<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromFastqFilePolicy>;
 template class Mapping<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromTxtFilesPolicy>;
-//template class Mapping<MapAroundConstantBarcodesAsAnchorPolicy, ExtractLinesFromTxtFilesPolicy>;
+template class Mapping<MapAroundConstantBarcodesAsAnchorPolicy, ExtractLinesFromTxtFilesPolicy>;

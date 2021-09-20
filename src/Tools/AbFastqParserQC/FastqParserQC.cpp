@@ -252,7 +252,7 @@ int main(int argc, char** argv)
         input.analyseUnmappedPatterns = true;
         input.threads = threads;
 
-        Mapping<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromTxtFilesPolicy> mapping;
+        Mapping<MapAroundConstantBarcodesAsAnchorPolicy, ExtractLinesFromTxtFilesPolicy> mapping;
         mapping.run(input);
 
     }
