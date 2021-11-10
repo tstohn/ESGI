@@ -548,6 +548,7 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
     else
     {
         ++stats.moderateMatches;
+        std::cout << seq << "\n";
     }
     return true;
 }
