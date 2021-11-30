@@ -1,5 +1,5 @@
 # SingleCellGenomeTools
-Some simple tools to process fastq-files of nucleotide tagged antibody reads for single cell protein measurements.
+Tools for fast mapping of a Barcode Pattern to fastq-reads and subsequent creation of a CELL * GENE matrix
 
 # Important Tools:
 After compilation tools are found in *./bin*
