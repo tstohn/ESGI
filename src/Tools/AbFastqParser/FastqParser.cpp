@@ -24,7 +24,7 @@
  * @param <output> output extension, that will be added to the output files, see return
  * @param <sequencePattern> a string with all the barcode patterns, each pattern is enclosed by suqare brackets, valid chars are AGTC ofr bases, N for a sequences
  *                          that hold a fixed number of different combinations, must be declared in the barcodeList file, and X for wildcard sequences, that can
- *                          be anything (e.g. for UMIs): e.g.: [xxxxx][AGCGTACGCGAGT][xxxxx][AAGCGtAGCTTC][xxxxx] 
+ *                          be anything (e.g. for UMIs): e.g.: [XXXXXXXXXX][AGCGTACGCGAGT][NNNNNNNN][AAGCGtAGCTTC][NNNNNNNN] 
  * @param <barcodeList> a file of discrete barcodes, that can be mapped to the [N...] sequences, each row is one pattern, they r in the order as in the sequence pattern and
  *                      barcodes must be comma seperated
  * @param <mismatches> comma seperated list of mismatches, one entry for each sequence pattern declared above: e.g.: 1,2,1,2,1
