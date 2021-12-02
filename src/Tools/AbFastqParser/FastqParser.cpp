@@ -108,8 +108,22 @@ int main(int argc, char** argv)
     input input;
     if(parse_arguments(argv, argc, input))
     {
-        Mapping<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromFastqFilePolicy> mapping;
-        mapping.run(input);
+        if(endWith(input.inFile, "fastq") || endWith(input.inFile, "fastq.gz"))
+        {
+            Mapping<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromFastqFilePolicy> mapping;
+            mapping.run(input);
+        }
+        else if(endWith(input.inFile, "txt"))
+        {
+            Mapping<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromTxtFilesPolicy> mapping;
+            mapping.run(input);
+        }
+        else
+        {
+            fprintf(stderr,"Input file must be of format: <.fastq> | <.fastq.gz> | <.txt>!!!\nFail to open file: %s\n", input.inFile.c_str());
+            exit(EXIT_FAILURE);
+        }
+
     }
  
     return EXIT_SUCCESS;

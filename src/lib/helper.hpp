@@ -39,9 +39,12 @@ inline int totalNumberOfLines(std::string fileName)
 }
 
 inline bool endWith(std::string const &fullString, std::string const &ending) {
-    if (fullString.length() >= ending.length()) {
+    if (fullString.length() >= ending.length()) 
+    {
         return (0 == fullString.compare (fullString.length() - ending.length(), ending.length(), ending));
-    } else {
+    } 
+    else 
+    {
         return false;
     }
 }

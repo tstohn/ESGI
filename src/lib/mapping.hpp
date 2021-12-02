@@ -43,8 +43,10 @@ class ExtractLinesFromTxtFilesPolicy
 {
     public:
     void init_file(const std::string& inFile)
-    {
+    {       
+        //no error handling for txt file right now
         fileStream.open(inFile);
+
         totalReads = std::count(std::istreambuf_iterator<char>(fileStream), std::istreambuf_iterator<char>(), '\n');
         fileStream.clear();
         fileStream.seekg(0);
@@ -82,6 +84,7 @@ class ExtractLinesFromFastqFilePolicy
         if(NULL == fp)
         {
             fprintf(stderr,"Fail to open file: %s\n", inFile.c_str());
+            exit(EXIT_FAILURE);
         }
         totalReads = 0;
         unsigned char buffer[1000];
