@@ -20,6 +20,7 @@
     we then donnt know if its  really a msimatch, or a deletion of the barcode and already part of the next barcode...)
     each matched barcodes is described by the first and last match of the sequence (therefore can be shorter, than real sequence, but not longer)
     UMI or WildcardBarcodes are matched according to the two last matches in the neighboring sequences
+    aligning by semi global alignment, bcs it could be that our pattern matches beyond the sequence, that is checked afterwards
  * @param <input> input fastq file (gzipped), considers only full length fastq reads, FW/RV must be stitched together in advance
  * @param <output> output extension, that will be added to the output files, see return
  * @param <sequencePattern> a string with all the barcode patterns, each pattern is enclosed by suqare brackets, valid chars are AGTC ofr bases, N for a sequences
