@@ -1,4 +1,4 @@
-# SingleCellGenomeTools
+# Combinatorial Indexing Pipeline
 Tools for fast mapping of a Barcode Pattern to fastq-reads and subsequent creation of a Cell * Gene Matrix
 
 # Important Tools:
