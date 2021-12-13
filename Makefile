@@ -25,6 +25,8 @@ processing:
 #small test script for the parser, includes 1 perfect match, 6 matches with different types of mismatches below threshold, 2 mismatches above threshold
 #and four mismatches due to barcodes that can not be uniquely identified
 testDemultiplexing:
+	rm ./bin/BarcodeMapping_output.tsv
+	rm ./bin/StatsBarcodeMappingErrors_output.tsv
 	./bin/demultiplexing -i ./src/test/test_data/inFastqTest.fastq -o ./bin/output.tsv -p [NNNN][ATCAGTCAACAGATAAGCGA][NNNN][XXX][GATCAT] -m 1,4,1,1,2 -t 1 -b ./src/test/test_data/barcodeFile.txt
 	diff ./src/test/test_data/BarcodeMapping_output.tsv ./bin/BarcodeMapping_output.tsv
 	diff ./src/test/test_data/StatsBarcodeMappingErrors_output.tsv ./bin/StatsBarcodeMappingErrors_output.tsv
@@ -41,7 +43,7 @@ bigTest:
 	./bin/demultiplexing -i ./src/test/test_data/test2000fastq.gz -o ./bin/output.tsv -p [NNNNNNNN][CTTGTGGAAAGGACGAAACACCG][XXXXXXXXXXXXXXX][NNNNNNNNNN][GTTTTAGAGCTAGAAATAGCAA][NNNNNNNN][CGAATGCTCTGGCCTACGC][NNNNNNNN][CGAAGTCGTACGCCGATG][NNNNNNNN] -m 7,13,0,8,13,6,13,4,13,4 -t 1 -b /Users/t.stohn/Desktop/Normalization/PIPELINE/CombinatorialIndexingPipeline/src/test/test_data/processingBarcodeFile.txt
 
 bigTest2:
-	./bin/demultiplexing -i /Users/t.stohn/Desktop/test.fastq.gz -o ./bin/output.tsv -p [NNNNNNNN][CTTGTGGAAAGGACGAAACACCG][XXXXXXXXXXXXXXX][NNNNNNNNNN][GTTTTAGAGCTAGAAATAGCAA][NNNNNNNN][CGAATGCTCTGGCCTACGC][NNNNNNNN][CGAAGTCGTACGCCGATG][NNNNNNNN] -m 7,13,0,8,13,6,13,4,13,4 -t 8 -b /Users/t.stohn/Desktop/Normalization/PIPELINE/CombinatorialIndexingPipeline/src/test/test_data/processingBarcodeFile.txt
+	./bin/demultiplexing -i /Users/t.stohn/Desktop/Normalization/PIPELINE/CombinatorialIndexingPipeline/bin/test.fastq.gz -o ./bin/output.tsv -p [NNNNNNNN][CTTGTGGAAAGGACGAAACACCG][XXXXXXXXXXXXXXX][NNNNNNNNNN][GTTTTAGAGCTAGAAATAGCAA][NNNNNNNN][CGAATGCTCTGGCCTACGC][NNNNNNNN][CGAAGTCGTACGCCGATG][NNNNNNNN] -m 7,13,0,8,13,6,13,4,13,4 -t 5 -b /Users/t.stohn/Desktop/Normalization/PIPELINE/CombinatorialIndexingPipeline/src/test/test_data/processingBarcodeFile.txt
 
 bigFailure:
 	/Users/t.stohn/Desktop/Normalization/PIPELINE/SingleCellGenomeTools/bin/parserQC -t 1 -f /Users/t.stohn/Desktop/Normalization/PIPELINE/SingleCellGenomeTools/bin/FailedLines_output.tsv  -o FAILURE.txt -b /Users/t.stohn/Desktop/Normalization/PIPELINE/SingleCellGenomeTools/src/test/test_data/processingBarcodeFile.txt -p [NNNNNNNN][CTTGTGGAAAGGACGAAACACCG][XXXXXXXXXXXXXXX][NNNNNNNNNN][GTTTTAGAGCTAGAAATAGCAA][NNNNNNNN][CGAATGCTCTGGCCTACGC][NNNNNNNN][CGAAGTCGTACGCCGATG][NNNNNNNN] -m 1,3,0,1,3,1,3,1,3,1

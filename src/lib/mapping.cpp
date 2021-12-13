@@ -441,11 +441,16 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
 }
 
 template <typename MappingPolicy, typename FilePolicy>
-void Mapping<MappingPolicy, FilePolicy>::demultiplex_read(const std::string& seq, const input input)
+void Mapping<MappingPolicy, FilePolicy>::demultiplex_read(const std::string& seq, const input& input, 
+                                                          std::atomic<int>& count, const int& totalReadCount)
 {
     BarcodeMapping barcodeMap;
     BarcodeMapping realBarcodeMap;
     fastqStats stats;
+
+    //using atomic<int> to count number of handled lines for status bar
+
+    //std::cout si thrrad safe
 
     // split line into patterns
     this->split_line_into_barcode_patterns(seq, input, 
@@ -454,7 +459,13 @@ void Mapping<MappingPolicy, FilePolicy>::demultiplex_read(const std::string& seq
                                     stats,
                                       barcodePatterns);
 
-    
+
+    //update status bar
+    if(count%100 == 0)
+    {
+        ++count;
+        printProgress(count/totalReadCount);
+    }
 }
 
 
@@ -465,17 +476,16 @@ void Mapping<MappingPolicy, FilePolicy>::run_mapping(const input& input)
     //generate a pool of threads
     boost::asio::thread_pool pool(input.threads); //create thread pool
 
-    std::cout << "THREADS: " << std::to_string(input.threads);
-
     //read line by line and add to thread pool
     FilePolicy::init_file(input.inFile);
     std::string line;
+    std::atomic<int> lineCount;
+    int totalReadCount = numberOfReads(input.inFile);
 
     while(FilePolicy::get_next_line(line))
     {
         //if we processed a number of lines wait for threads to finish
-        boost::asio::post(pool, std::bind(&Mapping::demultiplex_read, this, line, input));
-
+        boost::asio::post(pool, std::bind(&Mapping::demultiplex_read, this, line, input, std::ref(lineCount), totalReadCount));
     }
     pool.join();
 }

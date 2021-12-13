@@ -14,6 +14,18 @@
 #define MAX(X,Y) (X<Y ? Y : X)
 #define MIN(X,Y) (X<Y ? X : Y)
 
+inline bool endWith(std::string const &fullString, std::string const &ending) 
+{
+    if (fullString.length() >= ending.length()) 
+    {
+        return (0 == fullString.compare (fullString.length() - ending.length(), ending.length(), ending));
+    } 
+    else 
+    {
+        return false;
+    }
+}
+
 inline int totalNumberOfLines(std::string fileName)
 {
     int totalReads = 0;
@@ -38,15 +50,25 @@ inline int totalNumberOfLines(std::string fileName)
     return totalReads;
 }
 
-inline bool endWith(std::string const &fullString, std::string const &ending) {
-    if (fullString.length() >= ending.length()) 
+inline int numberOfReads(std::string fileName)
+{
+    int totalReads = 0;
+    
+    if(endWith(fileName, "fastq") || endWith(fileName, "fastq.gz"))
     {
-        return (0 == fullString.compare (fullString.length() - ending.length(), ending.length(), ending));
-    } 
-    else 
-    {
-        return false;
+        totalReads = (totalNumberOfLines(fileName)/4);
     }
+    else if(endWith(fileName, "txt"))
+    {
+        std::ifstream fileStream;
+        fileStream.open(fileName);
+        totalReads = std::count(std::istreambuf_iterator<char>(fileStream), std::istreambuf_iterator<char>(), '\n');
+        fileStream.clear();
+        fileStream.seekg(0);
+        fileStream.close();
+    }
+
+    return totalReads;
 }
 
 inline void printProgress(double percentage) {

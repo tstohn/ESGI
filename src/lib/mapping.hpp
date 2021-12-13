@@ -166,10 +166,9 @@ class Mapping : private MappingPolicy, private FilePolicy
         void initialize_mapping(const input& input);
 
         //BARCODE MAPPING FUNCTIONS
-        void demultiplex_read(const std::string& seq, const input input);
+        void demultiplex_read(const std::string& seq, const input& input, std::atomic<int>& count, const int& totalReadCount);
         //run the actual mapping by using MappingPolicy
         void run_mapping(const input& input);
-
 
     public:
         void run(const input& input);
