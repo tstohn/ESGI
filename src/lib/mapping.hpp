@@ -14,6 +14,7 @@
 
 #include "Barcode.hpp"
 #include "seqtk/kseq.h"
+#include "dataTypes.hpp"
 
 KSEQ_INIT(gzFile, gzread)
 
@@ -143,6 +144,10 @@ class Mapping : private MappingPolicy, private FilePolicy
         BarcodeMappingVector sequenceBarcodes; // uncorrectedSequenceBarcode for later
         BarcodeMappingVector realBarcodes; // vector or all the patterns that we map
         BarcodePatternVectorPtr barcodePatterns; // representation of the pattern structure we use fopr mapping
+
+        //all the string inside this class are stored only once, 
+        //set of all the unique barcodes we use, and we only pass pointers to those
+        std::shared_ptr<UniqueCharSet> uniqueChars;
 
         std::shared_ptr<fastqStats> fastqStatsPtr;
 

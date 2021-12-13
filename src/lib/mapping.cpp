@@ -461,13 +461,12 @@ void Mapping<MappingPolicy, FilePolicy>::demultiplex_read(const std::string& seq
 
     //update status bar
     ++count;
-    if(count%100 == 0)
+    if(count%1000 == 0)
     {
+        double perc = count/(double)totalReadCount;
         printProgress(count/totalReadCount);
     }
 }
-
-
 
 template <typename MappingPolicy, typename FilePolicy>
 void Mapping<MappingPolicy, FilePolicy>::run_mapping(const input& input)
