@@ -441,7 +441,7 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
 }
 
 template <typename MappingPolicy, typename FilePolicy>
-void Mapping<MappingPolicy, FilePolicy>::demultiplex_read(const std::string& seq, const input& input)
+void Mapping<MappingPolicy, FilePolicy>::demultiplex_read(const std::string& seq, const input input)
 {
     BarcodeMapping barcodeMap;
     BarcodeMapping realBarcodeMap;
@@ -477,6 +477,7 @@ void Mapping<MappingPolicy, FilePolicy>::run_mapping(const input& input)
         boost::asio::post(pool, std::bind(&Mapping::demultiplex_read, this, line, input));
 
     }
+    pool.join();
 }
 
 
