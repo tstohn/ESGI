@@ -8,6 +8,7 @@
 
 #include "Barcode.hpp"
 #include "mapping.hpp"
+#include "DemultiplexedLinesWriter.cpp"
 
 /** 
  * A tool to map fastq lines (stitched to one read, use e.g. fastq-join) to a certain barcode pattern,
@@ -111,12 +112,12 @@ int main(int argc, char** argv)
     {
         if(endWith(input.inFile, "fastq") || endWith(input.inFile, "fastq.gz"))
         {
-            Mapping<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromFastqFilePolicy> mapping;
+            DemultiplexedLinesWriter<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromFastqFilePolicy> mapping;
             mapping.run(input);
         }
         else if(endWith(input.inFile, "txt"))
         {
-            Mapping<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromTxtFilesPolicy> mapping;
+            DemultiplexedLinesWriter<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromTxtFilesPolicy> mapping;
             mapping.run(input);
         }
         else

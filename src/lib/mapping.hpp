@@ -24,9 +24,11 @@ typedef std::vector<BarcodeMapping> BarcodeMappingVector;
 //if a pattern can not be found the read is idscarded
 class MapEachBarcodeSequentiallyPolicy
 {
+    private:
+        bool check_if_seq_too_short(const int& offset, const std::string& seq);
     public:
-    bool split_line_into_barcode_patterns(const std::string& seq, const input& input, BarcodeMapping& barcodeMap, BarcodeMapping& realBarcodeMap,
-                                      fastqStats& stats, std::map<std::string, std::shared_ptr<std::string> >& unique_seq,
+        bool split_line_into_barcode_patterns(const std::string& seq, const input& input, BarcodeMapping& barcodeMap, BarcodeMapping& realBarcodeMap,
+                                      fastqStats& stats,
                                       BarcodePatternVectorPtr barcodePatterns);
 };
 
@@ -35,7 +37,7 @@ class MapAroundConstantBarcodesAsAnchorPolicy
 {
     public:
     bool split_line_into_barcode_patterns(const std::string& seq, const input& input, BarcodeMapping& barcodeMap, BarcodeMapping& realBarcodeMap,
-                                      fastqStats& stats, std::map<std::string, std::shared_ptr<std::string> >& unique_seq,
+                                      fastqStats& stats,
                                       BarcodePatternVectorPtr barcodePatterns);
 };
 
@@ -134,20 +136,8 @@ class Mapping : private MappingPolicy, private FilePolicy
 {
     private:
 
-
-        void map_pattern_to_fastq_lines(std::vector<std::string>& fastqLines, const input& input, BarcodeMappingVector& barcodes, 
-                                BarcodeMappingVector& realBarcodes, fastqStats& stats, BarcodePatternVectorPtr barcodePatterns,
-                                std::vector<std::string>& failedLines);
-        void ditribute_jobs_to_threads(const input& input, std::vector<std::string>& fastqLines);
-
-
-        //process all the input information and check for validity
-        //e.g. delete old output files if present, parse barcode from barcodeFile, match them to their
-        //number of mismatches etc.
-        void initialize_mapping(const input& input);
-
-        //run the actual mapping by using MappingPolicy
-        void run_mapping(const input& input);
+        void parse_barcode_data(const input& input, std::vector<std::pair<std::string, char> >& patterns, std::vector<int>& mismatches, 
+                                std::vector<std::vector<std::string> >& varyingBarcodes);
 
 
         BarcodeMappingVector sequenceBarcodes; // uncorrectedSequenceBarcode for later
@@ -156,9 +146,31 @@ class Mapping : private MappingPolicy, private FilePolicy
 
         std::shared_ptr<fastqStats> fastqStatsPtr;
 
+    protected:
+
+        void map_pattern_to_fastq_lines(std::vector<std::string>& fastqLines, const input& input, BarcodeMappingVector& barcodes, 
+                                BarcodeMappingVector& realBarcodes, fastqStats& stats, BarcodePatternVectorPtr barcodePatterns,
+                                std::vector<std::string>& failedLines);
+        void ditribute_jobs_to_threads(const input& input, std::vector<std::string>& fastqLines);
+
+
+        //INITIALIZATION FUCNTIONS
+        const BarcodePatternVectorPtr get_barcode_pattern_vector()
+        {
+            return barcodePatterns;
+        }
+        std::vector<std::pair<std::string, char> > generate_barcode_patterns(const input& input);
+        //process all the input information and check for validity
+        //e.g. delete old output files if present, parse barcode from barcodeFile, match them to their
+        //number of mismatches etc.
+        void initialize_mapping(const input& input);
+
+        //BARCODE MAPPING FUNCTIONS
+        void demultiplex_read(const std::string& seq, const input& input);
+        //run the actual mapping by using MappingPolicy
+        void run_mapping(const input& input);
+
+
     public:
         void run(const input& input);
-
-
-
 };
