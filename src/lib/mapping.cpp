@@ -464,7 +464,7 @@ void Mapping<MappingPolicy, FilePolicy>::demultiplex_read(const std::string& seq
     if(count%1000 == 0)
     {
         double perc = count/(double)totalReadCount;
-        printProgress(count/totalReadCount);
+        printProgress(perc);
     }
 }
 
