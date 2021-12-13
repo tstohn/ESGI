@@ -459,11 +459,10 @@ void Mapping<MappingPolicy, FilePolicy>::demultiplex_read(const std::string& seq
                                     stats,
                                       barcodePatterns);
 
-
     //update status bar
+    ++count;
     if(count%100 == 0)
     {
-        ++count;
         printProgress(count/totalReadCount);
     }
 }
@@ -473,13 +472,15 @@ void Mapping<MappingPolicy, FilePolicy>::demultiplex_read(const std::string& seq
 template <typename MappingPolicy, typename FilePolicy>
 void Mapping<MappingPolicy, FilePolicy>::run_mapping(const input& input)
 {
+    std::cout << "START DEMULTIPLEXING\n";
+
     //generate a pool of threads
     boost::asio::thread_pool pool(input.threads); //create thread pool
 
     //read line by line and add to thread pool
     FilePolicy::init_file(input.inFile);
     std::string line;
-    std::atomic<int> lineCount;
+    std::atomic<int> lineCount = 0;
     int totalReadCount = numberOfReads(input.inFile);
 
     while(FilePolicy::get_next_line(line))
@@ -488,6 +489,7 @@ void Mapping<MappingPolicy, FilePolicy>::run_mapping(const input& input)
         boost::asio::post(pool, std::bind(&Mapping::demultiplex_read, this, line, input, std::ref(lineCount), totalReadCount));
     }
     pool.join();
+    printProgress(1); std::cout << "\n"; // end the progress bar
 }
 
 
