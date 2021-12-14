@@ -157,9 +157,9 @@ void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::initialize_mapping(con
     //if stats are written also initialize this file
     if(input.withStats)
     {
-        fastqStats fastqStatsTmp;
-        initializeStats(fastqStatsTmp, barcodePatterns);
-        fastqStatsPtr = std::make_shared<fastqStats>(fastqStatsTmp);
+        //fastqStats fastqStatsTmp;
+        //initializeStats(fastqStatsTmp, barcodePatterns);
+        //fastqStatsPtr = std::make_shared<fastqStats>(fastqStatsTmp);
     }
 
 }

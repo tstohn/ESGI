@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cmath>
 
 #include "mapping.hpp"
 #include <boost/asio/thread_pool.hpp>
@@ -282,7 +283,8 @@ std::vector<std::pair<std::string, char> > Mapping<MappingPolicy, FilePolicy>::g
 //realBarcodeMap contains the actual string in the seauence that gets a barcode assigned
 bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const std::string& seq, const input& input, 
                                         DemultiplexedReads& barcodeMap, 
-                                        BarcodePatternVectorPtr barcodePatterns)
+                                        BarcodePatternVectorPtr barcodePatterns,
+                                        std::shared_ptr<fastqStats>& fastqStatsPtr)
 {
     MappingResult result;
     std::vector<std::string> barcodeList;
@@ -324,7 +326,7 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
         }
         if(!(*patternItr)->match_pattern(seq, offset, start, end, score, barcode, differenceInBarcodeLength, startCorrection))
         {
-            //++stats.noMatches;
+            ++fastqStatsPtr->noMatches;
             if(!input.analyseUnmappedPatterns)
             {
                 return false;
@@ -383,6 +385,15 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
     barcodeMap.addVector(barcodeList);
     result.score = score_sum;
 
+    if(score_sum == 0)
+    {
+        ++fastqStatsPtr->perfectMatches;
+    }
+    else
+    {
+        ++fastqStatsPtr->moderateMatches;
+    }
+
     return true;
 }
 
@@ -394,14 +405,15 @@ void Mapping<MappingPolicy, FilePolicy>::demultiplex_read(const std::string& seq
     // split line into patterns
     this->split_line_into_barcode_patterns(seq, input, 
                                      barcodeMap, 
-                                      barcodePatterns);
+                                      barcodePatterns,
+                                      fastqStatsPtr);
 
     //update status bar
     ++count;
     if(count%1000 == 0) //update at every 1,000th entry
     {
         double perc = count/(double)totalReadCount;
-        std::lock_guard<std::mutex> guard(*mappingLock);
+        std::lock_guard<std::mutex> guard(*printProgressLock);
         printProgress(perc);
     }
 }
@@ -427,8 +439,11 @@ void Mapping<MappingPolicy, FilePolicy>::run_mapping(const input& input)
     }
     pool.join();
     printProgress(1); std::cout << "\n"; // end the progress bar
+    std::cout << "=>\tPERFECT MATCHES: " << std::to_string(int(100*fastqStatsPtr->perfectMatches/(double)totalReadCount)) 
+              << "% | MODERATE MATCHES: " << std::to_string(int(100*fastqStatsPtr->moderateMatches/(double)totalReadCount))
+              << "% | MISMATCHES: " << std::to_string(int(100*fastqStatsPtr->noMatches/(double)totalReadCount)) << "%\n";
 
-    std::cout << barcodeMap.size() << "\n";
+    FilePolicy::close_file();
 }
 
 
@@ -460,7 +475,7 @@ void Mapping<MappingPolicy, FilePolicy>::run(const input& input)
 
 /*
 bool MapAroundConstantBarcodesAsAnchorPolicy::split_line_into_barcode_patterns(const std::string& seq, const input& input, BarcodeMapping& barcodeMap,
-                                      BarcodePatternVectorPtr barcodePatterns)
+                                      BarcodePatternVectorPtr barcodePatterns, std::unique_ptr<fastqStats> fastqStatsPtr)
 {
     int offset = 0;
 

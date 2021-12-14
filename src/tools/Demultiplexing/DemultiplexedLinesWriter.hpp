@@ -10,7 +10,6 @@ class DemultiplexedLinesWriter : private Mapping<MappingPolicy, FilePolicy>
 {
     private:
 
-        std::shared_ptr<fastqStats> fastqStatsPtr;
 
         void initialize_mapping(const input& input,const std::vector<std::pair<std::string, char> >& patterns);
         //void run_mapping(const input& input);

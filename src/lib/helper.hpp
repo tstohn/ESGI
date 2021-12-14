@@ -98,9 +98,9 @@ struct input{
 struct fastqStats{
     //parameters that are evaluated over the whole fastq line
     //e.g. perfect match occurs only if ALL barcodes match perfectly in a fastq line
-    int perfectMatches = 0;
-    int noMatches = 0;
-    int moderateMatches = 0;
+    std::atomic<int> perfectMatches = 0;
+    std::atomic<int> noMatches = 0;
+    std::atomic<int> moderateMatches = 0;
     //parameter stating how often a barcode sequence could be matched to several sequences, can occure more than once per line
     //can only happen for vairable sequences
     int multiBarcodeMatch =0;

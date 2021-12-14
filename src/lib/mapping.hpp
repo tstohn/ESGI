@@ -81,7 +81,7 @@ class MapEachBarcodeSequentiallyPolicy
         bool check_if_seq_too_short(const int& offset, const std::string& seq);
     public:
         bool split_line_into_barcode_patterns(const std::string& seq, const input& input, DemultiplexedReads& barcodeMap,
-                                      BarcodePatternVectorPtr barcodePatterns);
+                                      BarcodePatternVectorPtr barcodePatterns, std::shared_ptr<fastqStats>& fastqStatsPtr);
 };
 
 //mapping only constant barocdes as anchor first
@@ -199,7 +199,8 @@ class Mapping : private MappingPolicy, private FilePolicy
         Mapping()
         {
             barcodeMap = DemultiplexedReads();
-            mappingLock = std::make_unique<std::mutex>();
+            printProgressLock = std::make_unique<std::mutex>();
+            fastqStatsPtr = std::make_shared<fastqStats>();
         }
 
         const BarcodeMappingVector get_demultiplexed_reads()
@@ -223,7 +224,7 @@ class Mapping : private MappingPolicy, private FilePolicy
 
         std::shared_ptr<fastqStats> fastqStatsPtr;
                 
-        std::unique_ptr<std::mutex> mappingLock;  
+        std::unique_ptr<std::mutex> printProgressLock;  
 
 
     protected:
