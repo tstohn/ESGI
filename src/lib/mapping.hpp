@@ -11,6 +11,7 @@
 #include <zlib.h>
 #include <regex>
 #include <thread>
+#include <mutex>
 
 #include "Barcode.hpp"
 #include "seqtk/kseq.h"
@@ -18,8 +19,59 @@
 
 KSEQ_INIT(gzFile, gzread)
 
-typedef std::vector< std::shared_ptr<std::string> > BarcodeMapping;
+typedef std::vector< std::shared_ptr<std::string> > SequenceMapping;
+
+typedef std::vector<const char*> BarcodeMapping;
+
 typedef std::vector<BarcodeMapping> BarcodeMappingVector;
+
+
+//representation of all the mapped barcodes:
+//basically a vector of all lines, that contain all barcodes for a read
+class DemultiplexedReads
+{
+    public:
+
+        DemultiplexedReads()
+        {
+            uniqueChars = std::make_shared<UniqueCharSet>();
+            lock = std::make_unique<std::mutex>();
+        }
+
+        void addVector(std::vector<std::string> barcodeVector)
+        {
+            std::lock_guard<std::mutex> guard(*lock);
+            BarcodeMapping uniqueBarcodeVector;
+            for(std::string barcode : barcodeVector)
+            {
+                uniqueBarcodeVector.emplace_back(uniqueChars->getUniqueChar(barcode.c_str()));
+            }
+            mappedBarcodes.push_back(uniqueBarcodeVector);
+        }
+
+        const size_t size()
+        {
+            return mappedBarcodes.size();
+        }
+
+        const BarcodeMapping at(const int& i)
+        {
+            return(mappedBarcodes.at(i));
+        }
+
+        const BarcodeMappingVector get_all_reads()
+        {
+            return(mappedBarcodes);
+        }
+
+    private:
+        BarcodeMappingVector mappedBarcodes;
+        //all the string inside this class are stored only once, 
+        //set of all the unique barcodes we use, and we only pass pointers to those
+        std::shared_ptr<UniqueCharSet> uniqueChars;
+        std::unique_ptr<std::mutex> lock;  
+
+};
 
 //mapping sequentially each barcode leaving nmo pattern out,
 //if a pattern can not be found the read is idscarded
@@ -28,19 +80,18 @@ class MapEachBarcodeSequentiallyPolicy
     private:
         bool check_if_seq_too_short(const int& offset, const std::string& seq);
     public:
-        bool split_line_into_barcode_patterns(const std::string& seq, const input& input, BarcodeMapping& barcodeMap, BarcodeMapping& realBarcodeMap,
-                                      fastqStats& stats,
+        bool split_line_into_barcode_patterns(const std::string& seq, const input& input, DemultiplexedReads& barcodeMap,
                                       BarcodePatternVectorPtr barcodePatterns);
 };
 
 //mapping only constant barocdes as anchor first
+/*
 class MapAroundConstantBarcodesAsAnchorPolicy
 {
     public:
-    bool split_line_into_barcode_patterns(const std::string& seq, const input& input, BarcodeMapping& barcodeMap, BarcodeMapping& realBarcodeMap,
-                                      fastqStats& stats,
+    bool split_line_into_barcode_patterns(const std::string& seq, const input& input, DemultiplexedReads& barcodeMap,
                                       BarcodePatternVectorPtr barcodePatterns);
-};
+};*/
 
 class ExtractLinesFromTxtFilesPolicy
 {
@@ -130,24 +181,44 @@ class ExtractLinesFromFastqFilePolicy
 
 };
 
+//keep track of all the mapping results to write for Demultipelx tool
+//stats are constructed after splitting fucntion (fill mismatch object, fill morderate,perfect match object)
+struct MappingResult
+{
+    int score;
+    SequenceMapping sequences;
+};
+
 //class for barcode mappings, the mapping algorithm is chosen by the 
 //mapping policy
 template<typename MappingPolicy, typename FilePolicy>
 class Mapping : private MappingPolicy, private FilePolicy
 {
+    public:
+    //explicit costructor to initiate the uniqueCharSet for the barcodes
+        Mapping()
+        {
+            barcodeMap = DemultiplexedReads();
+        }
+
+        const BarcodeMappingVector get_demultiplexed_reads()
+        {
+            return(barcodeMap.get_all_reads());
+        }
+
     private:
 
         void parse_barcode_data(const input& input, std::vector<std::pair<std::string, char> >& patterns, std::vector<int>& mismatches, 
                                 std::vector<std::vector<std::string> >& varyingBarcodes);
 
 
-        BarcodeMappingVector sequenceBarcodes; // uncorrectedSequenceBarcode for later
+//these two SHALL BECOME OBSOLETE AND BE DELETED
+        //BarcodeMappingVector sequenceBarcodes; // uncorrectedSequenceBarcode for later
         BarcodeMappingVector realBarcodes; // vector or all the patterns that we map
-        BarcodePatternVectorPtr barcodePatterns; // representation of the pattern structure we use fopr mapping
 
-        //all the string inside this class are stored only once, 
-        //set of all the unique barcodes we use, and we only pass pointers to those
-        std::shared_ptr<UniqueCharSet> uniqueChars;
+
+        DemultiplexedReads barcodeMap;
+        BarcodePatternVectorPtr barcodePatterns; // representation of the pattern structure we use fopr mapping
 
         std::shared_ptr<fastqStats> fastqStatsPtr;
 

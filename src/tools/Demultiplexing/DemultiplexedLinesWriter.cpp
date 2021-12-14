@@ -62,6 +62,89 @@ void initializeOutput(std::string output, const std::vector<std::pair<std::strin
     outputFile << "\n";
     outputFile.close();
 }
+/*
+void write_file(const input& input, BarcodeMappingVector barcodes, BarcodeMappingVector realBarcodes)
+{
+    std::string output = input.outFile;
+    std::ofstream outputFile;
+
+    //write real sequences that map to barcodes
+    std::size_t found = output.find_last_of("/");
+    if(input.storeRealSequences)
+    {
+        std::string outputReal;
+        if(found == std::string::npos)
+        {
+            outputReal = "RealBarcodeSequence_" + output;
+        }
+        else
+        {
+            outputReal = output.substr(0,found) + "/" + "RealBarcodeSequence_" + output.substr(found+1);
+        }
+        outputFile.open (outputReal, std::ofstream::app);
+        for(int i = 0; i < barcodes.size(); ++i)
+        {
+            for(int j = 0; j < barcodes.at(i).size(); ++j)
+            {
+                outputFile << *(barcodes.at(i).at(j));
+                if(j!=barcodes.at(i).size()-1){outputFile << "\t";}
+            }
+            outputFile << "\n";
+        }
+        outputFile.close();
+    }
+
+    //write the barcodes we mapped
+    if(found == std::string::npos)
+    {
+        output = "BarcodeMapping_" + output;
+    }
+    else
+    {
+        output = output.substr(0,found) + "/" + "BarcodeMapping_" + output.substr(found+1);
+    }
+    outputFile.open (output, std::ofstream::app);
+    for(int i = 0; i < realBarcodes.size(); ++i)
+    {
+        for(int j = 0; j < realBarcodes.at(i).size(); ++j)
+        {
+            outputFile << *(realBarcodes.at(i).at(j));
+            if(j!=barcodes.at(i).size()-1){outputFile << "\t";}
+        }
+        outputFile << "\n";
+    }
+    outputFile.close();
+}*/
+
+void tmp_quickNdirty_write(const input& input, BarcodeMappingVector barcodes)
+{
+    std::string output = input.outFile;
+    std::ofstream outputFile;
+    std::size_t found = output.find_last_of("/");
+
+    //write the barcodes we mapped
+    if(found == std::string::npos)
+    {
+        output = "BarcodeMapping_" + output;
+    }
+    else
+    {
+        output = output.substr(0,found) + "/" + "BarcodeMapping_" + output.substr(found+1);
+    }
+    outputFile.open (output, std::ofstream::app);
+
+    for(int i = 0; i < barcodes.size(); ++i)
+    {
+        for(int j = 0; j < barcodes.at(i).size(); ++j)
+        {
+            outputFile << (barcodes.at(i).at(j));
+            if(j!=barcodes.at(i).size()-1){outputFile << "\t";}
+        }
+        outputFile << "\n";
+    }
+    outputFile.close();
+}
+
 
 template <typename MappingPolicy, typename FilePolicy>
 void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::initialize_mapping(const input& input, const std::vector<std::pair<std::string, char> >& patterns)
@@ -137,5 +220,10 @@ void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::run(const input& input
 
     initialize_mapping(input, pattern);
 
-    run_mapping(input);
+    this->run_mapping(input);
+    tmp_quickNdirty_write(input, this->get_demultiplexed_reads());
 }
+
+
+template class DemultiplexedLinesWriter<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromFastqFilePolicy>;
+template class DemultiplexedLinesWriter<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromTxtFilesPolicy>;

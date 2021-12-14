@@ -21,7 +21,7 @@ class Barcode
     int mismatches;
     //overwritten function to match sequence pattern(s)
     virtual bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, std::string& realBarcode, 
-                               const int& differenceInBarcodeLength, fastqStats& stats, bool startCorrection = false, bool fullLengthMapping = false) = 0;
+                               const int& differenceInBarcodeLength, bool startCorrection = false, bool fullLengthMapping = false) = 0;
     virtual std::vector<std::string> get_patterns() = 0;
     virtual bool is_wildcard() = 0;
     virtual bool is_constant() = 0;
@@ -33,7 +33,7 @@ class ConstantBarcode : public Barcode
     public:
     ConstantBarcode(std::string inPattern, int inMismatches) : pattern(inPattern),Barcode(inMismatches) {}
     bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, std::string& realBarcode, 
-                       const int& differenceInBarcodeLength, fastqStats& stats, bool startCorrection = false,
+                       const int& differenceInBarcodeLength, bool startCorrection = false,
                        bool fullLengthMapping = false)
     {
 
@@ -46,7 +46,7 @@ class ConstantBarcode : public Barcode
         while(tries >= 0)
         {
             bool matchResult = private_match_pattern(sequence, tmpOffset, offsetShiftValue, seq_start, seq_end,score ,
-                                     realBarcode ,stats, offsetShiftBool, startCorrection, fullLengthMapping);
+                                     realBarcode, offsetShiftBool, startCorrection, fullLengthMapping);
             if(matchResult){return true;}
 
             //increment offset
@@ -71,7 +71,7 @@ class ConstantBarcode : public Barcode
 
     private:
     bool private_match_pattern(std::string sequence, const int& offset, const int& offsetShiftValue, int& seq_start, int& seq_end, 
-                               int& score, std::string& realBarcode, fastqStats& stats, const bool& offsetShiftBool, bool startCorrection = false,
+                               int& score, std::string& realBarcode, const bool& offsetShiftBool, bool startCorrection = false,
                                bool fullLengthMapping = false)
     {
         std::string subSequence;
@@ -135,7 +135,7 @@ class VariableBarcode : public Barcode
     public:
     VariableBarcode(std::vector<std::string> inPatterns, int inMismatches) : patterns(inPatterns), Barcode(inMismatches) {}
     bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, std::string& realBarcode, 
-                       const int& differenceInBarcodeLength, fastqStats& stats, bool startCorrection = false, bool fullLengthMapping = false)
+                       const int& differenceInBarcodeLength, bool startCorrection = false, bool fullLengthMapping = false)
     {
         int tries = differenceInBarcodeLength;
         int tmpOffset = offset;
@@ -147,7 +147,7 @@ class VariableBarcode : public Barcode
         {
             int tmpNumberOfSameScoreResults = 0;
             bool matchResult = private_match_pattern(sequence, tmpOffset, offsetShiftValue, seq_start, seq_end,score ,
-                                     realBarcode ,stats, offsetShiftBool, tmpNumberOfSameScoreResults, startCorrection);
+                                     realBarcode, offsetShiftBool, tmpNumberOfSameScoreResults, startCorrection);
 
             //if we already map sth to 100% don t bother and return true
             if(matchResult && score == 0){return true;}
@@ -181,7 +181,7 @@ class VariableBarcode : public Barcode
         //if the best match has several times this score, report also false and a MultiBarcodeMatch
         if(numberOfSameScoreResults > 0)
         {            
-            ++stats.multiBarcodeMatch;
+            //we mapped several barcodes with the same score
             return false;
         }
         else if( (numberOfSameScoreResults == 0) && (tmpScore <= mismatches)){
@@ -204,7 +204,7 @@ class VariableBarcode : public Barcode
 
     // first only for number of skipped bases call a sequences window; if this leads to nothing add more windows until number mismatches in barcode is reached
     bool private_match_pattern(std::string sequence, const int& offset, const int& offsetShiftValue, int& seq_start, int& seq_end, int& score, 
-                               std::string& realBarcode, fastqStats& stats, const bool& offsetShiftBool, int& numberOfSameScoreResults, bool startCorrection = false)
+                               std::string& realBarcode, const bool& offsetShiftBool, int& numberOfSameScoreResults, bool startCorrection = false)
     {
         int match_count = 0;
         bool found_match = false;
@@ -313,7 +313,7 @@ class WildcardBarcode : public Barcode
     public:
     WildcardBarcode(std::string inPattern, int inMismatches) : pattern(inPattern),Barcode(inMismatches) {}
     bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, std::string& realBarcode, 
-                       const int& differenceInBarcodeLength, fastqStats& stats, bool startCorrection = false, bool fullLengthMapping = false)
+                       const int& differenceInBarcodeLength, bool startCorrection = false, bool fullLengthMapping = false)
     {
 
         sequence = sequence.substr(offset, pattern.length());

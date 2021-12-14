@@ -51,18 +51,6 @@ class UniqueCharSet
          }
       }
 
-      const char* insertElement(const char* k) 
-      {
-         if(!k) {
-            exit(EXIT_FAILURE);
-         }
-         char* key = new char[strlen(k) + 1];
-         strcpy(key, k);
-         charPtrSet.insert(key);
-
-         return(key);
-      }
-
       void clearUniqueSet() 
       {
          for(auto it = charPtrSet.begin(); it != charPtrSet.end(); ++it) 
@@ -78,5 +66,18 @@ class UniqueCharSet
       }
 
    private:
+
+      const char* insertElement(const char* k) 
+      {
+         if(!k) {
+            exit(EXIT_FAILURE);
+         }
+         char* key = new char[strlen(k) + 1];
+         strcpy(key, k);
+         charPtrSet.insert(key);
+
+         return(key);
+      }
+
       std::unordered_set<const char*, CharHash, CharPtrComparator> charPtrSet;
 };

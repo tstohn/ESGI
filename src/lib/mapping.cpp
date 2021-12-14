@@ -7,59 +7,6 @@
 namespace
 {
 
-void write_file(const input& input, BarcodeMappingVector barcodes, BarcodeMappingVector realBarcodes)
-{
-    std::string output = input.outFile;
-    std::ofstream outputFile;
-
-    //write real sequences that map to barcodes
-    std::size_t found = output.find_last_of("/");
-    if(input.storeRealSequences)
-    {
-        std::string outputReal;
-        if(found == std::string::npos)
-        {
-            outputReal = "RealBarcodeSequence_" + output;
-        }
-        else
-        {
-            outputReal = output.substr(0,found) + "/" + "RealBarcodeSequence_" + output.substr(found+1);
-        }
-        outputFile.open (outputReal, std::ofstream::app);
-        for(int i = 0; i < barcodes.size(); ++i)
-        {
-            for(int j = 0; j < barcodes.at(i).size(); ++j)
-            {
-                outputFile << *(barcodes.at(i).at(j));
-                if(j!=barcodes.at(i).size()-1){outputFile << "\t";}
-            }
-            outputFile << "\n";
-        }
-        outputFile.close();
-    }
-
-    //write the barcodes we mapped
-    if(found == std::string::npos)
-    {
-        output = "BarcodeMapping_" + output;
-    }
-    else
-    {
-        output = output.substr(0,found) + "/" + "BarcodeMapping_" + output.substr(found+1);
-    }
-    outputFile.open (output, std::ofstream::app);
-    for(int i = 0; i < realBarcodes.size(); ++i)
-    {
-        for(int j = 0; j < realBarcodes.at(i).size(); ++j)
-        {
-            outputFile << *(realBarcodes.at(i).at(j));
-            if(j!=barcodes.at(i).size()-1){outputFile << "\t";}
-        }
-        outputFile << "\n";
-    }
-    outputFile.close();
-}
-
 void write_failed_lines(const input& input, const std::vector<std::string>& failedLines)
 {
     std::string output = input.outFile;
@@ -113,7 +60,7 @@ void writeStats(std::string output, const fastqStats& stats)
     outputFile.close();
 }
 
-void writeCurrentResults(BarcodeMappingVector& barcodes, BarcodeMappingVector& realBarcodes, const input& input, 
+/*void writeCurrentResults(BarcodeMappingVector& barcodes, BarcodeMappingVector& realBarcodes, const input& input, 
                          std::vector<std::string>& failedLines)
 {
     write_file(input, barcodes, realBarcodes);
@@ -122,7 +69,7 @@ void writeCurrentResults(BarcodeMappingVector& barcodes, BarcodeMappingVector& r
     barcodes.clear();
     realBarcodes.clear();
     failedLines.clear();
-}
+}*/
 
 }
 
@@ -332,12 +279,13 @@ std::vector<std::pair<std::string, char> > Mapping<MappingPolicy, FilePolicy>::g
 
 
 //apply all BarcodePatterns to a single line to generate a vector strings (the Barcodemapping)
+//realBarcodeMap contains the actual string in the seauence that gets a barcode assigned
 bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const std::string& seq, const input& input, 
-                                        BarcodeMapping& barcodeMap, 
-                                        BarcodeMapping& realBarcodeMap,
-                                        fastqStats& stats,
+                                        DemultiplexedReads& barcodeMap, 
                                         BarcodePatternVectorPtr barcodePatterns)
 {
+    MappingResult result;
+    std::vector<std::string> barcodeList;
 
     //iterate over BarcodeMappingVector
     int offset = 0;
@@ -360,7 +308,7 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
             continue;
         }
         //for every barcodeMapping element find a match
-        std::string realBarcode = ""; //the actual real barcode that we find (mismatch corrected)
+        std::string barcode = ""; //the actual real barcode that we find (mismatch corrected)
         int start=0, end=0, score = 0;
         bool startCorrection = false;
         if(wildCardToFill){startCorrection = true;} // sart correction checks if we have to move our mapping window to the 5' direction
@@ -374,7 +322,7 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
         {
             return false;
         }
-        if(!(*patternItr)->match_pattern(seq, offset, start, end, score, realBarcode, differenceInBarcodeLength, stats, startCorrection))
+        if(!(*patternItr)->match_pattern(seq, offset, start, end, score, barcode, differenceInBarcodeLength, startCorrection))
         {
             //++stats.noMatches;
             if(!input.analyseUnmappedPatterns)
@@ -383,7 +331,7 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
             }
             else
             {
-                realBarcode = "";
+                barcode = "";
                 start = 0;
                 end = 0;
             }
@@ -391,13 +339,13 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
         //set the length difference after barcode mapping
         //for the case of insertions inside the barcode sequence set the difference explicitely to zero 
         //(we only focus on deletions that we can not distinguish from substitutions)
-        differenceInBarcodeLength = realBarcode.length() - (end-start);
+        differenceInBarcodeLength = barcode.length() - (end-start);
         if(differenceInBarcodeLength<0){differenceInBarcodeLength=0;}
-        std::string mappedBarcode = seq.substr(offset + start, end-start);
+        std::string sequence = seq.substr(offset + start, end-start);
         offset += end;
         score_sum += score;
 
-        if(!input.analyseUnmappedPatterns){assert(realBarcode != "");}
+        if(!input.analyseUnmappedPatterns){assert(barcode != "");}
         //add barcode data to statistics dictionary
         int dictvectorIndex = ( (score <= (*patternItr)->mismatches) ? (score) : ( ((*patternItr)->mismatches) + 1) );
         
@@ -413,30 +361,28 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
             wildCardToFill = false;
             startCorrection = false;
             std::string oldWildcardMappedBarcode = seq.substr(old_offset, (offset+start-end) - old_offset);
-            barcodeMap.emplace_back(std::make_shared<std::string>(oldWildcardMappedBarcode));
-            realBarcodeMap.emplace_back(std::make_shared<std::string>(oldWildcardMappedBarcode));
+            //barcodeMap.emplace_back(uniqueChars.  (oldWildcardMappedBarcode));
+            barcodeList.push_back(oldWildcardMappedBarcode);
+            result.sequences.emplace_back(std::make_shared<std::string>(oldWildcardMappedBarcode));
         }
         //add this match to the BarcodeMapping
-        barcodeMap.emplace_back(std::make_shared<std::string>(mappedBarcode));
-        realBarcodeMap.emplace_back(std::make_shared<std::string>(realBarcode));
+        //barcodeMap.emplace_back(std::make_shared<std::string>(mappedBarcode));
+        barcodeList.push_back(barcode);
+        result.sequences.emplace_back(std::make_shared<std::string>(sequence));
     }
     //if the last barcode was a WIldcard that still has to be added
     if(wildCardToFill == true)
     {
         wildCardToFill = false; // unnecessary, still left to explicitely set to false
         std::string oldWildcardMappedBarcode = seq.substr(old_offset, seq.length() - old_offset);
-        barcodeMap.emplace_back(std::make_shared<std::string>(oldWildcardMappedBarcode));
-        realBarcodeMap.emplace_back(std::make_shared<std::string>(oldWildcardMappedBarcode));
+        //barcodeMap.emplace_back(std::make_shared<std::string>(oldWildcardMappedBarcode));
+        barcodeList.push_back(oldWildcardMappedBarcode);
+        result.sequences.emplace_back(std::make_shared<std::string>(oldWildcardMappedBarcode));
     }
 
-    if(score_sum == 0)
-    {
-        //++stats.perfectMatches;
-    }
-    else
-    {
-       // ++stats.moderateMatches;
-    }
+    barcodeMap.addVector(barcodeList);
+    result.score = score_sum;
+
     return true;
 }
 
@@ -444,24 +390,15 @@ template <typename MappingPolicy, typename FilePolicy>
 void Mapping<MappingPolicy, FilePolicy>::demultiplex_read(const std::string& seq, const input& input, 
                                                           std::atomic<int>& count, const int& totalReadCount)
 {
-    BarcodeMapping barcodeMap;
-    BarcodeMapping realBarcodeMap;
-    fastqStats stats;
-
-    //using atomic<int> to count number of handled lines for status bar
-
-    //std::cout si thrrad safe
 
     // split line into patterns
     this->split_line_into_barcode_patterns(seq, input, 
                                      barcodeMap, 
-                                     realBarcodeMap,
-                                    stats,
                                       barcodePatterns);
 
     //update status bar
     ++count;
-    if(count%1000 == 0)
+    if(count%1000 == 0) //update at every 1,000th entry
     {
         double perc = count/(double)totalReadCount;
         printProgress(perc);
@@ -479,7 +416,7 @@ void Mapping<MappingPolicy, FilePolicy>::run_mapping(const input& input)
     //read line by line and add to thread pool
     FilePolicy::init_file(input.inFile);
     std::string line;
-    std::atomic<int> lineCount = 0;
+    std::atomic<int> lineCount = 0; //using atomic<int> as thread safe read count
     int totalReadCount = numberOfReads(input.inFile);
 
     while(FilePolicy::get_next_line(line))
@@ -489,6 +426,8 @@ void Mapping<MappingPolicy, FilePolicy>::run_mapping(const input& input)
     }
     pool.join();
     printProgress(1); std::cout << "\n"; // end the progress bar
+
+    std::cout << barcodeMap.size() << "\n";
 }
 
 
@@ -518,9 +457,8 @@ void Mapping<MappingPolicy, FilePolicy>::run(const input& input)
 
 
 
-
-bool MapAroundConstantBarcodesAsAnchorPolicy::split_line_into_barcode_patterns(const std::string& seq, const input& input, BarcodeMapping& barcodeMap, BarcodeMapping& realBarcodeMap,
-                                      fastqStats& stats,
+/*
+bool MapAroundConstantBarcodesAsAnchorPolicy::split_line_into_barcode_patterns(const std::string& seq, const input& input, BarcodeMapping& barcodeMap,
                                       BarcodePatternVectorPtr barcodePatterns)
 {
     int offset = 0;
@@ -539,7 +477,7 @@ bool MapAroundConstantBarcodesAsAnchorPolicy::split_line_into_barcode_patterns(c
         //map next constant region
         int start=0, end=0, score = 0, differenceInBarcodeLength = 0;
         std::string realBarcode = ""; //the actual real barcode that we find (mismatch corrected)
-        if(!(*patternItr)->match_pattern(seq, offset, start, end, score, realBarcode, differenceInBarcodeLength, stats, false, true))
+        if(!(*patternItr)->match_pattern(seq, offset, start, end, score, realBarcode, differenceInBarcodeLength, false, true))
         {
             ++barcodePosition;
             continue;
@@ -557,19 +495,19 @@ bool MapAroundConstantBarcodesAsAnchorPolicy::split_line_into_barcode_patterns(c
             if(i ==  currentPosition)
             {
                 barcodeMap.emplace_back(std::make_shared<std::string>(skippedBarcodes));
-                realBarcodeMap.emplace_back(std::make_shared<std::string>(skippedBarcodes));
+                //realBarcodeMap.emplace_back(std::make_shared<std::string>(skippedBarcodes));
             }
             //if it is the constant barcode
             else if(i == barcodePosition)
             {
                 barcodeMap.emplace_back(std::make_shared<std::string>(mappedBarcode));
-                realBarcodeMap.emplace_back(std::make_shared<std::string>(realBarcode));
+                //realBarcodeMap.emplace_back(std::make_shared<std::string>(realBarcode));
             }
             //every other barcode
             else
             {
                 barcodeMap.emplace_back(std::make_shared<std::string>(""));
-                realBarcodeMap.emplace_back(std::make_shared<std::string>(""));
+                //realBarcodeMap.emplace_back(std::make_shared<std::string>(""));
             }
 
         }
@@ -587,11 +525,10 @@ void Mapping<MappingPolicy, FilePolicy>::map_pattern_to_fastq_lines(std::vector<
     for(const std::string& line : fastqLines)
     {
         BarcodeMapping barcode;
-        BarcodeMapping realBarcode;
-        if(MappingPolicy::split_line_into_barcode_patterns(line, input, barcode, realBarcode, stats, barcodePatterns))
+        if(MappingPolicy::split_line_into_barcode_patterns(line, input, barcode, barcodePatterns))
         {
             barcodes.push_back(barcode);
-            realBarcodes.push_back(realBarcode);
+            //realBarcodes.push_back(realBarcode);
             barcode.clear();
         }
         else
@@ -641,7 +578,7 @@ void Mapping<MappingPolicy, FilePolicy>::ditribute_jobs_to_threads(const input& 
     //combine thread data
     for (int i = 0; i < input.threads; ++i) 
     {
-        sequenceBarcodes.insert(sequenceBarcodes.end(), barcodesThreadList.at(i).begin(), barcodesThreadList.at(i).end());
+        //sequenceBarcodes.insert(sequenceBarcodes.end(), barcodesThreadList.at(i).begin(), barcodesThreadList.at(i).end());
         realBarcodes.insert(realBarcodes.end(), realBarcodesThreadList.at(i).begin(), realBarcodesThreadList.at(i).end());
 
         if(!input.analyseUnmappedPatterns)
@@ -661,79 +598,9 @@ void Mapping<MappingPolicy, FilePolicy>::ditribute_jobs_to_threads(const input& 
             }
         }
     }
-    writeCurrentResults(sequenceBarcodes, realBarcodes, input, failedLines);
-}
-
-
-/*
-void split_barcodes(input& input, BarcodeMappingVector& barcodes, BarcodeMappingVector& realBarcodes, BarcodePatternVectorPtr barcodePatterns, fastqStats& fastqStatsFinal,
-                        const std::vector<std::pair<std::string, char> >& patterns)
-{
-    //read all fastq lines into str vector
-    gzFile fp;
-    kseq_t *ks;
-    fp = gzopen(input.inFile.c_str(),"r");
-    if(NULL == fp){
-        fprintf(stderr,"Fail to open file: %s\n", input.inFile.c_str());
-    }
-    int totalReads = 0;
-    unsigned char buffer[1000];
-    while(!gzeof(fp))
-    {
-        gzread(fp, buffer, 999);
-        for (const char &c : buffer) 
-        {
-            if ( c == '\n' )
-            {
-                ++totalReads;
-            }
-        }
-    }
-    totalReads = totalReads/4;
-    gzrewind(fp);
-
-    ks = kseq_init(fp);
-    std::vector<std::string> fastqLines;
-    fastqStats emptyStats = fastqStatsFinal; //an empty statistic with already the right keys for each barcode in the dictionary, used to initialize the stats for each thread
-
-    bool readsLeft = true;
-    int totalCurrentReadNum = 0;
-    while(readsLeft)
-    {
-        //push a batch of reads into a temporary vector
-        fastqLines.clear();
-        int fastqReadThreashold = input.fastqReadBucketSize;
-        int numFastqReads = 0;
-        while(numFastqReads<fastqReadThreashold)
-        {
-            if(kseq_read(ks) < 0)
-            {
-                readsLeft = false;
-                numFastqReads = fastqReadThreashold;
-                continue;
-            }
-            fastqLines.push_back(std::string(ks->seq.s));
-            ++numFastqReads;
-            ++totalCurrentReadNum;
-
-            if((totalReads >= 100) && (totalCurrentReadNum % (totalReads / 100) == 0))
-            {
-                double perc = totalCurrentReadNum/ (double)totalReads;
-                printProgress(perc);
-            }
-
-        }
-        ditribute_jobs_to_threads(input, barcodes, realBarcodes, barcodePatterns, fastqStatsFinal, patterns, fastqLines, emptyStats);
-
-    }
-    printProgress(1);
-    std::cout << "\nMATCHED: " << fastqStatsFinal.perfectMatches << " | MODERATE MATCH: " << fastqStatsFinal.moderateMatches
-              << " | MISMATCHED: " << fastqStatsFinal.noMatches << " | Multiplebarcode: " << fastqStatsFinal.multiBarcodeMatch << "\n";
-    kseq_destroy(ks);
-    gzclose(fp);
-}
-*/
+    //writeCurrentResults(sequenceBarcodes, realBarcodes, input, failedLines);
+}*/
 
 template class Mapping<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromFastqFilePolicy>;
 template class Mapping<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromTxtFilesPolicy>;
-template class Mapping<MapAroundConstantBarcodesAsAnchorPolicy, ExtractLinesFromTxtFilesPolicy>;
+//template class Mapping<MapAroundConstantBarcodesAsAnchorPolicy, ExtractLinesFromTxtFilesPolicy>;

@@ -7,8 +7,9 @@ install:
 #parse fastq lines and map abrcodes to each sequence
 demultiplexing:
 	g++ -c src/lib/mapping.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17
+	g++ -c src/tools/Demultiplexing/DemultiplexedLinesWriter.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17
 	g++ -c src/tools/Demultiplexing/main.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17
-	g++ FastqParser.o mapping.o -o ./bin/demultiplexing -lpthread -lz -lboost_program_options -lboost_iostreams
+	g++ main.o DemultiplexedLinesWriter.o mapping.o -o ./bin/demultiplexing -lpthread -lz -lboost_program_options -lboost_iostreams
 
 qualityControl:
 	g++ -c src/lib/mapping.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17
@@ -25,11 +26,17 @@ processing:
 #small test script for the parser, includes 1 perfect match, 6 matches with different types of mismatches below threshold, 2 mismatches above threshold
 #and four mismatches due to barcodes that can not be uniquely identified
 testDemultiplexing:
-	rm ./bin/BarcodeMapping_output.tsv
-	rm ./bin/StatsBarcodeMappingErrors_output.tsv
+	#test orde ron one thread
 	./bin/demultiplexing -i ./src/test/test_data/inFastqTest.fastq -o ./bin/output.tsv -p [NNNN][ATCAGTCAACAGATAAGCGA][NNNN][XXX][GATCAT] -m 1,4,1,1,2 -t 1 -b ./src/test/test_data/barcodeFile.txt
 	diff ./src/test/test_data/BarcodeMapping_output.tsv ./bin/BarcodeMapping_output.tsv
-	diff ./src/test/test_data/StatsBarcodeMappingErrors_output.tsv ./bin/StatsBarcodeMappingErrors_output.tsv
+	#diff ./src/test/test_data/StatsBarcodeMappingErrors_output.tsv ./bin/StatsBarcodeMappingErrors_output.tsv
+
+	#test order with more threads
+	./bin/demultiplexing -i ./src/test/test_data/inFastqTest.fastq -o ./bin/output.tsv -p [NNNN][ATCAGTCAACAGATAAGCGA][NNNN][XXX][GATCAT] -m 1,4,1,1,2 -t 4 -b ./src/test/test_data/barcodeFile.txt
+	(head -n 1 ./bin/BarcodeMapping_output.tsv && tail -n +2 ./bin/BarcodeMapping_output.tsv | sort)  > ./bin/BarcodeMappingSorted_output.tsv
+	(head -n 1 ./src/test/test_data/BarcodeMapping_output.tsv && tail -n +2 ./src/test/test_data/BarcodeMapping_output.tsv | sort)  > ./src/test/test_data/BarcodeMappingSorted_output.tsv
+
+	diff ./src/test/test_data/BarcodeMappingSorted_output.tsv ./bin/BarcodeMappingSorted_output.tsv
 
 #test processing of the barcodes, includes several UMIs with mismatches, test the mapping of barcodes to unique CellIDs, ABids, treatments
 testProcessing:
@@ -40,7 +47,7 @@ testProcessing:
 	diff ./src/test/test_data/ABprocessed_out ./bin/ABprocessed_out.tsv
 
 bigTest:
-	./bin/demultiplexing -i ./src/test/test_data/test2000fastq.gz -o ./bin/output.tsv -p [NNNNNNNN][CTTGTGGAAAGGACGAAACACCG][XXXXXXXXXXXXXXX][NNNNNNNNNN][GTTTTAGAGCTAGAAATAGCAA][NNNNNNNN][CGAATGCTCTGGCCTACGC][NNNNNNNN][CGAAGTCGTACGCCGATG][NNNNNNNN] -m 7,13,0,8,13,6,13,4,13,4 -t 1 -b /Users/t.stohn/Desktop/Normalization/PIPELINE/CombinatorialIndexingPipeline/src/test/test_data/processingBarcodeFile.txt
+	./bin/demultiplexing -i ./src/test/test_data/test2000fastq.gz -o ./bin/output.tsv -p [NNNNNNNN][CTTGTGGAAAGGACGAAACACCG][XXXXXXXXXXXXXXX][NNNNNNNNNN][GTTTTAGAGCTAGAAATAGCAA][NNNNNNNN][CGAATGCTCTGGCCTACGC][NNNNNNNN][CGAAGTCGTACGCCGATG][NNNNNNNN] -m 7,13,0,8,13,6,13,4,13,4 -t 5 -b /Users/t.stohn/Desktop/Normalization/PIPELINE/CombinatorialIndexingPipeline/src/test/test_data/processingBarcodeFile.txt
 
 bigTest2:
 	./bin/demultiplexing -i /Users/t.stohn/Desktop/Normalization/PIPELINE/CombinatorialIndexingPipeline/bin/test.fastq.gz -o ./bin/output.tsv -p [NNNNNNNN][CTTGTGGAAAGGACGAAACACCG][XXXXXXXXXXXXXXX][NNNNNNNNNN][GTTTTAGAGCTAGAAATAGCAA][NNNNNNNN][CGAATGCTCTGGCCTACGC][NNNNNNNN][CGAAGTCGTACGCCGATG][NNNNNNNN] -m 7,13,0,8,13,6,13,4,13,4 -t 5 -b /Users/t.stohn/Desktop/Normalization/PIPELINE/CombinatorialIndexingPipeline/src/test/test_data/processingBarcodeFile.txt
