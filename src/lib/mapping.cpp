@@ -401,6 +401,7 @@ void Mapping<MappingPolicy, FilePolicy>::demultiplex_read(const std::string& seq
     if(count%1000 == 0) //update at every 1,000th entry
     {
         double perc = count/(double)totalReadCount;
+        std::lock_guard<std::mutex> guard(*mappingLock);
         printProgress(perc);
     }
 }

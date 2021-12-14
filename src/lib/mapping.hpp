@@ -199,6 +199,7 @@ class Mapping : private MappingPolicy, private FilePolicy
         Mapping()
         {
             barcodeMap = DemultiplexedReads();
+            mappingLock = std::make_unique<std::mutex>();
         }
 
         const BarcodeMappingVector get_demultiplexed_reads()
@@ -221,6 +222,9 @@ class Mapping : private MappingPolicy, private FilePolicy
         BarcodePatternVectorPtr barcodePatterns; // representation of the pattern structure we use fopr mapping
 
         std::shared_ptr<fastqStats> fastqStatsPtr;
+                
+        std::unique_ptr<std::mutex> mappingLock;  
+
 
     protected:
 

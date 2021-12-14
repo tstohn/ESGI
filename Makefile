@@ -49,8 +49,5 @@ testProcessing:
 bigTest:
 	./bin/demultiplexing -i ./src/test/test_data/test2000fastq.gz -o ./bin/output.tsv -p [NNNNNNNN][CTTGTGGAAAGGACGAAACACCG][XXXXXXXXXXXXXXX][NNNNNNNNNN][GTTTTAGAGCTAGAAATAGCAA][NNNNNNNN][CGAATGCTCTGGCCTACGC][NNNNNNNN][CGAAGTCGTACGCCGATG][NNNNNNNN] -m 7,13,0,8,13,6,13,4,13,4 -t 5 -b /Users/t.stohn/Desktop/Normalization/PIPELINE/CombinatorialIndexingPipeline/src/test/test_data/processingBarcodeFile.txt
 
-bigTest2:
-	./bin/demultiplexing -i /Users/t.stohn/Desktop/Normalization/PIPELINE/CombinatorialIndexingPipeline/bin/test.fastq.gz -o ./bin/output.tsv -p [NNNNNNNN][CTTGTGGAAAGGACGAAACACCG][XXXXXXXXXXXXXXX][NNNNNNNNNN][GTTTTAGAGCTAGAAATAGCAA][NNNNNNNN][CGAATGCTCTGGCCTACGC][NNNNNNNN][CGAAGTCGTACGCCGATG][NNNNNNNN] -m 7,13,0,8,13,6,13,4,13,4 -t 5 -b /Users/t.stohn/Desktop/Normalization/PIPELINE/CombinatorialIndexingPipeline/src/test/test_data/processingBarcodeFile.txt
-
 bigFailure:
 	/Users/t.stohn/Desktop/Normalization/PIPELINE/SingleCellGenomeTools/bin/parserQC -t 1 -f /Users/t.stohn/Desktop/Normalization/PIPELINE/SingleCellGenomeTools/bin/FailedLines_output.tsv  -o FAILURE.txt -b /Users/t.stohn/Desktop/Normalization/PIPELINE/SingleCellGenomeTools/src/test/test_data/processingBarcodeFile.txt -p [NNNNNNNN][CTTGTGGAAAGGACGAAACACCG][XXXXXXXXXXXXXXX][NNNNNNNNNN][GTTTTAGAGCTAGAAATAGCAA][NNNNNNNN][CGAATGCTCTGGCCTACGC][NNNNNNNN][CGAAGTCGTACGCCGATG][NNNNNNNN] -m 1,3,0,1,3,1,3,1,3,1
