@@ -1,78 +1,5 @@
-#include <iostream>
-#include <cmath>
 
 #include "mapping.hpp"
-#include <boost/asio/thread_pool.hpp>
-#include <boost/asio/post.hpp>
-
-namespace
-{
-
-void write_failed_lines(const input& input, const std::vector<std::string>& failedLines)
-{
-    std::string output = input.outFile;
-    std::ofstream outputFile;
-
-    //write real sequences that map to barcodes
-    std::size_t found = output.find_last_of("/");
-    std::string outputFail;
-    if(found == std::string::npos)
-    {
-        outputFail = "FailedLines_" + output;
-    }
-    else
-    {
-        outputFail = output.substr(0,found) + "/" + "FailedLines_" + output.substr(found+1);
-    }
-    outputFile.open (outputFail, std::ofstream::app);
-    for(int i = 0; i < failedLines.size(); ++i)
-    { 
-        outputFile << failedLines.at(i) << "\n";
-    }
-    outputFile.close();
-}
-
-void writeStats(std::string output, const fastqStats& stats)
-{
-    std::ofstream outputFile;
-    std::size_t found = output.find_last_of("/");
-    if(found == std::string::npos)
-    {
-        output = "StatsBarcodeMappingErrors_" + output;
-    }
-    else
-    {
-        output = output.substr(0,found) + "/" + "StatsBarcodeMappingErrors_" + output.substr(found+1);
-    }
-    std::remove(output.c_str());
-    outputFile.open (output, std::ofstream::app);
-
-    for(std::pair<std::string, std::vector<int> > mismatchDictEntry : stats.mapping_dict)
-    {
-        outputFile << mismatchDictEntry.first << "\t";
-        for(int mismatchCountIdx = 0; mismatchCountIdx < mismatchDictEntry.second.size(); ++mismatchCountIdx)
-        {
-            outputFile << mismatchDictEntry.second.at(mismatchCountIdx);
-            if(mismatchCountIdx!=mismatchDictEntry.second.size()-1){outputFile << "\t";}
-        }
-        outputFile << "\n";
-    }
-
-    outputFile.close();
-}
-
-/*void writeCurrentResults(BarcodeMappingVector& barcodes, BarcodeMappingVector& realBarcodes, const input& input, 
-                         std::vector<std::string>& failedLines)
-{
-    write_file(input, barcodes, realBarcodes);
-    write_failed_lines(input, failedLines);
-
-    barcodes.clear();
-    realBarcodes.clear();
-    failedLines.clear();
-}*/
-
-}
 
 bool MapEachBarcodeSequentiallyPolicy::check_if_seq_too_short(const int& offset, const std::string& seq)
 {
@@ -82,6 +9,27 @@ bool MapEachBarcodeSequentiallyPolicy::check_if_seq_too_short(const int& offset,
     }
 
     return false;
+}
+
+//initialize the dictionary of mismatches in each specific barcode
+// the vector in the dict has length "mismatches + 2" for each barcode
+// one entry for zero mismatches, eveery number from, 1 to mismatches and 
+//one for more mismatches than the max allowed number of mismathces
+template <typename MappingPolicy, typename FilePolicy>
+void Mapping<MappingPolicy, FilePolicy>::initializeStats()
+{
+    for(BarcodePatternVector::iterator patternItr = barcodePatterns->begin(); 
+        patternItr < barcodePatterns->end(); 
+        ++patternItr)
+    {
+        int mismatches = (*patternItr)->mismatches;
+        const std::vector<std::string> patterns = (*patternItr)->get_patterns();
+        for(const std::string& pattern : patterns)
+        {
+            std::vector<int> mismatchVector(mismatches + 2, 0);
+            stats.mapping_dict.insert(std::make_pair(pattern, mismatchVector));
+        }
+    }
 }
 
 template <typename MappingPolicy, typename FilePolicy>
@@ -284,7 +232,7 @@ std::vector<std::pair<std::string, char> > Mapping<MappingPolicy, FilePolicy>::g
 bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const std::string& seq, const input& input, 
                                         DemultiplexedReads& barcodeMap, 
                                         BarcodePatternVectorPtr barcodePatterns,
-                                        std::shared_ptr<fastqStats>& fastqStatsPtr)
+                                        fastqStats& stats)
 {
     MappingResult result;
     std::vector<std::string> barcodeList;
@@ -316,27 +264,14 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
         if(wildCardToFill){startCorrection = true;} // sart correction checks if we have to move our mapping window to the 5' direction
         // could happen in the case of deletions in the UMI sequence...
         bool seqToShort = check_if_seq_too_short(offset, seq);
-        if(seqToShort && input.analyseUnmappedPatterns)
-        {
-            break;
-        }
-        else if(seqToShort)
+        if(seqToShort)
         {
             return false;
         }
         if(!(*patternItr)->match_pattern(seq, offset, start, end, score, barcode, differenceInBarcodeLength, startCorrection))
         {
-            ++fastqStatsPtr->noMatches;
-            if(!input.analyseUnmappedPatterns)
-            {
-                return false;
-            }
-            else
-            {
-                barcode = "";
-                start = 0;
-                end = 0;
-            }
+            ++stats.noMatches;
+            return false;
         }
         //set the length difference after barcode mapping
         //for the case of insertions inside the barcode sequence set the difference explicitely to zero 
@@ -347,14 +282,14 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
         offset += end;
         score_sum += score;
 
-        if(!input.analyseUnmappedPatterns){assert(barcode != "");}
-        //add barcode data to statistics dictionary
-        int dictvectorIndex = ( (score <= (*patternItr)->mismatches) ? (score) : ( ((*patternItr)->mismatches) + 1) );
-        
-        //if(!input.analyseUnmappedPatterns)
-        //{
-         //   ++stats.mapping_dict[realBarcode].at(dictvectorIndex);
-        //}
+        assert(barcode != "");
+        if(input.writeStats)
+        {
+            //add barcode data to statistics dictionary
+            std::lock_guard<std::mutex> guard(*stats.statsLock);
+            int dictvectorIndex = ( (score <= (*patternItr)->mismatches) ? (score) : ( ((*patternItr)->mismatches) + 1) );
+            ++stats.mapping_dict[barcode].at(dictvectorIndex);
+        }
         
         //squeeze in the last wildcard match if there was one 
         //(we needed both matches of neighboring barcodes to define wildcard boundaries)
@@ -387,26 +322,25 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
 
     if(score_sum == 0)
     {
-        ++fastqStatsPtr->perfectMatches;
+        ++stats.perfectMatches;
     }
     else
     {
-        ++fastqStatsPtr->moderateMatches;
+        ++stats.moderateMatches;
     }
 
     return true;
 }
 
 template <typename MappingPolicy, typename FilePolicy>
-void Mapping<MappingPolicy, FilePolicy>::demultiplex_read(const std::string& seq, const input& input, 
+bool Mapping<MappingPolicy, FilePolicy>::demultiplex_read(const std::string& seq, const input& input, 
                                                           std::atomic<int>& count, const int& totalReadCount)
 {
-
     // split line into patterns
-    this->split_line_into_barcode_patterns(seq, input, 
+    bool result = this->split_line_into_barcode_patterns(seq, input, 
                                      barcodeMap, 
                                       barcodePatterns,
-                                      fastqStatsPtr);
+                                      stats);
 
     //update status bar
     ++count;
@@ -416,6 +350,8 @@ void Mapping<MappingPolicy, FilePolicy>::demultiplex_read(const std::string& seq
         std::lock_guard<std::mutex> guard(*printProgressLock);
         printProgress(perc);
     }
+
+    return(result);
 }
 
 template <typename MappingPolicy, typename FilePolicy>
@@ -439,9 +375,9 @@ void Mapping<MappingPolicy, FilePolicy>::run_mapping(const input& input)
     }
     pool.join();
     printProgress(1); std::cout << "\n"; // end the progress bar
-    std::cout << "=>\tPERFECT MATCHES: " << std::to_string(int(100*fastqStatsPtr->perfectMatches/(double)totalReadCount)) 
-              << "% | MODERATE MATCHES: " << std::to_string(int(100*fastqStatsPtr->moderateMatches/(double)totalReadCount))
-              << "% | MISMATCHES: " << std::to_string(int(100*fastqStatsPtr->noMatches/(double)totalReadCount)) << "%\n";
+    std::cout << "=>\tPERFECT MATCHES: " << std::to_string(int(100*(stats.perfectMatches)/(double)totalReadCount)) 
+              << "% | MODERATE MATCHES: " << std::to_string(int(100*(stats.moderateMatches)/(double)totalReadCount))
+              << "% | MISMATCHES: " << std::to_string(int(100*(stats.noMatches)/(double)totalReadCount)) << "%\n";
 
     FilePolicy::close_file();
 }
@@ -450,8 +386,16 @@ void Mapping<MappingPolicy, FilePolicy>::run_mapping(const input& input)
 template <typename MappingPolicy, typename FilePolicy>
 void Mapping<MappingPolicy, FilePolicy>::run(const input& input)
 {
+    //generate barcode objects that store all the information(e.g. allowed barcodes, mismatches)
     generate_barcode_patterns(input);
 
+    //
+    if(input.writeStats)
+    {
+        initializeStats();
+    }
+
+    //run over all reads and sequentially map every barcode
     run_mapping(input);
 }
 

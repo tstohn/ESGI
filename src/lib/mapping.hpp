@@ -12,6 +12,9 @@
 #include <regex>
 #include <thread>
 #include <mutex>
+#include <boost/asio/thread_pool.hpp>
+#include <boost/asio/post.hpp>
+#include <cmath>
 
 #include "Barcode.hpp"
 #include "seqtk/kseq.h"
@@ -20,11 +23,8 @@
 KSEQ_INIT(gzFile, gzread)
 
 typedef std::vector< std::shared_ptr<std::string> > SequenceMapping;
-
 typedef std::vector<const char*> BarcodeMapping;
-
 typedef std::vector<BarcodeMapping> BarcodeMappingVector;
-
 
 //representation of all the mapped barcodes:
 //basically a vector of all lines, that contain all barcodes for a read
@@ -81,7 +81,7 @@ class MapEachBarcodeSequentiallyPolicy
         bool check_if_seq_too_short(const int& offset, const std::string& seq);
     public:
         bool split_line_into_barcode_patterns(const std::string& seq, const input& input, DemultiplexedReads& barcodeMap,
-                                      BarcodePatternVectorPtr barcodePatterns, std::shared_ptr<fastqStats>& fastqStatsPtr);
+                                      BarcodePatternVectorPtr barcodePatterns, fastqStats& stats);
 };
 
 //mapping only constant barocdes as anchor first
@@ -192,7 +192,7 @@ struct MappingResult
 //class for barcode mappings, the mapping algorithm is chosen by the 
 //mapping policy
 template<typename MappingPolicy, typename FilePolicy>
-class Mapping : private MappingPolicy, private FilePolicy
+class Mapping : protected MappingPolicy, protected FilePolicy
 {
     public:
     //explicit costructor to initiate the uniqueCharSet for the barcodes
@@ -200,12 +200,29 @@ class Mapping : private MappingPolicy, private FilePolicy
         {
             barcodeMap = DemultiplexedReads();
             printProgressLock = std::make_unique<std::mutex>();
-            fastqStatsPtr = std::make_shared<fastqStats>();
+            stats.statsLock = std::make_unique<std::mutex>();
         }
 
         const BarcodeMappingVector get_demultiplexed_reads()
         {
             return(barcodeMap.get_all_reads());
+        }
+
+        const int get_perfect_matches()
+        {
+            return stats.perfectMatches;
+        }
+        const int get_moderat_matches()
+        {
+            return stats.moderateMatches;
+        }
+        const int get_failed_matches()
+        {
+            return stats.noMatches;
+        }
+        const std::map<std::string, std::vector<int> > get_mismatch_dict()
+        {
+            return stats.mapping_dict;
         }
 
     private:
@@ -220,12 +237,11 @@ class Mapping : private MappingPolicy, private FilePolicy
 
 
         DemultiplexedReads barcodeMap;
-        BarcodePatternVectorPtr barcodePatterns; // representation of the pattern structure we use fopr mapping
+        BarcodePatternVectorPtr barcodePatterns; // representation of the pattern structure we use for mapping
 
-        std::shared_ptr<fastqStats> fastqStatsPtr;
+        fastqStats stats;
                 
         std::unique_ptr<std::mutex> printProgressLock;  
-
 
     protected:
 
@@ -236,6 +252,8 @@ class Mapping : private MappingPolicy, private FilePolicy
 
 
         //INITIALIZATION FUCNTIONS
+        void initializeStats();
+
         const BarcodePatternVectorPtr get_barcode_pattern_vector()
         {
             return barcodePatterns;
@@ -247,7 +265,7 @@ class Mapping : private MappingPolicy, private FilePolicy
         void initialize_mapping(const input& input);
 
         //BARCODE MAPPING FUNCTIONS
-        void demultiplex_read(const std::string& seq, const input& input, std::atomic<int>& count, const int& totalReadCount);
+        bool demultiplex_read(const std::string& seq, const input& input, std::atomic<int>& count, const int& totalReadCount);
         //run the actual mapping by using MappingPolicy
         void run_mapping(const input& input);
 

@@ -27,9 +27,9 @@ processing:
 #and four mismatches due to barcodes that can not be uniquely identified
 testDemultiplexing:
 	#test orde ron one thread
-	./bin/demultiplexing -i ./src/test/test_data/inFastqTest.fastq -o ./bin/output.tsv -p [NNNN][ATCAGTCAACAGATAAGCGA][NNNN][XXX][GATCAT] -m 1,4,1,1,2 -t 1 -b ./src/test/test_data/barcodeFile.txt
+	./bin/demultiplexing -i ./src/test/test_data/inFastqTest.fastq -o ./bin/output.tsv -p [NNNN][ATCAGTCAACAGATAAGCGA][NNNN][XXX][GATCAT] -m 1,4,1,1,2 -t 1 -b ./src/test/test_data/barcodeFile.txt -q true
 	diff ./src/test/test_data/BarcodeMapping_output.tsv ./bin/BarcodeMapping_output.tsv
-	#diff ./src/test/test_data/StatsBarcodeMappingErrors_output.tsv ./bin/StatsBarcodeMappingErrors_output.tsv
+	diff ./src/test/test_data/StatsBarcodeMappingErrors_output.tsv ./bin/StatsBarcodeMappingErrors_output.tsv
 
 	#test order with more threads
 	./bin/demultiplexing -i ./src/test/test_data/inFastqTest.fastq -o ./bin/output.tsv -p [NNNN][ATCAGTCAACAGATAAGCGA][NNNN][XXX][GATCAT] -m 1,4,1,1,2 -t 4 -b ./src/test/test_data/barcodeFile.txt

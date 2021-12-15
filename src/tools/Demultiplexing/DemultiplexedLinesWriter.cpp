@@ -1,30 +1,9 @@
 #include "DemultiplexedLinesWriter.hpp"
 
-//initialize the dictionary of mismatches in each specific barcode
-// the vector in the dict has length "mismatches + 2" for each barcode
-// one entry for zero mismatches, eveery number from, 1 to mismatches and 
-//one for more mismatches than the max allowed number of mismathces
-void initializeStats(fastqStats& stats, const BarcodePatternVectorPtr barcodePatterns)
-{
-    for(BarcodePatternVector::iterator patternItr = barcodePatterns->begin(); 
-        patternItr < barcodePatterns->end(); 
-        ++patternItr)
-    {
-        int mismatches = (*patternItr)->mismatches;
-        const std::vector<std::string> patterns = (*patternItr)->get_patterns();
-        for(const std::string& pattern : patterns)
-        {
-            std::vector<int> mismatchVector(mismatches + 2, 0);
-            stats.mapping_dict.insert(std::make_pair(pattern, mismatchVector));
-        }
-    }
-}
-
-void initializeOutput(std::string output, const std::vector<std::pair<std::string, char> > patterns)
+void initialize_output(std::string output, const std::vector<std::pair<std::string, char> > patterns)
 {
     //remove output
     std::string outputStats;
-    std::string outputReal;
     std::string outputMapped;
     std::string outputFailed;
     std::size_t found = output.find_last_of("/");
@@ -32,20 +11,17 @@ void initializeOutput(std::string output, const std::vector<std::pair<std::strin
     {
         outputMapped = "BarcodeMapping_" + output;
         outputStats = "StatsBarcodeMappingErrors_" + output;
-        outputReal = "RealBarcodeSequence_" + output;
         outputFailed = "FailedLines_" + output;
     }
     else
     {
         outputMapped = output.substr(0,found) + "/" + "BarcodeMapping_" + output.substr(found+1);
         outputStats = output.substr(0,found) + "/" + "StatsBarcodeMappingErrors_" + output.substr(found+1);
-        outputReal = output.substr(0,found) + "/" + "RealBarcodeSequence_" + output.substr(found+1);
         outputFailed = output.substr(0,found) + "/" + "FailedLines_" + output.substr(found+1);
     }
     // remove outputfile if it exists
     std::remove(outputMapped.c_str());
     std::remove(outputStats.c_str());
-    std::remove(outputReal.c_str());
     std::remove(outputFailed.c_str());
 
     //write header line
@@ -62,61 +38,61 @@ void initializeOutput(std::string output, const std::vector<std::pair<std::strin
     outputFile << "\n";
     outputFile.close();
 }
-/*
-void write_file(const input& input, BarcodeMappingVector barcodes, BarcodeMappingVector realBarcodes)
+
+void write_stats(const input& input, const std::map<std::string, std::vector<int> >& statsMismatchDict)
+{
+    std::string output = input.outFile;
+    std::ofstream outputFile;
+    std::size_t found = output.find_last_of("/");
+    if(found == std::string::npos)
+    {
+        output = "StatsBarcodeMappingErrors_" + output;
+    }
+    else
+    {
+        output = output.substr(0,found) + "/" + "StatsBarcodeMappingErrors_" + output.substr(found+1);
+    }
+    std::remove(output.c_str());
+    outputFile.open (output, std::ofstream::app);
+
+    for(std::pair<std::string, std::vector<int> > mismatchDictEntry : statsMismatchDict)
+    {
+        outputFile << mismatchDictEntry.first << "\t";
+        for(int mismatchCountIdx = 0; mismatchCountIdx < mismatchDictEntry.second.size(); ++mismatchCountIdx)
+        {
+            outputFile << mismatchDictEntry.second.at(mismatchCountIdx);
+            if(mismatchCountIdx!=mismatchDictEntry.second.size()-1){outputFile << "\t";}
+        }
+        outputFile << "\n";
+    }
+
+    outputFile.close();
+}
+
+void write_failed_line(const input& input, const std::string& failedLine)
 {
     std::string output = input.outFile;
     std::ofstream outputFile;
 
     //write real sequences that map to barcodes
     std::size_t found = output.find_last_of("/");
-    if(input.storeRealSequences)
-    {
-        std::string outputReal;
-        if(found == std::string::npos)
-        {
-            outputReal = "RealBarcodeSequence_" + output;
-        }
-        else
-        {
-            outputReal = output.substr(0,found) + "/" + "RealBarcodeSequence_" + output.substr(found+1);
-        }
-        outputFile.open (outputReal, std::ofstream::app);
-        for(int i = 0; i < barcodes.size(); ++i)
-        {
-            for(int j = 0; j < barcodes.at(i).size(); ++j)
-            {
-                outputFile << *(barcodes.at(i).at(j));
-                if(j!=barcodes.at(i).size()-1){outputFile << "\t";}
-            }
-            outputFile << "\n";
-        }
-        outputFile.close();
-    }
-
-    //write the barcodes we mapped
+    std::string outputFail;
     if(found == std::string::npos)
     {
-        output = "BarcodeMapping_" + output;
+        outputFail = "FailedLines_" + output;
     }
     else
     {
-        output = output.substr(0,found) + "/" + "BarcodeMapping_" + output.substr(found+1);
+        outputFail = output.substr(0,found) + "/" + "FailedLines_" + output.substr(found+1);
     }
-    outputFile.open (output, std::ofstream::app);
-    for(int i = 0; i < realBarcodes.size(); ++i)
-    {
-        for(int j = 0; j < realBarcodes.at(i).size(); ++j)
-        {
-            outputFile << *(realBarcodes.at(i).at(j));
-            if(j!=barcodes.at(i).size()-1){outputFile << "\t";}
-        }
-        outputFile << "\n";
-    }
+    outputFile.open (outputFail, std::ofstream::app);
+    
+    outputFile << failedLine << "\n";
+    
     outputFile.close();
-}*/
+}
 
-void tmp_quickNdirty_write(const input& input, BarcodeMappingVector barcodes)
+void write_file(const input& input, BarcodeMappingVector barcodes)
 {
     std::string output = input.outFile;
     std::ofstream outputFile;
@@ -132,12 +108,11 @@ void tmp_quickNdirty_write(const input& input, BarcodeMappingVector barcodes)
         output = output.substr(0,found) + "/" + "BarcodeMapping_" + output.substr(found+1);
     }
     outputFile.open (output, std::ofstream::app);
-
     for(int i = 0; i < barcodes.size(); ++i)
     {
         for(int j = 0; j < barcodes.at(i).size(); ++j)
         {
-            outputFile << (barcodes.at(i).at(j));
+            outputFile << barcodes.at(i).at(j);
             if(j!=barcodes.at(i).size()-1){outputFile << "\t";}
         }
         outputFile << "\n";
@@ -145,71 +120,69 @@ void tmp_quickNdirty_write(const input& input, BarcodeMappingVector barcodes)
     outputFile.close();
 }
 
-
 template <typename MappingPolicy, typename FilePolicy>
-void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::initialize_mapping(const input& input, const std::vector<std::pair<std::string, char> >& patterns)
+void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::initialize_output_files(const input& input, const std::vector<std::pair<std::string, char> >& patterns)
 {
     BarcodePatternVectorPtr barcodePatterns = this->get_barcode_pattern_vector();
-
     //initialize all output files: write header, delete old files etc.
-    initializeOutput(input.outFile, patterns);
-
-    //if stats are written also initialize this file
-    if(input.withStats)
-    {
-        //fastqStats fastqStatsTmp;
-        //initializeStats(fastqStatsTmp, barcodePatterns);
-        //fastqStatsPtr = std::make_shared<fastqStats>(fastqStatsTmp);
-    }
-
+    initialize_output(input.outFile, patterns);
 }
+
+
 /*
+@brief function wrapping the demultiplex_read function of the mapping class to increment and decrement a counter of elements
+in the current queue. Used to allow processing of only a few lines a time instead of writing all into RAM.
+*/
+template <typename MappingPolicy, typename FilePolicy>
+void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::demultiplex_wrapper(const std::string& line,
+                                                            const input& input,
+                                                            std::atomic<int>& lineCount,
+                                                            const int& totalReadCount,
+                                                            std::atomic<int>& elementsInQueue)
+{
+    ++elementsInQueue;
+    bool result = this->demultiplex_read(line, input, lineCount, totalReadCount);
+    if(!result && input.writeFailedLines)
+    {
+        //write failed line to file
+        write_failed_line(input, line);
+    }
+    --elementsInQueue;
+}
+
 template <typename MappingPolicy, typename FilePolicy>
 void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::run_mapping(const input& input)
 {
-    
-    FilePolicy::init_file(input.inFile);
+    std::cout << "START DEMULTIPLEXING\n";
 
-    std::vector<std::string> fastqLines;
-    fastqStats emptyStats = *fastqStatsPtr; //an empty statistic with already the right keys for each barcode in the dictionary, used to initialize the stats for each thread
+    //generate a pool of threads
+    boost::asio::thread_pool pool(input.threads); //create thread pool
 
-    bool readsLeft = true;
-    int totalCurrentReadNum = 0;
-    while(readsLeft)
+    //read line by line and add to thread pool
+    this->FilePolicy::init_file(input.inFile);
+    std::string line;
+    std::atomic<int> lineCount = 0; //using atomic<int> as thread safe read count
+    std::atomic<int> elementsInQueue = 0;
+    int totalReadCount = numberOfReads(input.inFile);
+
+    while(FilePolicy::get_next_line(line))
     {
-        //push a batch of reads into a temporary vector
-        fastqLines.clear();
-        int fastqReadThreashold = input.fastqReadBucketSize;
-        int numFastqReads = 0;
-        while(numFastqReads<fastqReadThreashold && readsLeft)
+        //wait to enqueue new elements in case we have a maximum bucket size
+        if(input.fastqReadBucketSize>0)
         {
-
-            std::string line;
-            readsLeft = FilePolicy::get_next_line(line);
-            if(!readsLeft){continue;}
-
-            fastqLines.push_back(line);
-            ++numFastqReads;
-            ++totalCurrentReadNum;
-
-            if((FilePolicy::totalReads >= 100) && (totalCurrentReadNum % (FilePolicy::totalReads / 100) == 0))
-            {
-                double perc = totalCurrentReadNum/ (double)FilePolicy::totalReads;
-                printProgress(perc);
-            }
-
+            while(input.fastqReadBucketSize <= elementsInQueue){}
         }
-        ditribute_jobs_to_threads(input, fastqLines);
-
+        //if we processed a number of lines wait for threads to finish
+        boost::asio::post(pool, std::bind(&DemultiplexedLinesWriter::demultiplex_wrapper, this, line, input, std::ref(lineCount), totalReadCount, std::ref(elementsInQueue)));
     }
-    printProgress(1);
-    std::cout << "\nMATCHED: " << fastqStatsPtr->perfectMatches << " | MODERATE MATCH: " << fastqStatsPtr->moderateMatches
-              << " | MISMATCHED: " << fastqStatsPtr->noMatches << " | Multiplebarcode: " << fastqStatsPtr->multiBarcodeMatch << "\n";
+    pool.join();
+    printProgress(1); std::cout << "\n"; // end the progress bar
+    std::cout << "=>\tPERFECT MATCHES: " << std::to_string(int(100*(this->get_perfect_matches())/(double)totalReadCount)) 
+              << "% | MODERATE MATCHES: " << std::to_string(int(100*(this->get_moderat_matches())/(double)totalReadCount))
+              << "% | MISMATCHES: " << std::to_string(int(100*(this->get_failed_matches())/(double)totalReadCount)) << "%\n";
 
     FilePolicy::close_file();
-
-    writeStats(input.outFile, *fastqStatsPtr);
-}*/
+}
 
 template <typename MappingPolicy, typename FilePolicy>
 void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::run(const input& input)
@@ -218,10 +191,21 @@ void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::run(const input& input
     //which stores for each pattern all possible barcodes, number of mismatches etc.
     std::vector<std::pair<std::string, char> > pattern = this->generate_barcode_patterns(input);
 
-    initialize_mapping(input, pattern);
+    //create output files and write headers for demultiplexed barcodes
+    initialize_output_files(input, pattern);
 
+    //create empty dict for mismatches per barcode
+    if(input.writeStats)
+    {
+        this->initializeStats();
+    }
+
+    //run mapping
     this->run_mapping(input);
-    tmp_quickNdirty_write(input, this->get_demultiplexed_reads());
+
+    //write the barcodes, failed lines, statistics (mismatches per barcode)
+    write_file(input, this->get_demultiplexed_reads());
+    write_stats(input, this->get_mismatch_dict());
 }
 
 

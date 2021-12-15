@@ -88,9 +88,8 @@ struct input{
     std::string patternLine; //list of patterns in abstract form
 
     //additional informations
-    bool withStats = true;
-    bool storeRealSequences = false;
-    bool analyseUnmappedPatterns = false; 
+    bool writeStats = false; 
+    bool writeFailedLines = false;
     int fastqReadBucketSize = 10000000;
     int threads = 5;
 };
@@ -103,9 +102,9 @@ struct fastqStats{
     std::atomic<int> moderateMatches = 0;
     //parameter stating how often a barcode sequence could be matched to several sequences, can occure more than once per line
     //can only happen for vairable sequences
-    int multiBarcodeMatch =0;
     //a dictionary of the number of mismatches in a barcode, in the case of a match
     std::map<std::string, std::vector<int> > mapping_dict;
+    std::unique_ptr<std::mutex> statsLock;
 };
 
 struct levenshtein_value{

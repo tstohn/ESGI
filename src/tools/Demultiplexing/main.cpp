@@ -67,12 +67,10 @@ bool parse_arguments(char** argv, int argc, input& input)
             This should be a comma seperated list of numbers for each substring of the sequence enclosed in squared brackets. E.g.: 2,1,2,1,2")
            
             ("threat,t", value<int>(&(input.threads))->default_value(5), "number of threads")
-            ("realSequences,r", value<bool>(&(input.storeRealSequences))->default_value(false), "set flag if next to the mapped barcodes also a table of the actual \
-            reads - including mismatches - should be printed\n")
-            ("fastqReadBucketSize,s", value<int>(&(input.fastqReadBucketSize))->default_value(10000000), "number of lines of the fastQ file that should be read into RAM \
-            and be processed, before the next batch of fastq reads is read into RAM and processed.")
-            ("failureAssessment,f", value<bool>(&(input.analyseUnmappedPatterns))->default_value(false), "set flag for a quality assessment: In this case patterns that can not be mapped \
-            will simply be skipped, to see if reads might follow a wrong pattern\n")
+            ("fastqReadBucketSize,s", value<int>(&(input.fastqReadBucketSize))->default_value(-1), "number of lines of the fastQ file that should be read into RAM \
+            and be processed, before the next fastq read is processed.")
+            ("writeStats,q", value<bool>(&(input.writeStats))->default_value(false), "writing Statistics about the barcode mapping (mismatches in different barcodes)\n")
+            ("writeFailedLines,f", value<bool>(&(input.writeFailedLines))->default_value(false), "write failed lines to extra file\n")
 
             ("help,h", "help message");
 
@@ -119,7 +117,7 @@ int main(int argc, char** argv)
         }
         else if(endWith(input.inFile, "txt"))
         {
-            Mapping<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromTxtFilesPolicy> mapping;
+            DemultiplexedLinesWriter<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromTxtFilesPolicy> mapping;
             mapping.run(input);
         }
         else
