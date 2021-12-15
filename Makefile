@@ -6,22 +6,23 @@ install:
 
 #parse fastq lines and map abrcodes to each sequence
 demultiplexing:
-	g++ -c src/lib/mapping.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17
+	g++ -c src/lib/BarcodeMapping.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17
 	g++ -c src/tools/Demultiplexing/DemultiplexedLinesWriter.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17
 	g++ -c src/tools/Demultiplexing/main.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17
-	g++ main.o DemultiplexedLinesWriter.o mapping.o -o ./bin/demultiplexing -lpthread -lz -lboost_program_options -lboost_iostreams
+	g++ main.o DemultiplexedLinesWriter.o BarcodeMapping.o -o ./bin/demultiplexing -lpthread -lz -lboost_program_options -lboost_iostreams
 
-qualityControl:
-	g++ -c src/lib/mapping.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17
+#a quality control tool: Mapping first Linker to whole sequence
+demultiplexAroundLinker:
+	g++ -c src/lib/BarcodeMapping.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17
 	g++ -c src/tools/BarcodeProcessing/UmiDataParser.cpp -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing --std=c++17
-	g++ -c src/tools/AbFastqParserQC/FastqParserQC.cpp -I ./include/ -I ./src/tools/Demultiplexing -I ./src/tools/BarcodeProcessing -I ./src/lib --std=c++17
-	g++ FastqParserQC.o UmiDataParser.o mapping.o -o ./bin/parserQC -lpthread -lz -lboost_program_options -lboost_iostreams
+	g++ -c src/tools/DemultiplexAroundLinker/main.cpp -I ./include/ -I ./src/tools/Demultiplexing -I ./src/tools/BarcodeProcessing -I ./src/lib --std=c++17
+	g++ main.o UmiDataParser.o BarcodeMapping.o -o ./bin/demultiplexAroundLinker -lpthread -lz -lboost_program_options -lboost_iostreams
 
 #process the mapped sequences: correct for UMI-mismatches, then map barcodes to Protein, treatment, SinglecellIDs
 processing:
 	g++ -c src/tools/BarcodeProcessing/UmiDataParser.cpp -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing --std=c++17
-	g++ -c src/tools/BarcodeProcessing/BarcodeProcessing.cpp -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing --std=c++17
-	g++ BarcodeProcessing.o UmiDataParser.o -o ./bin/processing -lpthread -lz -lboost_program_options -lboost_iostreams
+	g++ -c src/tools/BarcodeProcessing/main.cpp -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing --std=c++17
+	g++ main.o UmiDataParser.o -o ./bin/processing -lpthread -lz -lboost_program_options -lboost_iostreams
 
 #small test script for the parser, includes 1 perfect match, 6 matches with different types of mismatches below threshold, 2 mismatches above threshold
 #and four mismatches due to barcodes that can not be uniquely identified

@@ -1,11 +1,11 @@
-#include "mapping.hpp"
+#include "BarcodeMapping.hpp"
 
-//class overriting a couple of functions of mapping to store statistics,
-//failes lines, etc
-
-//class writing the demultiplexing data to files
-//handles smaller chunks of data that are written to a file immediately, 
-//and stores additional information (e.g. lines the failed demultipelxing)
+/** @brief class overriting a couple of functions of Mapping class 
+ * to store statistics, failes lines, etc
+ * also this class allows to read only a subset of reads into RAM
+ * and by that keeping the processing queue only filled up to a certain
+ * level, once a task is finished the queue is filled with the next read
+**/
 template<typename MappingPolicy, typename FilePolicy>
 class DemultiplexedLinesWriter : private Mapping<MappingPolicy, FilePolicy>
 {

@@ -1,5 +1,6 @@
 #include "DemultiplexedLinesWriter.hpp"
 
+/// creates new files for failed lines, mapped barcodes (and writes header), statistics
 void initialize_output(std::string output, const std::vector<std::pair<std::string, char> > patterns)
 {
     //remove output
@@ -39,6 +40,7 @@ void initialize_output(std::string output, const std::vector<std::pair<std::stri
     outputFile.close();
 }
 
+/// write mismatches per barcode to file
 void write_stats(const input& input, const std::map<std::string, std::vector<int> >& statsMismatchDict)
 {
     std::string output = input.outFile;
@@ -69,6 +71,7 @@ void write_stats(const input& input, const std::map<std::string, std::vector<int
     outputFile.close();
 }
 
+/// write failed lines into a txt file
 void write_failed_line(const input& input, const std::string& failedLine)
 {
     std::string output = input.outFile;
@@ -92,6 +95,7 @@ void write_failed_line(const input& input, const std::string& failedLine)
     outputFile.close();
 }
 
+/// write mapped barcodes to a tab separated file
 void write_file(const input& input, BarcodeMappingVector barcodes)
 {
     std::string output = input.outFile;
@@ -120,6 +124,7 @@ void write_file(const input& input, BarcodeMappingVector barcodes)
     outputFile.close();
 }
 
+/// calls output initializer functions and gets the barcode mapping structure from Mapping object, since this will the header of the output file
 template <typename MappingPolicy, typename FilePolicy>
 void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::initialize_output_files(const input& input, const std::vector<std::pair<std::string, char> >& patterns)
 {
@@ -129,10 +134,10 @@ void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::initialize_output_file
 }
 
 
-/*
-@brief function wrapping the demultiplex_read function of the mapping class to increment and decrement a counter of elements
-in the current queue. Used to allow processing of only a few lines a time instead of writing all into RAM.
-*/
+/**
+* @brief function wrapping the demultiplex_read function of the Mapping class to increment and decrement a counter of elements
+* in the current queue. Used to allow processing of only a few lines a time instead of writing all into RAM.
+**/
 template <typename MappingPolicy, typename FilePolicy>
 void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::demultiplex_wrapper(const std::string& line,
                                                             const input& input,
@@ -150,6 +155,7 @@ void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::demultiplex_wrapper(co
     --elementsInQueue;
 }
 
+/// overwritten run_mapping function to allow processing of only a subset of fastq lines at a time
 template <typename MappingPolicy, typename FilePolicy>
 void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::run_mapping(const input& input)
 {
@@ -184,6 +190,10 @@ void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::run_mapping(const inpu
     FilePolicy::close_file();
 }
 
+/**
+* @brief overwritten run_mapping function of Mapping class to allow processing of only a subset of fastq lines at a time
+* and to store all output results that we want to safe (e.g. failed lines, statistics)
+**/
 template <typename MappingPolicy, typename FilePolicy>
 void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::run(const input& input)
 {
@@ -207,7 +217,6 @@ void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::run(const input& input
     write_file(input, this->get_demultiplexed_reads());
     write_stats(input, this->get_mismatch_dict());
 }
-
 
 template class DemultiplexedLinesWriter<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromFastqFilePolicy>;
 template class DemultiplexedLinesWriter<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromTxtFilesPolicy>;

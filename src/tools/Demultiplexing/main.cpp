@@ -10,7 +10,7 @@
 #include "DemultiplexedLinesWriter.hpp"
 
 /** 
- * A tool to map fastq lines (stitched to one read, use e.g. fastq-join) to a certain barcode pattern,
+ * @brief A tool to map fastq lines (stitched to one read, use e.g. fastq-join) to a certain barcode pattern,
  * this pattern must be given as an input parameter plus additional files for patterns with multiple
  * possible barcodes
  * 
@@ -24,8 +24,9 @@
  * @param <input> input fastq file (gzipped), considers only full length fastq reads, FW/RV must be stitched together in advance
  * @param <output> output extension, that will be added to the output files, see return
  * @param <sequencePattern> a string with all the barcode patterns, each pattern is enclosed by suqare brackets, valid chars are AGTC ofr bases, N for a sequences
- *                          that hold a fixed number of different combinations, must be declared in the barcodeList file, and X for wildcard sequences, that can
- *                          be anything (e.g. for UMIs): e.g.: [XXXXXXXXXX][AGCGTACGCGAGT][NNNNNNNN][AAGCGtAGCTTC][NNNNNNNN] 
+ *                          that hold a fixed number of different combinations, must be declared in the barcodeList file, D and X for wildcard sequences, that can
+ *                          be anything - where X is used for e.g. UMIs and D can be used for subsequent mapping if 'writeTranscriptomeFastq'-flag (-c true) is defined
+ *                          (e.g. for UMIs): e.g.: [XXXXXXXXXX][AGCGTACGCGAGT][NNNNNNNN][AAGCGtAGCTTC][NNNNNNNN] 
  * @param <barcodeList> a file of discrete barcodes, that can be mapped to the [N...] sequences, each row is one pattern, they r in the order as in the sequence pattern and
  *                      barcodes must be comma seperated
  * @param <mismatches> comma seperated list of mismatches, one entry for each sequence pattern declared above: e.g.: 1,2,1,2,1. This also requires a parameter
@@ -58,14 +59,16 @@ bool parse_arguments(char** argv, int argc, input& input)
             ("output,o", value<std::string>(&(input.outFile))->required(), "output file with all split barcodes")
             
             ("sequencePattern,p", value<std::string>(&(input.patternLine))->required(), "pattern for the sequence to match, \
-            every substring that should be matched is enclosed with square brackets. N is a wild card match, a substring \
-            should not be a combination of wild card chars and constant chars : [AGCTATCACGTAGC][NNNNNN][AGAGCATGCCTTCAG][NNNNNN]")
+            every substring that should be matched is enclosed with square brackets. N is a barcode match, X is a wild card match \
+            and D is a transcriptome read e.g. cDNA: [AGCTATCACGTAGC][XXXXXXXXXX][NNNNNN][AGAGCATGCCTTCAG][NNNNNN]")
             ("barcodeList,b", value<std::string>(&(input.barcodeFile)), "file with a list of all allowed well barcodes (comma seperated barcodes across several rows)\
             the row refers to the correponding bracket enclosed sequence substring. E.g. for two bracket enclosed substrings in out sequence a possible list could be:\
             AGCTTCGAG,ACGTTCAGG\nACGTCTAGACT,ATCGGCATACG,ATCGCGATC,ATCGCGCATAC")
             ("mismatches,m", value<std::string>(&(input.mismatchLine))->default_value("1"), "list of mismatches allowed for each bracket enclosed sequence substring. \
             This should be a comma seperated list of numbers for each substring of the sequence enclosed in squared brackets. E.g.: 2,1,2,1,2")
-           
+            ("writeTranscriptomeFastq,c", value<bool>(&(input.writeFailedLines))->default_value(true), "write a fastq file for the e.g. cDNA region on reads\n")
+
+
             ("threat,t", value<int>(&(input.threads))->default_value(5), "number of threads")
             ("fastqReadBucketSize,s", value<int>(&(input.fastqReadBucketSize))->default_value(-1), "number of lines of the fastQ file that should be read into RAM \
             and be processed, before the next fastq read is processed.")

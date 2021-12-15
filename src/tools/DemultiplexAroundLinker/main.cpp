@@ -10,7 +10,7 @@
 #include <boost/program_options/options_description.hpp>
 
 #include "UmiDataParser.hpp"
-#include "mapping.hpp"
+#include "BarcodeMapping.hpp"
 
 using namespace boost::program_options;
 
@@ -249,7 +249,6 @@ int main(int argc, char** argv)
         input.outFile = output;
         input.patternLine = seqpattern;
         input.mismatchLine = mismatches;
-        input.analyseUnmappedPatterns = true;
         input.threads = threads;
 
         Mapping<MapAroundConstantBarcodesAsAnchorPolicy, ExtractLinesFromTxtFilesPolicy> mapping;
