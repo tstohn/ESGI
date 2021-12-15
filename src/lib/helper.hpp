@@ -7,6 +7,7 @@
 #include <cassert>
 #include <string_view>
 #include <cstring>
+#include <atomic>
 
 #define PBSTR "||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
 #define PBWIDTH 60
