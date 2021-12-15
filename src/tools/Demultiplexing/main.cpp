@@ -70,7 +70,7 @@ bool parse_arguments(char** argv, int argc, input& input)
 
 
             ("threat,t", value<int>(&(input.threads))->default_value(5), "number of threads")
-            ("fastqReadBucketSize,s", value<int>(&(input.fastqReadBucketSize))->default_value(-1), "number of lines of the fastQ file that should be read into RAM \
+            ("fastqReadBucketSize,s", value<long long int>(&(input.fastqReadBucketSize))->default_value(-1), "number of lines of the fastQ file that should be read into RAM \
             and be processed, before the next fastq read is processed.")
             ("writeStats,q", value<bool>(&(input.writeStats))->default_value(false), "writing Statistics about the barcode mapping (mismatches in different barcodes)\n")
             ("writeFailedLines,f", value<bool>(&(input.writeFailedLines))->default_value(false), "write failed lines to extra file\n")

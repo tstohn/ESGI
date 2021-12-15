@@ -278,7 +278,7 @@ class Mapping : protected MappingPolicy, protected FilePolicy
         //pairs that hold <barcode-regex, char determining the kind of barcode> with kind of barcode beeing e.g. a variable, constant, etc.
         std::vector<std::pair<std::string, char> > generate_barcode_patterns(const input& input);
         //wrapper to call the actual mapping function on one read and updates the status bar
-        bool demultiplex_read(const std::string& seq, const input& input, std::atomic<int>& count, const int& totalReadCount);
+        bool demultiplex_read(const std::string& seq, const input& input, std::atomic<unsigned long long>& count, const unsigned long long& totalReadCount);
         //run the actual mapping
         void run_mapping(const input& input);
 };

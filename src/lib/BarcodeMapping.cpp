@@ -319,7 +319,7 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
 
 template <typename MappingPolicy, typename FilePolicy>
 bool Mapping<MappingPolicy, FilePolicy>::demultiplex_read(const std::string& seq, const input& input, 
-                                                          std::atomic<int>& count, const int& totalReadCount)
+                                                          std::atomic<unsigned long long>& count, const unsigned long long& totalReadCount)
 {
     //split line into patterns (barcodeMap, barcodePatters, stats are passed as reference or ptr)
     //and can be read by each thread, "addValue" method for barcodeMap is thread safe also for concurrent writing
@@ -408,8 +408,8 @@ void Mapping<MappingPolicy, FilePolicy>::run_mapping(const input& input)
     //read line by line and add to thread pool
     FilePolicy::init_file(input.inFile);
     std::string line;
-    std::atomic<int> lineCount = 0; //using atomic<int> as thread safe read count
-    int totalReadCount = numberOfReads(input.inFile);
+    std::atomic<unsigned long long> lineCount = 0; //using atomic<int> as thread safe read count
+    unsigned long long totalReadCount = numberOfReads(input.inFile);
 
     while(FilePolicy::get_next_line(line))
     {

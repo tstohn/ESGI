@@ -27,9 +27,9 @@ inline bool endWith(std::string const &fullString, std::string const &ending)
     }
 }
 
-inline int totalNumberOfLines(std::string fileName)
+inline unsigned long long totalNumberOfLines(std::string fileName)
 {
-    int totalReads = 0;
+    unsigned long long totalReads = 0;
     unsigned char buffer[1000];
     gzFile fp = gzopen(fileName.c_str(),"r");
     if(NULL == fp){
@@ -51,9 +51,9 @@ inline int totalNumberOfLines(std::string fileName)
     return totalReads;
 }
 
-inline int numberOfReads(std::string fileName)
+inline unsigned long long numberOfReads(std::string fileName)
 {
-    int totalReads = 0;
+    unsigned long long totalReads = 0;
     
     if(endWith(fileName, "fastq") || endWith(fileName, "fastq.gz"))
     {
@@ -91,16 +91,16 @@ struct input{
     //additional informations
     bool writeStats = false; 
     bool writeFailedLines = false;
-    int fastqReadBucketSize = 10000000;
+    long long int fastqReadBucketSize = 10000000;
     int threads = 5;
 };
 
 struct fastqStats{
     //parameters that are evaluated over the whole fastq line
     //e.g. perfect match occurs only if ALL barcodes match perfectly in a fastq line
-    std::atomic<int> perfectMatches = 0;
-    std::atomic<int> noMatches = 0;
-    std::atomic<int> moderateMatches = 0;
+    std::atomic<unsigned long long> perfectMatches = 0;
+    std::atomic<unsigned long long> noMatches = 0;
+    std::atomic<unsigned long long> moderateMatches = 0;
     //parameter stating how often a barcode sequence could be matched to several sequences, can occure more than once per line
     //can only happen for vairable sequences
     //a dictionary of the number of mismatches in a barcode, in the case of a match

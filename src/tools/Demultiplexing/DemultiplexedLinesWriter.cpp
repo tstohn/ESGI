@@ -141,9 +141,9 @@ void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::initialize_output_file
 template <typename MappingPolicy, typename FilePolicy>
 void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::demultiplex_wrapper(const std::string& line,
                                                             const input& input,
-                                                            std::atomic<int>& lineCount,
-                                                            const int& totalReadCount,
-                                                            std::atomic<int>& elementsInQueue)
+                                                            std::atomic<unsigned long long>& lineCount,
+                                                            const unsigned long long& totalReadCount,
+                                                            std::atomic<long long int>& elementsInQueue)
 {
     ++elementsInQueue;
     bool result = this->demultiplex_read(line, input, lineCount, totalReadCount);
@@ -167,9 +167,9 @@ void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::run_mapping(const inpu
     //read line by line and add to thread pool
     this->FilePolicy::init_file(input.inFile);
     std::string line;
-    std::atomic<int> lineCount = 0; //using atomic<int> as thread safe read count
-    std::atomic<int> elementsInQueue = 0;
-    int totalReadCount = numberOfReads(input.inFile);
+    std::atomic<unsigned long long> lineCount = 0; //using atomic<int> as thread safe read count
+    std::atomic<long long int> elementsInQueue = 0;
+    unsigned long long totalReadCount = numberOfReads(input.inFile);
 
     while(FilePolicy::get_next_line(line))
     {
