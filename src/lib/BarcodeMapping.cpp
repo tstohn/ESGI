@@ -418,9 +418,9 @@ void Mapping<MappingPolicy, FilePolicy>::run_mapping(const input& input)
     }
     pool.join();
     printProgress(1); std::cout << "\n"; // end the progress bar
-    std::cout << "=>\tPERFECT MATCHES: " << std::to_string(int(100*(stats.perfectMatches)/(double)totalReadCount)) 
-              << "% | MODERATE MATCHES: " << std::to_string(int(100*(stats.moderateMatches)/(double)totalReadCount))
-              << "% | MISMATCHES: " << std::to_string(int(100*(stats.noMatches)/(double)totalReadCount)) << "%\n";
+    std::cout << "=>\tPERFECT MATCHES: " << std::to_string(unsigned long long(100*(stats.perfectMatches)/(double)totalReadCount)) 
+              << "% | MODERATE MATCHES: " << std::to_string(unsigned long long(100*(stats.moderateMatches)/(double)totalReadCount))
+              << "% | MISMATCHES: " << std::to_string(unsigned long long(100*(stats.noMatches)/(double)totalReadCount)) << "%\n";
 
     FilePolicy::close_file();
 }
