@@ -327,7 +327,7 @@ bool Mapping<MappingPolicy, FilePolicy>::demultiplex_read(const std::string& seq
 
     //update status bar
     ++count;
-    if(count%1000 == 0) //update at every 1,000th entry
+    if(count%1000==0 && totalReadCount!=ULLONG_MAX) //update at every 1,000th entry
     {
         double perc = count/(double)totalReadCount;
         std::lock_guard<std::mutex> guard(*printProgressLock);
@@ -418,10 +418,12 @@ void Mapping<MappingPolicy, FilePolicy>::run_mapping(const input& input)
     }
     pool.join();
     printProgress(1); std::cout << "\n"; // end the progress bar
-    std::cout << "=>\tPERFECT MATCHES: " << std::to_string((unsigned long long)(100*(stats.perfectMatches)/(double)totalReadCount)) 
-              << "% | MODERATE MATCHES: " << std::to_string((unsigned long long)(100*(stats.moderateMatches)/(double)totalReadCount))
-              << "% | MISMATCHES: " << std::to_string((unsigned long long)(100*(stats.noMatches)/(double)totalReadCount)) << "%\n";
-
+    if(totalReadCount != ULLONG_MAX)
+    {
+        std::cout << "=>\tPERFECT MATCHES: " << std::to_string((unsigned long long)(100*(stats.perfectMatches)/(double)totalReadCount)) 
+                << "% | MODERATE MATCHES: " << std::to_string((unsigned long long)(100*(stats.moderateMatches)/(double)totalReadCount))
+                << "% | MISMATCHES: " << std::to_string((unsigned long long)(100*(stats.noMatches)/(double)totalReadCount)) << "%\n";
+    }
     FilePolicy::close_file();
 }
 

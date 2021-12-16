@@ -42,6 +42,11 @@ inline unsigned long long totalNumberOfLines(std::string fileName)
         {
             if ( c == '\n' )
             {
+                if(totalReads == ULLONG_MAX)
+                {
+                    std::cout << "WARNING: Analysing more than " << std::to_string(ULLONG_MAX) << " reads. There will be no status update\n";
+                    return(ULLONG_MAX);
+                }
                 ++totalReads;
             }
         }
@@ -57,7 +62,9 @@ inline unsigned long long numberOfReads(std::string fileName)
     
     if(endWith(fileName, "fastq") || endWith(fileName, "fastq.gz"))
     {
-        totalReads = (totalNumberOfLines(fileName)/4);
+        unsigned long long totalLines = totalNumberOfLines(fileName);
+        if(totalLines==ULLONG_MAX){return(ULLONG_MAX);}
+        totalReads = (totalLines/4);
     }
     else if(endWith(fileName, "txt"))
     {
