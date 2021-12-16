@@ -216,17 +216,17 @@ class Mapping : protected MappingPolicy, protected FilePolicy
             return(barcodeMap.get_all_reads());
         }
         ///number of perfect matches
-        const int get_perfect_matches()
+        const unsigned long long get_perfect_matches()
         {
             return stats.perfectMatches;
         }
         ///number of matches with mismatches
-        const int get_moderat_matches()
+        const unsigned long long get_moderat_matches()
         {
             return stats.moderateMatches;
         }
         ///number of failed matches
-        const int get_failed_matches()
+        const unsigned long long get_failed_matches()
         {
             return stats.noMatches;
         }
