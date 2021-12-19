@@ -145,7 +145,6 @@ void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::demultiplex_wrapper(co
                                                             const unsigned long long& totalReadCount,
                                                             std::atomic<long long int>& elementsInQueue)
 {
-    ++elementsInQueue;
     bool result = this->demultiplex_read(line, input, lineCount, totalReadCount);
     if(!result && input.writeFailedLines)
     {
@@ -169,7 +168,7 @@ void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::run_mapping(const inpu
     std::string line;
     std::atomic<unsigned long long> lineCount = 0; //using atomic<int> as thread safe read count
     std::atomic<long long int> elementsInQueue = 0;
-    unsigned long long totalReadCount = numberOfReads(input.inFile);
+    unsigned long long totalReadCount = FilePolicy::get_read_number();
 
     while(FilePolicy::get_next_line(line))
     {
@@ -178,7 +177,8 @@ void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::run_mapping(const inpu
         {
             while(input.fastqReadBucketSize <= elementsInQueue){}
         }
-        //if we processed a number of lines wait for threads to finish
+        //increase job count and push the job in the queue
+        ++elementsInQueue;
         boost::asio::post(pool, std::bind(&DemultiplexedLinesWriter::demultiplex_wrapper, this, line, input, std::ref(lineCount), totalReadCount, std::ref(elementsInQueue)));
     }
     pool.join();

@@ -409,7 +409,7 @@ void Mapping<MappingPolicy, FilePolicy>::run_mapping(const input& input)
     FilePolicy::init_file(input.inFile);
     std::string line;
     std::atomic<unsigned long long> lineCount = 0; //using atomic<int> as thread safe read count
-    unsigned long long totalReadCount = numberOfReads(input.inFile);
+    unsigned long long totalReadCount = FilePolicy::get_read_number();
 
     while(FilePolicy::get_next_line(line))
     {

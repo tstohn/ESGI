@@ -45,6 +45,7 @@ inline unsigned long long totalNumberOfLines(std::string fileName)
                 if(totalReads == ULLONG_MAX)
                 {
                     std::cout << "WARNING: Analysing more than " << std::to_string(ULLONG_MAX) << " reads. There will be no status update\n";
+                    gzrewind(fp);
                     return(ULLONG_MAX);
                 }
                 ++totalReads;

@@ -131,9 +131,14 @@ class ExtractLinesFromTxtFilesPolicy
     {
         fileStream.close();
     }
+
+    unsigned long long get_read_number()
+    {
+        return totalReads;
+    }
     
     std::ifstream fileStream;
-    int totalReads;
+    unsigned long long totalReads;
 };
 
 ///parser policy for fastq(.gz) files
@@ -157,6 +162,13 @@ class ExtractLinesFromFastqFilePolicy
             {
                 if ( c == '\n' )
                 {
+                    if(totalReads == ULLONG_MAX)
+                    {
+                        std::cout << "WARNING: Analysing more than " << std::to_string(ULLONG_MAX) << " reads. There will be no status update\n";
+                        gzrewind(fp);
+                        ks = kseq_init(fp);
+                        return;
+                    }
                     ++totalReads;
                 }
             }
@@ -183,8 +195,13 @@ class ExtractLinesFromFastqFilePolicy
         gzclose(fp);
     }
 
+    unsigned long long get_read_number()
+    {
+        return totalReads;
+    }
+
     kseq_t* ks;
-    int totalReads;
+    unsigned long long totalReads;
     gzFile fp;
 
 };

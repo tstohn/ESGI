@@ -71,7 +71,7 @@ bool parse_arguments(char** argv, int argc, input& input)
 
             ("threat,t", value<int>(&(input.threads))->default_value(5), "number of threads")
             ("fastqReadBucketSize,s", value<long long int>(&(input.fastqReadBucketSize))->default_value(-1), "number of lines of the fastQ file that should be read into RAM \
-            and be processed, before the next fastq read is processed.")
+            and be processed, before the next fastq read is processed. By default it equal 10X the thread number.")
             ("writeStats,q", value<bool>(&(input.writeStats))->default_value(false), "writing Statistics about the barcode mapping (mismatches in different barcodes)\n")
             ("writeFailedLines,f", value<bool>(&(input.writeFailedLines))->default_value(false), "write failed lines to extra file\n")
 
@@ -111,10 +111,16 @@ int main(int argc, char** argv)
     input input;
     if(parse_arguments(argv, argc, input))
     {
+        //set the number of reads in the processing queue by default to 10X number of threads
+        if(input.fastqReadBucketSize == -1)
+        {
+            input.fastqReadBucketSize = input.threads * 10;
+        }
+
+        // run demultiplexing
         if(endWith(input.inFile, "fastq") || endWith(input.inFile, "fastq.gz"))
         {
             DemultiplexedLinesWriter<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromFastqFilePolicy> mapping;
-
             mapping.run(input);
 
         }
