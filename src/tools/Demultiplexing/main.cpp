@@ -66,8 +66,6 @@ bool parse_arguments(char** argv, int argc, input& input)
             AGCTTCGAG,ACGTTCAGG\nACGTCTAGACT,ATCGGCATACG,ATCGCGATC,ATCGCGCATAC")
             ("mismatches,m", value<std::string>(&(input.mismatchLine))->default_value("1"), "list of mismatches allowed for each bracket enclosed sequence substring. \
             This should be a comma seperated list of numbers for each substring of the sequence enclosed in squared brackets. E.g.: 2,1,2,1,2")
-            ("writeTranscriptomeFastq,c", value<bool>(&(input.writeFailedLines))->default_value(true), "write a fastq file for the e.g. cDNA region on reads\n")
-
 
             ("threat,t", value<int>(&(input.threads))->default_value(5), "number of threads")
             ("fastqReadBucketSize,s", value<long long int>(&(input.fastqReadBucketSize))->default_value(-1), "number of lines of the fastQ file that should be read into RAM \
