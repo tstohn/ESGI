@@ -55,7 +55,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             This file ONLY includes lines for the varying sequences (except UMI). Therefore the index is not the same as the position in the whole sequence \
             if constant or UMI-seq are present. Index starts with zero.")
 
-            ("mismatches,m", value<int>(&umiMismatches)->default_value(2), "number of allowed mismatches in a UMI. The nucleotides in the beginning and end do NOT count.\
+            ("mismatches,u", value<int>(&umiMismatches)->default_value(2), "number of allowed mismatches in a UMI. The nucleotides in the beginning and end do NOT count.\
             Since the UMI is defined as the sequence between the last and first match of neighboring sequences, bases of mismatches could be in the beginning/ end.")
             ("thread,t", value<int>(&threats)->default_value(5), "number of threads")
             ("help,h", "help message");

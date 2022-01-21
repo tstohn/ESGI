@@ -48,7 +48,7 @@ testProcessing:
 	diff ./src/test/test_data/ABprocessed_out ./bin/ABprocessed_out.tsv
 
 testAnalysis:
-	php ./src/Pipelines/analyze.php -i ./src/test/test_data/inFastqTest.fastq -o ./bin/AnalysisTestOutput.tsv -p [NNNN][ATCAGTCAACAGATAAGCGA][NNNN][XXX][GATCAT] -m 1,4,1,1,2 -t 1
+	php ./src/Pipelines/analyze.php -i ./src/test/test_data/inFastqTest.fastq -o ./bin/AnalysisTestOutput.tsv -p [NNNN][ATCAGTCAACAGATAAGCGA][NNNN][XXX][GATCAT] -m 1,4,1,3,2 -t 1
 
 bigTest:
 	./bin/demultiplexing -i ./src/test/test_data/test2000fastq.gz -o ./bin/output.tsv -p [NNNNNNNN][CTTGTGGAAAGGACGAAACACCG][XXXXXXXXXXXXXXX][NNNNNNNNNN][GTTTTAGAGCTAGAAATAGCAA][NNNNNNNN][CGAATGCTCTGGCCTACGC][NNNNNNNN][CGAAGTCGTACGCCGATG][NNNNNNNN] -m 7,13,0,8,13,6,13,4,13,4 -t 5 -b ./src/test/test_data/processingBarcodeFile.txt

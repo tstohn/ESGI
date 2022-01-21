@@ -65,7 +65,8 @@ bool parse_arguments(char** argv, int argc, input& input)
             the row refers to the correponding bracket enclosed sequence substring. E.g. for two bracket enclosed substrings in out sequence a possible list could be:\
             AGCTTCGAG,ACGTTCAGG\nACGTCTAGACT,ATCGGCATACG,ATCGCGATC,ATCGCGCATAC")
             ("mismatches,m", value<std::string>(&(input.mismatchLine))->default_value("1"), "list of mismatches allowed for each bracket enclosed sequence substring. \
-            This should be a comma seperated list of numbers for each substring of the sequence enclosed in squared brackets. E.g.: 2,1,2,1,2")
+            This should be a comma seperated list of numbers for each substring of the sequence enclosed in squared brackets. E.g.: 2,1,2,1,2. (Also add the UMI mismatch \
+            this number is not used however.)")
 
             ("threat,t", value<int>(&(input.threads))->default_value(5), "number of threads")
             ("fastqReadBucketSize,s", value<long long int>(&(input.fastqReadBucketSize))->default_value(-1), "number of lines of the fastQ file that should be read into RAM \
