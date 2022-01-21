@@ -35,7 +35,7 @@ $logfile = "./bin/analysis.log";
 //execute mapping of barcodes
 run("./bin/demultiplexing -i " . $options['i'] . " -o " . $options['o']);
 
-//if CDNA map reads to reference genome (if mapping pattern contains CDNA region)
+//if RNA reads have to be mapped to reference genome (if mapping pattern contains RNA region)
 
 //execute processing of the mapped barcodes (UMI collapsing, assigning single cells, etc.)
 
