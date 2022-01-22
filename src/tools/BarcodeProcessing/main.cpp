@@ -1,7 +1,7 @@
 #include <boost/program_options.hpp>
 #include <boost/program_options/options_description.hpp>
 
-#include "UmiDataParser.hpp"
+#include "BarcodeProcessingHandler.hpp"
 using namespace boost::program_options;
 
 /**
@@ -66,7 +66,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
         if(vm.count("help"))
         {
             std::cout << desc << "\n";
-            std::cout << "EXAMPLE CALL:\n ./bin/processing -i <inFile>\n";
+            std::cout << "EXAMPLE CALL:\n ./bin/processing -i <inFile> ... \n";
             return false;
         }
 
@@ -78,90 +78,9 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
         return false;
     }
     return true;
-
 }
 
-/*void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, CIBarcode& barcodeIdData, 
-                          std::vector<std::string>& proteinDict, const int& protIdx, std::vector<std::string>& treatmentDict, const int& treatmentIdx)
-{
-    //parse barcode file
-    std::vector<std::vector<std::string> > barcodeList;
-    std::ifstream barcodeFileStream(barcodeFile);
-    for(std::string line; std::getline(barcodeFileStream, line);)
-    {
-        std::string delimiter = ",";
-        std::string seq;
-        size_t pos = 0;
-        std::vector<std::string> seqVector;
-        while ((pos = line.find(delimiter)) != std::string::npos) 
-        {
-            seq = line.substr(0, pos);
-            line.erase(0, pos + 1);
-            for (char const &c: seq) {
-                if(!(c=='A' | c=='T' | c=='G' |c=='C' |
-                        c=='a' | c=='t' | c=='g' | c=='c'))
-                        {
-                        std::cerr << "PARAMETER ERROR: a barcode sequence in barcode file is not a base (A,T,G,C)\n";
-                        if(c==' ' | c=='\t' | c=='\n')
-                        {
-                            std::cerr << "PARAMETER ERROR: Detected a whitespace in sequence; remove it to continue!\n";
-                        }
-                        exit(1);
-                        }
-            }
-            seqVector.push_back(seq);
-        }
-        seq = line;
-        for (char const &c: seq) {
-            if(!(c=='A' || c=='T' || c=='G' || c=='C' ||
-                    c=='a' || c=='t' || c=='g' || c=='c'))
-                    {
-                    std::cerr << "PARAMETER ERROR: a barcode sequence in barcode file is not a base (A,T,G,C)\n";
-                    if(c==' ' || c=='\t' || c=='\n')
-                    {
-                        std::cerr << "PARAMETER ERROR: Detected a whitespace in sequence; remove it to continue!\n";
-                    }
-                    exit(1);
-                    }
-        }
-        seqVector.push_back(seq);
-        barcodeList.push_back(seqVector);
-        seqVector.clear();
-    }
-    barcodeFileStream.close();
-
-    //parse the indices of CIbarcodes from line
-    std::stringstream ss;
-    ss.str(barcodeIndices);
-    while(ss.good())
-    {
-        std::string substr;
-        getline(ss, substr, ',' );
-        barcodeIdData.ciBarcodeIndices.push_back(stoi(substr));
-    }
-
-    //vector of barodeList stores all possible barcodes at each index
-    //generate a struct with a dictionary maping a barcode to an index
-    //for every CI Barcode in sequence
-    for(const int& i : barcodeIdData.ciBarcodeIndices)
-    {
-        int barcodeCount = 0;
-        std::unordered_map<std::string, int> barcodeMap;
-        //for all options of this barcode
-        for(const std::string& barcodeEntry : barcodeList.at(i))
-        {
-            barcodeMap.insert(std::pair<std::string, int>(barcodeEntry,barcodeCount));
-            ++barcodeCount;
-        }
-        barcodeIdData.barcodeIdDict.push_back(barcodeMap);
-    }
-    barcodeIdData.tmpTreatmentIdx = treatmentIdx;
-
-    proteinDict = barcodeList.at(protIdx);
-    treatmentDict = barcodeList.at(treatmentIdx);
-
-}*/
-
+// generate a dictionary to map sequences to AB(proteins)
 std::unordered_map<std::string, std::shared_ptr<std::string> > generateProteinDict(std::string abFile, int abIdx, 
                                                                                               const std::vector<std::string>& abBarcodes)
 {
@@ -195,6 +114,7 @@ std::unordered_map<std::string, std::shared_ptr<std::string> > generateProteinDi
     return map;
 }
 
+// generate a dictionary to map sequences to treatments
 std::unordered_map<std::string, std::shared_ptr<std::string> > generateTreatmentDict(std::string treatmentFile, int treatmentIdx,
                                                                                                 const std::vector<std::string>& treatmentBarcodes)
 {
@@ -250,9 +170,9 @@ int main(int argc, char** argv)
     parse_arguments(argv, argc, inFile, outFile, thread, barcodeFile, barcodeIndices, umiMismatches, abFile, abIdx, treatmentFile, treatmentIdx);
     
     //generate the dictionary of barcode alternatives to idx
-    CIBarcode barcodeIdData;
-    generateBarcodeDicts(barcodeFile, barcodeIndices, barcodeIdData, abBarcodes, abIdx, &treatmentBarcodes, treatmentIdx);
-    UmiDataParser dataParser(barcodeIdData);
+    NBarcodeInformation barcodeIdData;
+    generateBarcodeDicts(barcodeFile, barcodeIndices, barcodeIdData, abBarcodes, abIdx, &treatmentBarcodes, treatmentIdx, abIdx);
+    BarcodeProcessingHandler dataParser(barcodeIdData);
 
     if(!abFile.empty())
     {

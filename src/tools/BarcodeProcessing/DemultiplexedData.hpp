@@ -11,6 +11,8 @@
 
 #include "dataTypes.hpp"
 
+
+
 struct abLine
 {
     std::shared_ptr<std::string> ab_seq;
@@ -20,6 +22,13 @@ struct abLine
     int ab_cout = 0;
 }; 
 
+
+/**
+ * @brief A line in the demultiplexed data.
+ * Storing the UMI sequence, Antibody sequence, 
+ * unique cell sequences (basically all barcode sequences added to each other) 
+ * and a sequence for the treatment
+ */
 struct dataLine
 {
     const char* umi_seq;
@@ -29,11 +38,14 @@ struct dataLine
 };
 typedef std::shared_ptr<dataLine> dataLinePtr;
 
-class UmiData
+/**
+ * @brief A class storing all the demultiplexed barcodes.
+ */
+class UnprocessedDemultiplexedData
 {
     public:
 
-        UmiData()
+        UnprocessedDemultiplexedData()
         {
             uniqueChars = std::make_shared<UniqueCharSet>();
         }

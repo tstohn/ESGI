@@ -1,4 +1,4 @@
-#include "UmiDataParser.hpp"
+#include "BarcodeProcessingHandler.hpp"
 #include "helper.hpp"
 
 #include <unordered_set>
@@ -102,10 +102,17 @@ void writeExtendedData(const std::string& output, std::vector<std::vector<std::p
     outputFile.close();
 }
 
-void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, CIBarcode& barcodeIdData, 
-                          std::vector<std::string>& proteinDict, const int& protIdx, std::vector<std::string>* treatmentDict, const int& treatmentIdx)
+/**
+ * @brief Map barcode sequences for CI-barcodes to a unique number and
+ *        save positions for CI-barocdes, AB, treatment barcode within the
+ *        file of barcodes (position among all varying barcodes with [NNN...] pattern)
+ */
+void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, NBarcodeInformation& barcodeIdData, 
+                          std::vector<std::string>& proteinDict, const int& protIdx, 
+                          std::vector<std::string>* treatmentDict, const int& treatmentIdx,
+                          const int& abIdx)
 {
-    //parse barcode file
+    //parse barcode file into a vector of a vector of all sequences
     std::vector<std::vector<std::string> > barcodeList;
     std::ifstream barcodeFileStream(barcodeFile);
     for(std::string line; std::getline(barcodeFileStream, line);)
@@ -151,20 +158,19 @@ void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, C
     }
     barcodeFileStream.close();
 
-    //parse the indices of CIbarcodes from line
+    //parse the indices of CI-barcodes (the index of the lines that store CI-barcodes)
     std::stringstream ss;
     ss.str(barcodeIndices);
     while(ss.good())
     {
         std::string substr;
         getline(ss, substr, ',' );
-        barcodeIdData.ciBarcodeIndices.push_back(stoi(substr));
+        barcodeIdData.NBarcodeIndices.push_back(stoi(substr));
     }
 
-    //vector of barodeList stores all possible barcodes at each index
-    //generate a struct with a dictionary maping a barcode to an index
-    //for every CI Barcode in sequence
-    for(const int& i : barcodeIdData.ciBarcodeIndices)
+    //write a mapping of barcode sequence to a unique number for each
+    //CI barcoding round
+    for(const int& i : barcodeIdData.NBarcodeIndices)
     {
         int barcodeCount = 0;
         std::unordered_map<std::string, int> barcodeMap;
@@ -176,7 +182,8 @@ void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, C
         }
         barcodeIdData.barcodeIdDict.push_back(barcodeMap);
     }
-    barcodeIdData.tmpTreatmentIdx = treatmentIdx;
+
+    barcodeIdData.NTreatmentIdx = treatmentIdx;
 
     proteinDict = barcodeList.at(protIdx);
 
@@ -187,7 +194,7 @@ void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, C
 
 }
 
-void UmiDataParser::parseFile(const std::string fileName, const int& thread)
+void BarcodeProcessingHandler::parseFile(const std::string fileName, const int& thread)
 {
     int totalReads = totalNumberOfLines(fileName);
     int currentReads = 0;
@@ -207,7 +214,7 @@ void UmiDataParser::parseFile(const std::string fileName, const int& thread)
     file.close();
 }
 
-void UmiDataParser::parseBarcodeLines(std::istream* instream, const int& totalReads, int& currentReads)
+void BarcodeProcessingHandler::parseBarcodeLines(std::istream* instream, const int& totalReads, int& currentReads)
 {
     std::string line;
     std::cout << "READING ALL LINES INTO MEMORY\n";
@@ -231,7 +238,7 @@ void UmiDataParser::parseBarcodeLines(std::istream* instream, const int& totalRe
     std::cout << "\n";
 }
 
-void UmiDataParser::addFastqReadToUmiData(const std::string& line, const int& elements)
+void BarcodeProcessingHandler::addFastqReadToUmiData(const std::string& line, const int& elements)
 {
     //split the line into barcodes
     std::vector<std::string> result;
@@ -266,14 +273,14 @@ void UmiDataParser::addFastqReadToUmiData(const std::string& line, const int& el
 
 }
 
-std::string UmiDataParser::generateSingleCellIndexFromBarcodes(std::vector<std::string> ciBarcodes)
+std::string BarcodeProcessingHandler::generateSingleCellIndexFromBarcodes(std::vector<std::string> ciBarcodes)
 {
     std::string scIdx;
 
     for(int i = 0; i < ciBarcodes.size(); ++i)
     {
         std::string barcodeAlternative = ciBarcodes.at(i);
-        int tmpIdx = barcodeDict.barcodeIdDict.at(i)[barcodeAlternative];
+        int tmpIdx = varyingBarcodesPos.barcodeIdDict.at(i)[barcodeAlternative];
         scIdx += std::to_string(tmpIdx);
         if(i < ciBarcodes.size() - 1)
         {
@@ -284,7 +291,7 @@ std::string UmiDataParser::generateSingleCellIndexFromBarcodes(std::vector<std::
     return scIdx;
 }
 
-void UmiDataParser::getCiBarcodeInWholeSequence(const std::string& line, int& barcodeElements)
+void BarcodeProcessingHandler::getCiBarcodeInWholeSequence(const std::string& line, int& barcodeElements)
 {
     std::vector<std::string> result;
     std::stringstream ss;
@@ -299,16 +306,16 @@ void UmiDataParser::getCiBarcodeInWholeSequence(const std::string& line, int& ba
         if(substr.find_first_not_of('N') == std::string::npos)
         {
             //add index for treatment
-            if(variableBarcodeCount == barcodeDict.tmpTreatmentIdx)
+            if(variableBarcodeCount == varyingBarcodesPos.NTreatmentIdx)
             {
                 treatmentIdx = count;
             }
             //add index for combinatorial indexing barcode
-            if (std::count(barcodeDict.ciBarcodeIndices.begin(), barcodeDict.ciBarcodeIndices.end(), variableBarcodeCount)) 
+            if (std::count(varyingBarcodesPos.NBarcodeIndices.begin(), varyingBarcodesPos.NBarcodeIndices.end(), variableBarcodeCount)) 
             {
                 fastqReadBarcodeIdx.push_back(count);
             }
-            else
+            if(variableBarcodeCount == varyingBarcodesPos.NAbIdx)
             {
                 abIdx = count;
             }
@@ -323,12 +330,12 @@ void UmiDataParser::getCiBarcodeInWholeSequence(const std::string& line, int& ba
         ++count;
     }
     barcodeElements = count;
-    assert(fastqReadBarcodeIdx.size() == barcodeDict.ciBarcodeIndices.size());
+    assert(fastqReadBarcodeIdx.size() == varyingBarcodesPos.NBarcodeIndices.size());
     assert(umiIdx != INT_MAX);
     assert(abIdx != INT_MAX);
 }
 
-void UmiDataParser::processBarcodeMapping(const int& umiMismatches, const int& thread)
+void BarcodeProcessingHandler::processBarcodeMapping(const int& umiMismatches, const int& thread)
 {
     //split AbSc map into equal parts
     std::vector< std::vector < std::vector<dataLinePtr> > > independantAbScBatches(thread);
@@ -373,7 +380,7 @@ void UmiDataParser::processBarcodeMapping(const int& umiMismatches, const int& t
     std::cout << "Checking Quality of UMIs\n";
     for (int i = 0; i < thread; ++i) 
     {
-        workers.push_back(std::thread(&UmiDataParser::umiQualityCheck, this, std::ref(independantUmiBatches.at(i)), std::ref(umiQualThreaded.at(i)), std::ref(currentUmisChecked) ));
+        workers.push_back(std::thread(&BarcodeProcessingHandler::umiQualityCheck, this, std::ref(independantUmiBatches.at(i)), std::ref(umiQualThreaded.at(i)), std::ref(currentUmisChecked) ));
     }
     printProgress(1);
     for (std::thread &t: workers) 
@@ -390,7 +397,7 @@ void UmiDataParser::processBarcodeMapping(const int& umiMismatches, const int& t
     std::vector<dataLinePtr> dataLinesToDelete;
     for (int i = 0; i < thread; ++i) 
     {
-        workers.push_back(std::thread(&UmiDataParser::removeFalseSingleCellsFromUmis, this, std::ref(independantUmiBatches.at(i)), std::ref(currentReadsRemoved),
+        workers.push_back(std::thread(&BarcodeProcessingHandler::removeFalseSingleCellsFromUmis, this, std::ref(independantUmiBatches.at(i)), std::ref(currentReadsRemoved),
         std::ref(dataLinesToDeleteThreaded.at(i))
         ));
     }
@@ -409,12 +416,12 @@ void UmiDataParser::processBarcodeMapping(const int& umiMismatches, const int& t
     std::cout << "\n";
 
 
-    //for every batch calculate an UmiData and ABData vector and stats
+    //for every batch calculate an UnprocessedDemultiplexedData and ABData vector and stats
     int currentUmisCorrected = 0;
     std::cout << "Correcting UMIs and counting ABs\n";
     for (int i = 0; i < thread; ++i) 
     {
-        workers.push_back(std::thread(&UmiDataParser::correctUmis, this, std::ref(umiMismatches), std::ref(umiStatsThreaded.at(i)), std::ref(umiDataThreaded.at(i)),
+        workers.push_back(std::thread(&BarcodeProcessingHandler::correctUmis, this, std::ref(umiMismatches), std::ref(umiStatsThreaded.at(i)), std::ref(umiDataThreaded.at(i)),
                           std::ref(abDataThreaded.at(i)), std::ref(independantAbScBatches.at(i)), std::ref(currentUmisCorrected), std::ref(dataLinesToDelete)));
     }
     printProgress(1);
@@ -452,7 +459,7 @@ void UmiDataParser::processBarcodeMapping(const int& umiMismatches, const int& t
     }
 }
 
-bool UmiDataParser::checkDataLineValidityDueToUmiBackground(const dataLinePtr& line, const std::vector<dataLinePtr>& dataLinesToDelete)
+bool BarcodeProcessingHandler::checkDataLineValidityDueToUmiBackground(const dataLinePtr& line, const std::vector<dataLinePtr>& dataLinesToDelete)
 {
     if(std::find(dataLinesToDelete.begin(), dataLinesToDelete.end(),line) != dataLinesToDelete.end())
     {
@@ -462,7 +469,7 @@ bool UmiDataParser::checkDataLineValidityDueToUmiBackground(const dataLinePtr& l
 }
 
 //correct for mismatches in the UMI
-void UmiDataParser::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, std::vector<dataLinePtr>& umiDataTmp, std::vector<abLine>& abDataTmp, 
+void BarcodeProcessingHandler::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, std::vector<dataLinePtr>& umiDataTmp, std::vector<abLine>& abDataTmp, 
                                 const std::vector<std::vector<dataLinePtr> >& AbScBucket, int& currentUmisCorrected, 
                                 const std::vector<dataLinePtr>& dataLinesToDelete)
 {
@@ -692,7 +699,7 @@ void UmiDataParser::correctUmisWithStats(const int& umiMismatches, StatsUmi& sta
     }
 }*/
 
-void UmiDataParser::extended_umi_quality_check(const int& thread, const std::string& output)
+void BarcodeProcessingHandler::extended_umi_quality_check(const int& thread, const std::string& output)
 {
     //split AbSc map into equal parts
     std::vector< std::vector < std::vector<dataLinePtr> > > independantUmiBatches(thread);
@@ -719,7 +726,7 @@ void UmiDataParser::extended_umi_quality_check(const int& thread, const std::str
     std::cout << "Checking Extended Quality of UMIs\n";
     for (int i = 0; i < thread; ++i) 
     {
-        workers.push_back(std::thread(&UmiDataParser::umiQualityCheckExtended, this, std::ref(independantUmiBatches.at(i)), 
+        workers.push_back(std::thread(&BarcodeProcessingHandler::umiQualityCheckExtended, this, std::ref(independantUmiBatches.at(i)), 
                           std::ref(currentUmisChecked),
                           std::ref(uniqueUmiToDiffAbScVec.at(i)), std::ref(extendedQualityVec.at(i)), output ));
     }
@@ -737,7 +744,7 @@ void UmiDataParser::extended_umi_quality_check(const int& thread, const std::str
 
 }
 
-void UmiDataParser::umiQualityCheckExtended(const std::vector< std::vector<dataLinePtr> >& uniqueUmis,
+void BarcodeProcessingHandler::umiQualityCheckExtended(const std::vector< std::vector<dataLinePtr> >& uniqueUmis,
                                             int& currentUmisChecked, std::vector<std::pair<unsigned long long, unsigned long long>>& uniqueUmiToDiffAbSc, 
                                             std::vector<umiQualityExtended>& extendedQuality, const std::string& output)
 {
@@ -867,7 +874,7 @@ void UmiDataParser::umiQualityCheckExtended(const std::vector< std::vector<dataL
     } // UMI end
 }
 
-void UmiDataParser::umiQualityCheck(const std::vector< std::vector<dataLinePtr> >& uniqueUmis, umiQuality& qualTmp, int& currentUmisChecked)
+void BarcodeProcessingHandler::umiQualityCheck(const std::vector< std::vector<dataLinePtr> >& uniqueUmis, umiQuality& qualTmp, int& currentUmisChecked)
 {
     //first quality check, does a unique umi have always the same AbScIdx
     int tmpCurrentUmisChecked =0;
@@ -904,7 +911,7 @@ void UmiDataParser::umiQualityCheck(const std::vector< std::vector<dataLinePtr> 
     }
 }
 
-void UmiDataParser::removeFalseSingleCellsFromUmis(const std::vector< std::vector<dataLinePtr> >& uniqueUmis, int& currentUmisChecked,
+void BarcodeProcessingHandler::removeFalseSingleCellsFromUmis(const std::vector< std::vector<dataLinePtr> >& uniqueUmis, int& currentUmisChecked,
                                                                        std::vector<dataLinePtr>& dataLinesToDelete)
 {
     // go over UMi data: safe all ABSc combos that have to be deleted
@@ -975,7 +982,7 @@ void UmiDataParser::removeFalseSingleCellsFromUmis(const std::vector< std::vecto
     }
 }
 
-void UmiDataParser::writeStats(std::string output)
+void BarcodeProcessingHandler::writeStats(std::string output)
 {
     //WRITE INTO FILE
     std::ofstream outputFile;
@@ -1004,7 +1011,7 @@ void UmiDataParser::writeStats(std::string output)
 
 }
 
-void UmiDataParser::writeUmiCorrectedData(const std::string& output)
+void BarcodeProcessingHandler::writeUmiCorrectedData(const std::string& output)
 {
     std::ofstream outputFile;
     std::size_t found = output.find_last_of("/");

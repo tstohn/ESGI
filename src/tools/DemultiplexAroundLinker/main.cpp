@@ -104,7 +104,7 @@ void analyse_same_umis(std::string& inputBarcodeMapping, std::string& output, in
 
     generateBarcodeDicts(barcodeFile, barcodeIndices, barcodeIdData, abBarcodes, abIdx);
 
-    UmiDataParser dataParser(barcodeIdData);
+    BarcodeProcessingHandler dataParser(barcodeIdData);
     //parse the information
 
     dataParser.parseFile(inputBarcodeMapping, threads);

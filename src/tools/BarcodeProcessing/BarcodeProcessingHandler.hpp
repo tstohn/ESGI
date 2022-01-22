@@ -17,14 +17,27 @@
 #include <boost/iostreams/filter/gzip.hpp>
 #include <cmath>
 
-#include "UmiData.hpp"
+#include "DemultiplexedData.hpp"
 
-struct CIBarcode
+
+/**
+ * @brief Structure storing a vector with a mapping of the barcode-sequence to a unique ID
+ *        for this sequence (this is done seperately for each barcoding round)
+ * 
+ *        It also stores also the indices for Ci-barcodes, AB, treatment.
+ *        These indices indicate the position within the file of all barcodes. So only the position
+ *        among all barcodes with the [NNN...] pattern.
+ */
+struct NBarcodeInformation
 {
-    std::vector<std::unordered_map<std::string, int> > barcodeIdDict; // map of barcode to id, maps are in order of their occurence in the fastqRead
+    // map of barcode to id, maps are in order of their occurence in the fastqRead
     // ids of the CI barcode within the barcode file (includes only barcodes for variable sequence regions)
-    std::vector<int> ciBarcodeIndices; // more or less only of temporary usage, during generation of barcode map vector
-    int tmpTreatmentIdx;
+    std::vector<std::unordered_map<std::string, int> > barcodeIdDict; //used to generate a SC-index
+    
+    //different indices, they r the index of the NNN-barcodes only (and therefore differe from the index of all barcodes incl. constant ones)
+    std::vector<int> NBarcodeIndices; //CI barcode indices
+    int NTreatmentIdx; // treatment index
+    int NAbIdx; //AB index
 };
 
 //statistics of the UMI occurences
@@ -58,20 +71,33 @@ struct umiQualityExtended
     std::vector<unsigned long long> BC3Distribution;
 };
 
-void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, CIBarcode& barcodeIdData, 
-                          std::vector<std::string>& proteinDict, const int& protIdx, std::vector<std::string>* treatmentDict = nullptr, const int& treatmentIdx = 0);
+void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, 
+                          NBarcodeInformation& barcodeIdData, 
+                          std::vector<std::string>& proteinDict, const int& protIdx, 
+                          std::vector<std::string>* treatmentDict = nullptr, const int& treatmentIdx = 0,
+                          const int& abIdx = 0);
 
-class UmiDataParser
+
+
+/**
+ * @brief A class to handle the processing of the demultiplexed data. 
+ * This involves:
+ *  - Mapping the barcodes to unique cell IDs, ABs, treatments
+ *  - correcting UMIs, that are within a certain edit-distance
+ *  - count finally all UMIs per single-cell AB combination
+ *  - correct for errors in the data (same AB-scID has different UMIs, different treatments, etc. )
+ */
+class BarcodeProcessingHandler
 {
 
 
     public:
 
-        UmiDataParser(CIBarcode barcodeIdData) : barcodeDict(barcodeIdData){}
+        BarcodeProcessingHandler(NBarcodeInformation barcodeIdData) : varyingBarcodesPos(barcodeIdData){}
 
         void parseFile(const std::string fileName, const int& thread);
 
-        //correct the umis, so that UmiData holds the same UMI for UMIs within a certain mismatch range
+        //correct the umis, so that UnprocessedDemultiplexedData holds the same UMI for UMIs within a certain mismatch range
         //concurrently fills AbData, while iterating over AbSc lines, count the Ab occurence if this UMI has not been seen before
         void processBarcodeMapping(const int& umiMismatches, const int& thread);
 
@@ -114,7 +140,7 @@ class UmiDataParser
 
         //data structure storing lines with: UMI, AB_id, SingleCell_id
         //this is the raw data not UMI corrected
-        UmiData rawData;
+        UnprocessedDemultiplexedData rawData;
 
         //new UMI data beeing filled with correcte umi codes
         std::vector<dataLinePtr> umiData;
@@ -123,7 +149,7 @@ class UmiDataParser
 
         //Dictionary used to generate the dataLines, maps for each barcode in the sequence all
         //possibilities to an idx
-        CIBarcode barcodeDict;
+        NBarcodeInformation varyingBarcodesPos;
         //statistics of the whole process
         StatsUmi stats;    
         umiQuality qual;  

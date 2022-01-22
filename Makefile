@@ -20,9 +20,9 @@ demultiplexAroundLinker:
 
 #process the mapped sequences: correct for UMI-mismatches, then map barcodes to Protein, treatment, SinglecellIDs
 processing:
-	g++ -c src/tools/BarcodeProcessing/UmiDataParser.cpp -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing --std=c++17
+	g++ -c src/tools/BarcodeProcessing/BarcodeProcessingHandler.cpp -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing --std=c++17
 	g++ -c src/tools/BarcodeProcessing/main.cpp -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing --std=c++17
-	g++ main.o UmiDataParser.o -o ./bin/processing -lpthread -lz -lboost_program_options -lboost_iostreams
+	g++ main.o BarcodeProcessingHandler.o -o ./bin/processing -lpthread -lz -lboost_program_options -lboost_iostreams
 
 #small test script for the parser, includes 1 perfect match, 6 matches with different types of mismatches below threshold, 2 mismatches above threshold
 #and four mismatches due to barcodes that can not be uniquely identified
@@ -41,7 +41,7 @@ testDemultiplexing:
 
 #test processing of the barcodes, includes several UMIs with mismatches, test the mapping of barcodes to unique CellIDs, ABids, treatments
 testProcessing:
-	./bin/processing -i ./src/test/test_data/testSet.txt.gz -o ./bin/processed_out.tsv -t 1 -b ./src/test/test_data/processingBarcodeFile.txt  -c 0,2,3,4 -a ./src/test/test_data/antibody.txt -x 1 -g ./src/test/test_data/treatment.txt -y 2 -m 2
+	./bin/processing -i ./src/test/test_data/testSet.txt.gz -o ./bin/processed_out.tsv -t 1 -b ./src/test/test_data/processingBarcodeFile.txt  -c 0,2,3,4 -a ./src/test/test_data/antibody.txt -x 1 -g ./src/test/test_data/treatment.txt -y 2 -u 2
 	(head -n 1 ./bin/UMIprocessed_out.tsv && tail -n +2 ./bin/UMIprocessed_out.tsv | sort) > ./bin/sortedUMIprocessed_out.tsv
 	diff ./src/test/test_data/UMIprocessed_out ./bin/sortedUMIprocessed_out.tsv 
 	diff ./src/test/test_data/STATSprocessed_out ./bin/STATSprocessed_out.tsv

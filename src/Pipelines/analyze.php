@@ -19,7 +19,11 @@ function run($string)
     fclose($fileHandle);
 }
 
-//parse command line arguments
+
+######################################
+//parse command line arguments / Preprocessing
+######################################
+
 $shortopts = "i:"; //input file
 $shortopts .= "o:"; //output file
 
@@ -41,6 +45,7 @@ $shortopts .= "y:"; //index for treatment
 $longopts = array("help");
 
 $options = getopt($shortopts, $longopts);
+$mapRNA = false;
 
 //write help message
 if(array_key_exists("help", $options))
@@ -52,6 +57,7 @@ if(array_key_exists("help", $options))
     -o output file (TSV file storing counts for each AB/gene per cell)
     -p mapping pattern (AGCT for constant sequence; X for UMI; N for a barcode this can be a CI-barcode,
        AB barcode, sgRNA), e.g. [AGGCAGTC][XXXXXXXXXXX][NNNN][GACTCAGAGC][NNNNN]
+       (for RNA use the char 'R')
     -b barcode file: comma seperated file holding the possible barcodes for each pattern with X. Each line
        is a new barcode, in the same order is given in mapping pattern
 
@@ -97,10 +103,18 @@ if($options['m'])
     }
 }
 
+if(strpos($patternString, 'R')!==false || strpos($patternString, 'r')!==false)
+{
+    $mapRNA = true;
+}
+
 $logfile = "./bin/analysis.log";
 @unlink($logfile, ); //delete old file if exists
 
-//execute mapping of barcodes
+######################################
+//execute demultiplexing
+######################################
+
 $command = "./bin/demultiplexing";
 $parameters = ['i', 'o', 'p', 'b', 'm', 't'];
 foreach($parameters as $element)
@@ -112,9 +126,19 @@ foreach($parameters as $element)
 }
 run($command);
 
-//if RNA reads have to be mapped to reference genome (if mapping pattern contains RNA region)
+######################################
+//execute mapping of RNA if necessary (if mapping pattern contains RNA region)
+######################################
+if($mapRNA)
+{
+    print("RNA mapping not implemented yet!!!!\n");
+    exit();
+}
 
+######################################
 //execute processing of the mapped barcodes (UMI collapsing, assigning single cells, etc.)
+######################################
+
 $command = "./bin/processing ";
 $parameters = ['i', 'o', 'b', 'u', 't', 'a', 'x', 'g', 'y'];
 foreach($parameters as $element)
@@ -125,5 +149,9 @@ foreach($parameters as $element)
     }
 }
 run($command);
+
+######################################
+//execute some Quality Control scripts / Data Analysis scripts
+######################################
 
 ?>
