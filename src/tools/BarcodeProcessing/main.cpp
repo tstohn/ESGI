@@ -81,10 +81,10 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
 }
 
 // generate a dictionary to map sequences to AB(proteins)
-std::unordered_map<std::string, std::shared_ptr<std::string> > generateProteinDict(std::string abFile, int abIdx, 
+std::unordered_map<std::string, std::string > generateProteinDict(std::string abFile, int abIdx, 
                                                                                               const std::vector<std::string>& abBarcodes)
 {
-    std::unordered_map<std::string, std::shared_ptr<std::string> > map;
+    std::unordered_map<std::string, std::string > map;
     std::vector<std::string> proteinNames;
 
     std::ifstream abFileStream(abFile);
@@ -107,7 +107,7 @@ std::unordered_map<std::string, std::shared_ptr<std::string> > generateProteinDi
     assert(abBarcodes.size() == proteinNames.size());
     for(int i = 0; i < abBarcodes.size(); ++i)
     {
-        map.insert(std::make_pair(abBarcodes.at(i), std::make_shared<std::string>(proteinNames.at(i))));
+        map.insert(std::make_pair(abBarcodes.at(i), proteinNames.at(i)));
     }
     abFileStream.close();
 
@@ -115,10 +115,10 @@ std::unordered_map<std::string, std::shared_ptr<std::string> > generateProteinDi
 }
 
 // generate a dictionary to map sequences to treatments
-std::unordered_map<std::string, std::shared_ptr<std::string> > generateTreatmentDict(std::string treatmentFile, int treatmentIdx,
+std::unordered_map<std::string, std::string > generateTreatmentDict(std::string treatmentFile, int treatmentIdx,
                                                                                                 const std::vector<std::string>& treatmentBarcodes)
 {
-    std::unordered_map<std::string, std::shared_ptr<std::string> > map;
+    std::unordered_map<std::string, std::string > map;
     std::vector<std::string> treatmentNames;
 
     std::ifstream treatmentFileStream(treatmentFile);
@@ -141,7 +141,7 @@ std::unordered_map<std::string, std::shared_ptr<std::string> > generateTreatment
     assert(treatmentNames.size() == treatmentBarcodes.size());
     for(int i = 0; i < treatmentBarcodes.size(); ++i)
     {
-        map.insert(std::make_pair(treatmentBarcodes.at(i), std::make_shared<std::string>(treatmentNames.at(i))));
+        map.insert(std::make_pair(treatmentBarcodes.at(i), treatmentNames.at(i)));
     }
     treatmentFileStream.close();
 
@@ -171,21 +171,26 @@ int main(int argc, char** argv)
     
     //generate the dictionary of barcode alternatives to idx
     NBarcodeInformation barcodeIdData;
-    generateBarcodeDicts(barcodeFile, barcodeIndices, barcodeIdData, abBarcodes, abIdx, &treatmentBarcodes, treatmentIdx, abIdx);
+    generateBarcodeDicts(barcodeFile, barcodeIndices, barcodeIdData, abBarcodes, abIdx, &treatmentBarcodes, treatmentIdx);
     BarcodeProcessingHandler dataParser(barcodeIdData);
 
     if(!abFile.empty())
     {
-        std::unordered_map<std::string, std::shared_ptr<std::string> > map = generateProteinDict(abFile, abIdx, abBarcodes);
+        std::unordered_map<std::string, std::string > map = generateProteinDict(abFile, abIdx, abBarcodes);
         dataParser.addProteinData(map);
     }
     if(!treatmentFile.empty())
     {
-        std::unordered_map<std::string, std::shared_ptr<std::string> > map = generateTreatmentDict(treatmentFile, treatmentIdx, treatmentBarcodes);
+        std::unordered_map<std::string, std::string > map = generateTreatmentDict(treatmentFile, treatmentIdx, treatmentBarcodes);
         dataParser.addTreatmentData(map);
     }
 
+    //parse the file of demultiplexed barcodes and
+    //add all the data to the Unprocessed Demultiplexed Data (stored in rawData)
+    // (AB, treatment already are mapped to their real names, scID is a concatenation of numbers for each barcode in
+    //each abrcoding round, seperated by a dot)
     dataParser.parseFile(inFile, thread);
+    //further process the data (correct UMIs, collapse same UMIs, etc.)
     dataParser.processBarcodeMapping(umiMismatches, thread);
     dataParser.writeStats(outFile);
     dataParser.writeUmiCorrectedData(outFile);

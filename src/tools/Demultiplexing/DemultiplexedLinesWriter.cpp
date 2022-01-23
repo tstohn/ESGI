@@ -10,14 +10,14 @@ void initialize_output(std::string output, const std::vector<std::pair<std::stri
     std::size_t found = output.find_last_of("/");
     if(found == std::string::npos)
     {
-        outputMapped = "BarcodeMapping_" + output;
-        outputStats = "StatsBarcodeMappingErrors_" + output;
+        outputMapped = "Demultiplexed_" + output;
+        outputStats = "StatsMismatches_" + output;
         outputFailed = "FailedLines_" + output;
     }
     else
     {
-        outputMapped = output.substr(0,found) + "/" + "BarcodeMapping_" + output.substr(found+1);
-        outputStats = output.substr(0,found) + "/" + "StatsBarcodeMappingErrors_" + output.substr(found+1);
+        outputMapped = output.substr(0,found) + "/" + "Demultiplexed_" + output.substr(found+1);
+        outputStats = output.substr(0,found) + "/" + "StatsMismatches_" + output.substr(found+1);
         outputFailed = output.substr(0,found) + "/" + "FailedLines_" + output.substr(found+1);
     }
     // remove outputfile if it exists
@@ -48,11 +48,11 @@ void write_stats(const input& input, const std::map<std::string, std::vector<int
     std::size_t found = output.find_last_of("/");
     if(found == std::string::npos)
     {
-        output = "StatsBarcodeMappingErrors_" + output;
+        output = "StatsMismatches_" + output;
     }
     else
     {
-        output = output.substr(0,found) + "/" + "StatsBarcodeMappingErrors_" + output.substr(found+1);
+        output = output.substr(0,found) + "/" + "StatsMismatches_" + output.substr(found+1);
     }
     std::remove(output.c_str());
     outputFile.open (output, std::ofstream::app);
@@ -105,11 +105,11 @@ void write_file(const input& input, BarcodeMappingVector barcodes)
     //write the barcodes we mapped
     if(found == std::string::npos)
     {
-        output = "BarcodeMapping_" + output;
+        output = "Demultiplexed_" + output;
     }
     else
     {
-        output = output.substr(0,found) + "/" + "BarcodeMapping_" + output.substr(found+1);
+        output = output.substr(0,found) + "/" + "Demultiplexed_" + output.substr(found+1);
     }
     outputFile.open (output, std::ofstream::app);
     for(int i = 0; i < barcodes.size(); ++i)

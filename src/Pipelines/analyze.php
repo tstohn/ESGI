@@ -54,7 +54,7 @@ if(array_key_exists("help", $options))
 
     #MANDATORY PARAMETERS FOR DEMULTIPLEXING:
     -i input file (fastq(.gz) file. Paired-end or single read.)
-    -o output file (TSV file storing counts for each AB/gene per cell)
+    -o output folder in which all the files are stored (from demultiplexed reads to single-cell <-> AB counts matrix)
     -p mapping pattern (AGCT for constant sequence; X for UMI; N for a barcode this can be a CI-barcode,
        AB barcode, sgRNA), e.g. [AGGCAGTC][XXXXXXXXXXX][NNNN][GACTCAGAGC][NNNNN]
        (for RNA use the char 'R')
@@ -111,12 +111,14 @@ if(strpos($patternString, 'R')!==false || strpos($patternString, 'r')!==false)
 $logfile = "./bin/analysis.log";
 @unlink($logfile, ); //delete old file if exists
 
+//TODO: create output folder
+
 ######################################
 //execute demultiplexing
 ######################################
 
 $command = "./bin/demultiplexing";
-$parameters = ['i', 'o', 'p', 'b', 'm', 't'];
+$parameters = ['i', 'p', 'b', 'm', 't'];
 foreach($parameters as $element)
 {
     if($options[$element])
@@ -124,6 +126,7 @@ foreach($parameters as $element)
         $command = $command . " -" . $element . " " . $options[$element];
     }
 }
+//TODO: add output file manually
 run($command);
 //gzip the output
 
@@ -143,7 +146,7 @@ if($mapRNA)
 //set new input file = output of Demultiplexing
 
 $command = "./bin/processing ";
-$parameters = ['o', 'b', 'u', 't', 'a', 'x', 'g', 'y'];
+$parameters = ['b', 'u', 't', 'a', 'x', 'g', 'y'];
 foreach($parameters as $element)
 {
     if($options[$element])
@@ -151,6 +154,7 @@ foreach($parameters as $element)
         $command = $command . " -" . $element . " " . $options[$element];
     }
 }
+//TODO: add output file manually
 run($command);
 
 ######################################

@@ -9,7 +9,7 @@
 #include <boost/program_options.hpp>
 #include <boost/program_options/options_description.hpp>
 
-#include "UmiDataParser.hpp"
+#include "BarcodeProcessingHandler.hpp"
 #include "BarcodeMapping.hpp"
 
 using namespace boost::program_options;
@@ -100,7 +100,7 @@ void analyse_same_umis(std::string& inputBarcodeMapping, std::string& output, in
     std::vector<std::string> abBarcodes;
 
     //generate the dictionary of barcode alternatives to idx
-    CIBarcode barcodeIdData;
+    NBarcodeInformation barcodeIdData;
 
     generateBarcodeDicts(barcodeFile, barcodeIndices, barcodeIdData, abBarcodes, abIdx);
 

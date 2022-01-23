@@ -104,8 +104,7 @@ void writeExtendedData(const std::string& output, std::vector<std::vector<std::p
 
 void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, NBarcodeInformation& barcodeIdData, 
                           std::vector<std::string>& proteinDict, const int& protIdx, 
-                          std::vector<std::string>* treatmentDict, const int& treatmentIdx,
-                          const int& abIdx)
+                          std::vector<std::string>* treatmentDict, const int& treatmentIdx)
 {
     //parse barcode file into a vector of a vector of all sequences
     std::vector<std::vector<std::string> > barcodeList;
@@ -179,6 +178,7 @@ void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, N
     }
 
     barcodeIdData.NTreatmentIdx = treatmentIdx;
+    barcodeIdData.NAbIdx = protIdx;
 
     proteinDict = barcodeList.at(protIdx);
 
@@ -258,13 +258,15 @@ void BarcodeProcessingHandler::addFastqReadToUmiData(const std::string& line, co
         ciBarcodes.push_back(result.at(i));
     }
     std::string singleCellIdx = generateSingleCellIndexFromBarcodes(ciBarcodes);
+    std::string proteinName = rawData.getProteinName(result.at(abIdx));
+    
     std::string treatment = "";
 
     if(treatmentIdx != INT_MAX)
     {
-        treatment = result.at(treatmentIdx);
+        treatment = rawData.getTreatmentName(result.at(treatmentIdx));
     }
-    rawData.add(result.at(umiIdx), result.at(abIdx), singleCellIdx, treatment);
+    rawData.add(result.at(umiIdx), proteinName, singleCellIdx, treatment);
 
 }
 
@@ -332,6 +334,7 @@ void BarcodeProcessingHandler::getBarcodePositions(const std::string& line, int&
 
 void BarcodeProcessingHandler::processBarcodeMapping(const int& umiMismatches, const int& thread)
 {
+    //ToDO: can be done with a thread queue
     //split AbSc map into equal parts
     std::vector< std::vector < std::vector<dataLinePtr> > > independantAbScBatches(thread);
     std::vector< std::vector < std::vector<dataLinePtr> > > independantUmiBatches(thread);
@@ -476,8 +479,8 @@ void BarcodeProcessingHandler::correctUmis(const int& umiMismatches, StatsUmi& s
     {
         scAbCount abLineTmp;
         abLineTmp.scID = uniqueAbSc.at(0)->scID;
-        abLineTmp.abName = rawData.getProteinName(uniqueAbSc.at(0)->abName);
-        abLineTmp.treatment = rawData.getTreatmentName(uniqueAbSc.at(0)->treatmentName);
+        abLineTmp.abName = uniqueAbSc.at(0)->abName;
+        abLineTmp.treatment = uniqueAbSc.at(0)->treatmentName;
 
         int abCount = 0; // abCount is calculated for every umi one after the other, if an umi is unique, the count is incremented
         //for umis with several occurences the last occurence will increment the count, the very last UMI is never checked and is always
@@ -915,15 +918,6 @@ void BarcodeProcessingHandler::removeFalseSingleCellsFromUmis(const std::vector<
     int tmpCurrentUmisChecked =0;
     for(auto uniqueUmi : uniqueUmis)
     {
-        //delete reads of UMIs with less than 10 reads
-        //if(uniqueUmi.size() < 10)
-        //{
-        //    for(int i = 0; i < uniqueUmi.size(); ++i)
-        //    {
-        //        dataLinesToDelete.push_back(uniqueUmi.at(i));
-        //    }
-        //    continue;
-        //}
         //for all AbSc combinations of this unique UMI
         std::unordered_map<std::string, long> umiCountMap;
         for(int i = 0; i < uniqueUmi.size(); ++i)
@@ -951,7 +945,16 @@ void BarcodeProcessingHandler::removeFalseSingleCellsFromUmis(const std::vector<
             }
         }
 
-        if(!realSingleCellExists){continue;}
+        if(!realSingleCellExists)
+        {
+            //for(int i = 0; i < uniqueUmi.size(); ++i)
+            //{
+             //   {
+              //      dataLinesToDelete.push_back(uniqueUmi.at(i));
+               // }
+            //}
+            continue;
+        }
         else
         {
             for(int i = 0; i < uniqueUmi.size(); ++i)
@@ -1043,7 +1046,7 @@ void BarcodeProcessingHandler::writeUmiCorrectedData(const std::string& output)
     outputFile << "AB_BARCODE" << "\t" << "SingleCell_BARCODE" << "\t" << "AB_COUNT" << "\t" << "TREATMENT" << "\n"; 
     for(auto line : abData)
     {
-        outputFile << *(line.abName) << "\t" << line.scID << "\t" << line.abCount << "\t" << *(line.treatment) << "\n"; 
+        outputFile << (line.abName) << "\t" << line.scID << "\t" << line.abCount << "\t" << (line.treatment) << "\n"; 
     }
     outputFile.close();
 }

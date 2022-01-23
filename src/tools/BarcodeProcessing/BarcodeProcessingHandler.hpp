@@ -15,6 +15,8 @@
 #include <boost/iostreams/filtering_streambuf.hpp>
 #include <boost/iostreams/copy.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
+#include <boost/asio/thread_pool.hpp>
+#include <boost/asio/post.hpp>
 #include <cmath>
 
 #include "DemultiplexedData.hpp"
@@ -79,8 +81,7 @@ struct umiQualityExtended
 void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, 
                           NBarcodeInformation& barcodeIdData, 
                           std::vector<std::string>& proteinDict, const int& protIdx, 
-                          std::vector<std::string>* treatmentDict = nullptr, const int& treatmentIdx = 0,
-                          const int& abIdx = 0);
+                          std::vector<std::string>* treatmentDict = nullptr, const int& treatmentIdx = 0);
 
 /**
  * @brief A class to handle the processing of the demultiplexed data. 
@@ -106,11 +107,11 @@ class BarcodeProcessingHandler
 
         void writeStats(std::string output);
         void writeUmiCorrectedData(const std::string& output);
-        inline void addTreatmentData(std::unordered_map<std::string, std::shared_ptr<std::string> > map)
+        inline void addTreatmentData(std::unordered_map<std::string, std::string > map)
         {
             rawData.setTreatmentDict(map);
         }
-        inline void addProteinData(std::unordered_map<std::string, std::shared_ptr<std::string> > map)
+        inline void addProteinData(std::unordered_map<std::string, std::string > map)
         {
             rawData.setProteinDict(map);
         }
@@ -119,7 +120,8 @@ class BarcodeProcessingHandler
 
     private:
 
-        //parse the file, store each line in our data structure
+        //parse the file, store each line in UnprocessedDemultiplexedData structure (ABs, treatment is already stored as a name,
+        // single cells are defined by a dot seperated list of indices)
         void addFastqReadToUmiData(const std::string& line, const int& elements);
         void parseBarcodeLines(std::istream* instream, const int& totalReads, int& currentReads);
         void correctUmis(const int& umiMismatches, StatsUmi& statsTmp, std::vector<dataLinePtr>& umiDataTmp, std::vector<scAbCount>& abDataTmp, 
@@ -146,9 +148,13 @@ class BarcodeProcessingHandler
         //this is the raw data not UMI corrected
         UnprocessedDemultiplexedData rawData;
 
-        //new UMI data beeing filled with correcte umi codes
+        //a final data structure without summed Ab-counts storing the corrected dataLines, after removal of erroneous 
+        //dataLines and UMI corrections
         std::vector<dataLinePtr> umiData;
-        //data structure storing lines with: AB_id, SingleCell_id, Ab_count
+
+        //holding the counts per unique UMI (just for quality checks)
+        std::vector<umiCount> newUmiData;
+        //final data structures storing scID, AB-name, treatment-name and AB-count
         std::vector<scAbCount> abData;
 
         //statistics of the whole process

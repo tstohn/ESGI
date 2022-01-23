@@ -29,23 +29,23 @@ processing:
 testDemultiplexing:
 	#test orde ron one thread
 	./bin/demultiplexing -i ./src/test/test_data/inFastqTest.fastq -o ./bin/output.tsv -p [NNNN][ATCAGTCAACAGATAAGCGA][NNNN][XXX][GATCAT] -m 1,4,1,1,2 -t 1 -b ./src/test/test_data/barcodeFile.txt -q true
-	diff ./src/test/test_data/BarcodeMapping_output.tsv ./bin/BarcodeMapping_output.tsv
-	diff ./src/test/test_data/StatsBarcodeMappingErrors_output.tsv ./bin/StatsBarcodeMappingErrors_output.tsv
+	diff ./src/test/test_data/BarcodeMapping_output.tsv ./bin/Demultiplexed_output.tsv
+	diff ./src/test/test_data/StatsBarcodeMappingErrors_output.tsv ./bin/StatsMismatches_output.tsv
 
 	#test order with more threads
 	./bin/demultiplexing -i ./src/test/test_data/inFastqTest.fastq -o ./bin/output.tsv -p [NNNN][ATCAGTCAACAGATAAGCGA][NNNN][XXX][GATCAT] -m 1,4,1,1,2 -t 4 -b ./src/test/test_data/barcodeFile.txt
-	(head -n 1 ./bin/BarcodeMapping_output.tsv && tail -n +2 ./bin/BarcodeMapping_output.tsv | sort)  > ./bin/BarcodeMappingSorted_output.tsv
+	(head -n 1 ./bin/Demultiplexed_output.tsv && tail -n +2 ./bin/Demultiplexed_output.tsv | sort)  > ./bin/DemultiplexedSorted_output.tsv
 	(head -n 1 ./src/test/test_data/BarcodeMapping_output.tsv && tail -n +2 ./src/test/test_data/BarcodeMapping_output.tsv | sort)  > ./src/test/test_data/BarcodeMappingSorted_output.tsv
 
-	diff ./src/test/test_data/BarcodeMappingSorted_output.tsv ./bin/BarcodeMappingSorted_output.tsv
+	diff ./src/test/test_data/BarcodeMappingSorted_output.tsv ./bin/DemultiplexedSorted_output.tsv
 
 #test processing of the barcodes, includes several UMIs with mismatches, test the mapping of barcodes to unique CellIDs, ABids, treatments
 testProcessing:
-	./bin/processing -i ./src/test/test_data/testSet.txt.gz -o ./bin/processed_out.tsv -t 1 -b ./src/test/test_data/processingBarcodeFile.txt  -c 0,2,3,4 -a ./src/test/test_data/antibody.txt -x 1 -g ./src/test/test_data/treatment.txt -y 2 -u 2
-	(head -n 1 ./bin/UMIprocessed_out.tsv && tail -n +2 ./bin/UMIprocessed_out.tsv | sort) > ./bin/sortedUMIprocessed_out.tsv
-	diff ./src/test/test_data/UMIprocessed_out ./bin/sortedUMIprocessed_out.tsv 
-	diff ./src/test/test_data/STATSprocessed_out ./bin/STATSprocessed_out.tsv
-	diff ./src/test/test_data/ABprocessed_out ./bin/ABprocessed_out.tsv
+	./bin/processing -i ./src/test/test_data/testSet.txt.gz -o ./bin/processed_out.tsv -t 2 -b ./src/test/test_data/processingBarcodeFile.txt  -c 0,2,3,4 -a ./src/test/test_data/antibody.txt -x 1 -g ./src/test/test_data/treatment.txt -y 2 -u 2
+	(head -n 1 ./bin/ABprocessed_out.tsv && tail -n +2 ./bin/ABprocessed_out.tsv | sort) > ./bin/sortedABprocessed_out.tsv
+	(head -n 1 ./bin/STATSprocessed_out.tsv && tail -n +2 ./bin/STATSprocessed_out.tsv | sort) > ./bin/sortedSTATSprocessed_out.tsv
+	diff ./src/test/test_data/sortedSTATSprocessed_out.tsv ./bin/sortedSTATSprocessed_out.tsv
+	diff ./src/test/test_data/sortedABprocessed_out.tsv ./bin/sortedABprocessed_out.tsv
 
 testAnalysis:
 	php ./src/Pipelines/analyze.php -i ./src/test/test_data/inFastqTest.fastq -o ./bin/AnalysisTestOutput.tsv -p [NNNN][ATCAGTCAACAGATAAGCGA][NNNN][XXX][GATCAT] -m 1,4,1,3,2 -t 1

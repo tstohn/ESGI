@@ -15,8 +15,18 @@
 
 struct scAbCount
 {
-    std::shared_ptr<std::string> abName;
-    std::shared_ptr<std::string> treatment;
+    const char* abName;
+    const char* treatment;
+    
+    const char* scID;
+    int abCount = 0;
+}; 
+
+struct umiCount
+{
+    const char* umi;
+    const char* abName;
+    const char* treatment;
     
     const char* scID;
     int abCount = 0;
@@ -106,19 +116,19 @@ class UnprocessedDemultiplexedData
             remove(positionsOfUmi.at(oldUmi).begin(), positionsOfUmi.at(oldUmi).end(), line);
             positionsOfUmi.at(newUmi).push_back(line);
         }
-        inline void setTreatmentDict(std::unordered_map<std::string, std::shared_ptr<std::string>> dict)
+        inline void setTreatmentDict(std::unordered_map<std::string, std::string > dict)
         {
             treatmentDict = dict;
         }
-        inline void setProteinDict(std::unordered_map<std::string, std::shared_ptr<std::string>> dict)
+        inline void setProteinDict(std::unordered_map<std::string, std::string > dict)
         {
             proteinDict = dict;
         }
-        inline std::shared_ptr<std::string> getProteinName(std::string barcode)
+        inline std::string getProteinName(std::string barcode)
         {
             return proteinDict[barcode];
         }
-        inline std::shared_ptr<std::string> getTreatmentName(std::string barcode)
+        inline std::string getTreatmentName(std::string barcode)
         {
             if ( treatmentDict.find(barcode) == treatmentDict.end() ) {
                 std::cerr << "Barcode is not in treatment dict, check treatment barcodes, treatmend ID and treatment File:\n" << barcode << "\n";
@@ -172,15 +182,17 @@ class UnprocessedDemultiplexedData
             return id;
         }
 
-        //std::vector<dataLinePtr> data;
+        //hash tables storing all the positions of dataLines for a unique
+        // a) UMI  b) SingleCell-AB combination
         std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator> positionsOfUmi;
         std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator> positonsOfABSingleCell;
 
         //all the string inside this class are stored only once, 
-        //set of all the unique barcodes we use, and we only pass pointers to those
+        //for all strings scID, Ab-name, treatment-name we store the string only once, and then ptrs to it
         std::shared_ptr<UniqueCharSet> uniqueChars;
 
-        //dictionaries to map a barcode-sequence to the treatment, and Protein, will only be used in correct UMI to write down also correct treatment and AB instead of barcode
-        std::unordered_map<std::string, std::shared_ptr<std::string> > treatmentDict;
-        std::unordered_map<std::string, std::shared_ptr<std::string> > proteinDict;
+        //dictionaries to map a barcode-sequence to the treatment, and Protein, 
+        //those dicts are used in the very beginning when lines r parsed, so the real barcode sequence is never stored
+        std::unordered_map<std::string, std::string > treatmentDict;
+        std::unordered_map<std::string, std::string > proteinDict;
 };
