@@ -13,13 +13,13 @@
 
 
 
-struct abLine
+struct scAbCount
 {
-    std::shared_ptr<std::string> ab_seq;
+    std::shared_ptr<std::string> abName;
     std::shared_ptr<std::string> treatment;
     
-    const char* cell_seq;
-    int ab_cout = 0;
+    const char* scID;
+    int abCount = 0;
 }; 
 
 
@@ -31,10 +31,10 @@ struct abLine
  */
 struct dataLine
 {
-    const char* umi_seq;
-    const char* ab_seq;
-    const char* cell_seq;
-    const char* treatment_seq;
+    const char* umiSeq;
+    const char* abName;
+    const char* scID;
+    const char* treatmentName;
 };
 typedef std::shared_ptr<dataLine> dataLinePtr;
 
@@ -55,10 +55,10 @@ class UnprocessedDemultiplexedData
         {
             //get unique pointer for all three strings
             dataLine line;
-            line.umi_seq = uniqueChars->getUniqueChar(umiStr.c_str());
-            line.ab_seq = uniqueChars->getUniqueChar(abStr.c_str());
-            line.cell_seq = uniqueChars->getUniqueChar(singleCellStr.c_str());
-            line.treatment_seq = uniqueChars->getUniqueChar(treatment.c_str());
+            line.umiSeq = uniqueChars->getUniqueChar(umiStr.c_str());
+            line.abName = uniqueChars->getUniqueChar(abStr.c_str());
+            line.scID = uniqueChars->getUniqueChar(singleCellStr.c_str());
+            line.treatmentName = uniqueChars->getUniqueChar(treatment.c_str());
 
             //make a dataLinePtr from those unique strings
             dataLinePtr linePtr(std::make_shared<dataLine>(line));
@@ -136,21 +136,21 @@ class UnprocessedDemultiplexedData
 
             //2.) INSERT UMI POSITIONS
             //if umi already exists also store this new position
-            if(positionsOfUmi.find(line->umi_seq) == positionsOfUmi.end())
+            if(positionsOfUmi.find(line->umiSeq) == positionsOfUmi.end())
             {
                 std::vector<dataLinePtr> vec;
                 vec.push_back(line);
-                positionsOfUmi.insert(std::make_pair(line->umi_seq, vec));
+                positionsOfUmi.insert(std::make_pair(line->umiSeq, vec));
             }
             //if not add this new umi with this actual position to map
             else
             {
-                positionsOfUmi[line->umi_seq].push_back(line);
+                positionsOfUmi[line->umiSeq].push_back(line);
             }
 
             // 3.) INSERT ABSC POSITIONS
             //same for AbSingleCell
-            std::string abScIdxStr = std::string((line->ab_seq)) + std::string((line->cell_seq));
+            std::string abScIdxStr = std::string((line->abName)) + std::string((line->scID));
             
             const char* abScIdxChar = uniqueChars->getUniqueChar(abScIdxStr.c_str());
             if(positonsOfABSingleCell.find(abScIdxChar) == positonsOfABSingleCell.end())

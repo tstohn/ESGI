@@ -102,11 +102,6 @@ void writeExtendedData(const std::string& output, std::vector<std::vector<std::p
     outputFile.close();
 }
 
-/**
- * @brief Map barcode sequences for CI-barcodes to a unique number and
- *        save positions for CI-barocdes, AB, treatment barcode within the
- *        file of barcodes (position among all varying barcodes with [NNN...] pattern)
- */
 void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, NBarcodeInformation& barcodeIdData, 
                           std::vector<std::string>& proteinDict, const int& protIdx, 
                           std::vector<std::string>* treatmentDict, const int& treatmentIdx,
@@ -225,7 +220,7 @@ void BarcodeProcessingHandler::parseBarcodeLines(std::istream* instream, const i
         //for the first read check the positions in the string that refer to CIBarcoding positions
         if(currentReads==0){
             ++currentReads; 
-            getCiBarcodeInWholeSequence(line, elements);
+            getBarcodePositions(line, elements);
             continue;
         }
         addFastqReadToUmiData(line, elements);   
@@ -291,7 +286,7 @@ std::string BarcodeProcessingHandler::generateSingleCellIndexFromBarcodes(std::v
     return scIdx;
 }
 
-void BarcodeProcessingHandler::getCiBarcodeInWholeSequence(const std::string& line, int& barcodeElements)
+void BarcodeProcessingHandler::getBarcodePositions(const std::string& line, int& barcodeElements)
 {
     std::vector<std::string> result;
     std::stringstream ss;
@@ -370,7 +365,7 @@ void BarcodeProcessingHandler::processBarcodeMapping(const int& umiMismatches, c
     std::vector<umiQuality> umiQualThreaded(thread);
 
     std::vector<std::vector<dataLinePtr> > umiDataThreaded(thread);
-    std::vector<std::vector<abLine> > abDataThreaded(thread);
+    std::vector<std::vector<scAbCount> > abDataThreaded(thread);
 
     std::vector<std::vector<dataLinePtr> > dataLinesToDeleteThreaded(thread);
 
@@ -469,7 +464,7 @@ bool BarcodeProcessingHandler::checkDataLineValidityDueToUmiBackground(const dat
 }
 
 //correct for mismatches in the UMI
-void BarcodeProcessingHandler::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, std::vector<dataLinePtr>& umiDataTmp, std::vector<abLine>& abDataTmp, 
+void BarcodeProcessingHandler::correctUmis(const int& umiMismatches, StatsUmi& statsTmp, std::vector<dataLinePtr>& umiDataTmp, std::vector<scAbCount>& abDataTmp, 
                                 const std::vector<std::vector<dataLinePtr> >& AbScBucket, int& currentUmisCorrected, 
                                 const std::vector<dataLinePtr>& dataLinesToDelete)
 {
@@ -479,10 +474,10 @@ void BarcodeProcessingHandler::correctUmis(const int& umiMismatches, StatsUmi& s
     int containerSize = rawData.getUniqueAbSc().size();
     for (auto uniqueAbSc : AbScBucket)
     {
-        abLine abLineTmp;
-        abLineTmp.cell_seq = uniqueAbSc.at(0)->cell_seq;
-        abLineTmp.ab_seq = rawData.getProteinName(uniqueAbSc.at(0)->ab_seq);
-        abLineTmp.treatment = rawData.getTreatmentName(uniqueAbSc.at(0)->treatment_seq);
+        scAbCount abLineTmp;
+        abLineTmp.scID = uniqueAbSc.at(0)->scID;
+        abLineTmp.abName = rawData.getProteinName(uniqueAbSc.at(0)->abName);
+        abLineTmp.treatment = rawData.getTreatmentName(uniqueAbSc.at(0)->treatmentName);
 
         int abCount = 0; // abCount is calculated for every umi one after the other, if an umi is unique, the count is incremented
         //for umis with several occurences the last occurence will increment the count, the very last UMI is never checked and is always
@@ -514,8 +509,8 @@ void BarcodeProcessingHandler::correctUmis(const int& umiMismatches, StatsUmi& s
             deletePositions.push_back(i);
             for(int j = 1; j < uniqueAbSc.size(); ++j)
             {
-                const char* umia = uniqueAbSc.at(i)->umi_seq;
-                const char* umib = uniqueAbSc.at(j)->umi_seq;
+                const char* umia = uniqueAbSc.at(i)->umiSeq;
+                const char* umib = uniqueAbSc.at(j)->umiSeq;
                 int dist = INT_MAX;
                 int start = 0;
                 int end = 0;
@@ -538,19 +533,19 @@ void BarcodeProcessingHandler::correctUmis(const int& umiMismatches, StatsUmi& s
                         if(strlen(umia)==umiLength)
                         {
                             realUmi = umia;
-                            uniqueAbSc.at(j)->umi_seq = uniqueAbSc.at(i)->umi_seq;
+                            uniqueAbSc.at(j)->umiSeq = uniqueAbSc.at(i)->umiSeq;
                             rawData.changeUmi(umib, umia, uniqueAbSc.at(i));
                         }
                         else if(strlen(umib)==umiLength)
                         {
                             realUmi = umib;
-                            uniqueAbSc.at(i)->umi_seq = uniqueAbSc.at(j)->umi_seq;
+                            uniqueAbSc.at(i)->umiSeq = uniqueAbSc.at(j)->umiSeq;
                             rawData.changeUmi(umia, umib, uniqueAbSc.at(j));
                         }
                         else
                         {
                             realUmi = umia;
-                            uniqueAbSc.at(j)->umi_seq = uniqueAbSc.at(i)->umi_seq;
+                            uniqueAbSc.at(j)->umiSeq = uniqueAbSc.at(i)->umiSeq;
                             rawData.changeUmi(umib, umia, uniqueAbSc.at(i));
                         }   
                     }  
@@ -579,7 +574,7 @@ void BarcodeProcessingHandler::correctUmis(const int& umiMismatches, StatsUmi& s
 
         }
 
-        abLineTmp.ab_cout = abCount;
+        abLineTmp.abCount = abCount;
         if(abCount>0){abDataTmp.push_back(abLineTmp);}
 
         ++tmpCurrentUmisCorrected;
@@ -598,7 +593,7 @@ void BarcodeProcessingHandler::correctUmis(const int& umiMismatches, StatsUmi& s
 //unused function, origionally used to compare all UMIs with each other additionally to UMI comparison, to generate
 //a statistic of UMI distances
 /*
-void UmiDataParser::correctUmisWithStats(const int& umiMismatches, StatsUmi& statsTmp, std::vector<dataLinePtr>& umiDataTmp, std::vector<abLine>& abDataTmp, 
+void UmiDataParser::correctUmisWithStats(const int& umiMismatches, StatsUmi& statsTmp, std::vector<dataLinePtr>& umiDataTmp, std::vector<scAbCount>& abDataTmp, 
                                 const std::vector<std::vector<dataLinePtr> >& AbScBucket, int& currentUmisCorrected)
 {
     //correct for UMI mismatches and fill the AbCountvector
@@ -607,23 +602,23 @@ void UmiDataParser::correctUmisWithStats(const int& umiMismatches, StatsUmi& sta
     int containerSize = rawData.getUniqueAbSc().size();
     for (auto uniqueAbSc : AbScBucket)
     {
-        abLine abLineTmp;
-        abLineTmp.cell_seq = uniqueAbSc.at(0)->cell_seq;
-        abLineTmp.ab_seq = rawData.getProteinName(uniqueAbSc.at(0)->ab_seq);
-        abLineTmp.treatment = rawData.getTreatmentName(uniqueAbSc.at(0)->treatment_seq);
+        scAbCount abLineTmp;
+        abLineTmp.scID = uniqueAbSc.at(0)->scID;
+        abLineTmp.abName = rawData.getProteinName(uniqueAbSc.at(0)->abName);
+        abLineTmp.treatment = rawData.getTreatmentName(uniqueAbSc.at(0)->treatmentName);
 
         int abCount = 1; // abCount is calculated for every umi one after the other, if an umi is unique, the count is incremented
         //for umis with several occurences the last occurence will increment the count, the very last UMI is never checked and is always
         //incrementing the count, therefore initialized with 1
         for(int i = 0; i < (uniqueAbSc.size() - 1); ++i)
         {
-            //assert(abLineTmp.ab_seq == uniqueAbSc.second.at(i)->ab_seq);
-            //assert(abLineTmp.cell_seq == uniqueAbSc.second.at(i)->cell_seq);
+            //assert(abLineTmp.abName == uniqueAbSc.second.at(i)->abName);
+            //assert(abLineTmp.scID == uniqueAbSc.second.at(i)->scID);
             bool unique = true;
             for(int j = i+1; j < uniqueAbSc.size(); ++j)
             {
-                const char* umia = uniqueAbSc.at(i)->umi_seq;
-                const char* umib = uniqueAbSc.at(j)->umi_seq;
+                const char* umia = uniqueAbSc.at(i)->umiSeq;
+                const char* umib = uniqueAbSc.at(j)->umiSeq;
 
                 int dist = INT_MAX;
                 int start = 0;
@@ -631,7 +626,7 @@ void UmiDataParser::correctUmisWithStats(const int& umiMismatches, StatsUmi& sta
 
                 bool similar = levenshtein(umia, umib, umiLength, start, end, dist, true);
 
-                //if(std::strcmp(abLineTmp.cell_seq, "10295") == 0 & std::strcmp((abLineTmp.ab_seq)->c_str(), "CTD1")==0){std::cout << umia << " " << umib << " => "<< dist << " " << start << " " << end <<  "\n";}
+                //if(std::strcmp(abLineTmp.scID, "10295") == 0 & std::strcmp((abLineTmp.abName)->c_str(), "CTD1")==0){std::cout << umia << " " << umib << " => "<< dist << " " << start << " " << end <<  "\n";}
 
                 //if mismatches are within range, change UMI seq
                 //the new 'correct' UMI sequence is the one of umiLength, if both r of
@@ -646,19 +641,19 @@ void UmiDataParser::correctUmisWithStats(const int& umiMismatches, StatsUmi& sta
                         if(strlen(umia)==umiLength)
                         {
                             realUmi = umia;
-                            uniqueAbSc.at(j)->umi_seq = uniqueAbSc.at(i)->umi_seq;
+                            uniqueAbSc.at(j)->umiSeq = uniqueAbSc.at(i)->umiSeq;
                             rawData.changeUmi(umib, umia, uniqueAbSc.at(i));
                         }
                         else if(strlen(umib)==umiLength)
                         {
                             realUmi = umib;
-                            uniqueAbSc.at(i)->umi_seq = uniqueAbSc.at(j)->umi_seq;
+                            uniqueAbSc.at(i)->umiSeq = uniqueAbSc.at(j)->umiSeq;
                             rawData.changeUmi(umia, umib, uniqueAbSc.at(j));
                         }
                         else
                         {
                             realUmi = umia;
-                            uniqueAbSc.at(j)->umi_seq = uniqueAbSc.at(i)->umi_seq;
+                            uniqueAbSc.at(j)->umiSeq = uniqueAbSc.at(i)->umiSeq;
                             rawData.changeUmi(umib, umia, uniqueAbSc.at(i));
                         }   
                     }                 
@@ -674,15 +669,15 @@ void UmiDataParser::correctUmisWithStats(const int& umiMismatches, StatsUmi& sta
                     statsTmp.umiMismatchDict.insert(std::make_pair(dist, 1));
                 }
             }
-            //if(std::strcmp(abLineTmp.cell_seq, "10295") == 0 & std::strcmp((abLineTmp.ab_seq)->c_str(), "CTD1")==0){std::cout << "\n";}
+            //if(std::strcmp(abLineTmp.scID, "10295") == 0 & std::strcmp((abLineTmp.abName)->c_str(), "CTD1")==0){std::cout << "\n";}
             if(unique)
             {
                 ++abCount;
-                            //if(std::strcmp(abLineTmp.cell_seq, "10295") == 0 & std::strcmp((abLineTmp.ab_seq)->c_str(), "CTD1")==0){std::cout << "      "<< abCount << "      ADDED\n";;}
+                            //if(std::strcmp(abLineTmp.scID, "10295") == 0 & std::strcmp((abLineTmp.abName)->c_str(), "CTD1")==0){std::cout << "      "<< abCount << "      ADDED\n";;}
             }
             umiDataTmp.push_back(uniqueAbSc.at(i));
         }    
-        abLineTmp.ab_cout = abCount;
+        abLineTmp.abCount = abCount;
         abDataTmp.push_back(abLineTmp);
         umiDataTmp.push_back(uniqueAbSc.at(uniqueAbSc.size() - 1));
 
@@ -775,8 +770,8 @@ void BarcodeProcessingHandler::umiQualityCheckExtended(const std::vector< std::v
 
             dataLinePtr a = uniqueUmi.at(i);
             //keep unique absc in a vector
-            std::string ab = a->ab_seq;
-            std::string absc = ab + a->cell_seq;
+            std::string ab = a->abName;
+            std::string absc = ab + a->scID;
             //make a unique set of all AbSc possibilities for all reads of same UMI
             if(AbScVector.find(absc) == AbScVector.end())
             {
@@ -784,10 +779,10 @@ void BarcodeProcessingHandler::umiQualityCheckExtended(const std::vector< std::v
             }
 
             //same for all different barcodes
-            std::vector<const char*>::iterator it = std::find(uniqueUmis_AB.begin(), uniqueUmis_AB.end(), a->ab_seq);
+            std::vector<const char*>::iterator it = std::find(uniqueUmis_AB.begin(), uniqueUmis_AB.end(), a->abName);
             if(it == uniqueUmis_AB.end())
             {
-                uniqueUmis_AB.push_back(a->ab_seq);
+                uniqueUmis_AB.push_back(a->abName);
                 AbBarcodeDistribution.push_back(1);
             }
             else
@@ -795,7 +790,7 @@ void BarcodeProcessingHandler::umiQualityCheckExtended(const std::vector< std::v
                 ++AbBarcodeDistribution.at(std::distance(uniqueUmis_AB.begin(), it));
             }
 
-            std::vector<std::string> aVec = splitByDelimiter(a->cell_seq, ".");
+            std::vector<std::string> aVec = splitByDelimiter(a->scID, ".");
             assert(aVec.size() == 4);
             std::vector<std::string>::iterator it2;
 
@@ -888,7 +883,7 @@ void BarcodeProcessingHandler::umiQualityCheck(const std::vector< std::vector<da
             {
                 dataLinePtr a = uniqueUmi.at(i);
                 dataLinePtr b = uniqueUmi.at(j);
-                if(strcmp(a->ab_seq, b->ab_seq)==0 && strcmp(a->cell_seq, b->cell_seq)==0)
+                if(strcmp(a->abName, b->abName)==0 && strcmp(a->scID, b->scID)==0)
                 {
                     ullong_save_add(qualTmp.sameUmiSameAbSc, 1);
                 }
@@ -933,14 +928,14 @@ void BarcodeProcessingHandler::removeFalseSingleCellsFromUmis(const std::vector<
         std::unordered_map<std::string, long> umiCountMap;
         for(int i = 0; i < uniqueUmi.size(); ++i)
         {
-            std::unordered_map<std::string, long>::iterator umiCountMapIt = umiCountMap.find(uniqueUmi.at(i)->cell_seq);
+            std::unordered_map<std::string, long>::iterator umiCountMapIt = umiCountMap.find(uniqueUmi.at(i)->scID);
             if( umiCountMapIt != umiCountMap.end())
             {
                 ++(umiCountMapIt->second);
             }
             else
             {
-                umiCountMap.insert(std::make_pair(uniqueUmi.at(i)->cell_seq, 1));
+                umiCountMap.insert(std::make_pair(uniqueUmi.at(i)->scID, 1));
             }
         }
 
@@ -961,7 +956,7 @@ void BarcodeProcessingHandler::removeFalseSingleCellsFromUmis(const std::vector<
         {
             for(int i = 0; i < uniqueUmi.size(); ++i)
             {
-                if(uniqueUmi.at(i)->cell_seq != realSingleCellID)
+                if(uniqueUmi.at(i)->scID != realSingleCellID)
                 {
                     dataLinesToDelete.push_back(uniqueUmi.at(i));
                 }
@@ -1030,7 +1025,7 @@ void BarcodeProcessingHandler::writeUmiCorrectedData(const std::string& output)
     outputFile << "UMI" << "\t" << "AB_BARCODE" << "\t" << "SingleCell_BARCODE" << "\n"; 
     for(auto line : umiData)
     {
-        outputFile << line->umi_seq << "\t" << line->ab_seq << "\t" << line->cell_seq << "\n"; 
+        outputFile << line->umiSeq << "\t" << line->abName << "\t" << line->scID << "\n"; 
     }
     outputFile.close();
 
@@ -1048,7 +1043,7 @@ void BarcodeProcessingHandler::writeUmiCorrectedData(const std::string& output)
     outputFile << "AB_BARCODE" << "\t" << "SingleCell_BARCODE" << "\t" << "AB_COUNT" << "\t" << "TREATMENT" << "\n"; 
     for(auto line : abData)
     {
-        outputFile << *(line.ab_seq) << "\t" << line.cell_seq << "\t" << line.ab_cout << "\t" << *(line.treatment) << "\n"; 
+        outputFile << *(line.abName) << "\t" << line.scID << "\t" << line.abCount << "\t" << *(line.treatment) << "\n"; 
     }
     outputFile.close();
 }

@@ -186,7 +186,6 @@ int main(int argc, char** argv)
     }
 
     dataParser.parseFile(inFile, thread);
-
     dataParser.processBarcodeMapping(umiMismatches, thread);
     dataParser.writeStats(outFile);
     dataParser.writeUmiCorrectedData(outFile);

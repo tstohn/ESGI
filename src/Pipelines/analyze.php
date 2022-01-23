@@ -125,6 +125,7 @@ foreach($parameters as $element)
     }
 }
 run($command);
+//gzip the output
 
 ######################################
 //execute mapping of RNA if necessary (if mapping pattern contains RNA region)
@@ -139,8 +140,10 @@ if($mapRNA)
 //execute processing of the mapped barcodes (UMI collapsing, assigning single cells, etc.)
 ######################################
 
+//set new input file = output of Demultiplexing
+
 $command = "./bin/processing ";
-$parameters = ['i', 'o', 'b', 'u', 't', 'a', 'x', 'g', 'y'];
+$parameters = ['o', 'b', 'u', 't', 'a', 'x', 'g', 'y'];
 foreach($parameters as $element)
 {
     if($options[$element])

@@ -71,13 +71,16 @@ struct umiQualityExtended
     std::vector<unsigned long long> BC3Distribution;
 };
 
+/**
+ * @brief Map barcode sequences for CI-barcodes to a unique number and
+ *        save positions for CI-barocdes, AB, treatment barcode within the
+ *        file of barcodes (position among all varying barcodes with [NNN...] pattern)
+ */
 void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, 
                           NBarcodeInformation& barcodeIdData, 
                           std::vector<std::string>& proteinDict, const int& protIdx, 
                           std::vector<std::string>* treatmentDict = nullptr, const int& treatmentIdx = 0,
                           const int& abIdx = 0);
-
-
 
 /**
  * @brief A class to handle the processing of the demultiplexed data. 
@@ -119,13 +122,13 @@ class BarcodeProcessingHandler
         //parse the file, store each line in our data structure
         void addFastqReadToUmiData(const std::string& line, const int& elements);
         void parseBarcodeLines(std::istream* instream, const int& totalReads, int& currentReads);
-        void correctUmis(const int& umiMismatches, StatsUmi& statsTmp, std::vector<dataLinePtr>& umiDataTmp, std::vector<abLine>& abDataTmp, 
+        void correctUmis(const int& umiMismatches, StatsUmi& statsTmp, std::vector<dataLinePtr>& umiDataTmp, std::vector<scAbCount>& abDataTmp, 
                          const std::vector<std::vector<dataLinePtr> >& AbScBucket, int& currentUmisCorrected, 
                          const std::vector<dataLinePtr>& dataLinesToDelete);
         bool checkDataLineValidityDueToUmiBackground(const dataLinePtr& line, const std::vector<dataLinePtr>& dataLinesToDelete);
 
         void removeFalseSingleCellsFromUmis(const std::vector< std::vector<dataLinePtr> >& uniqueUmis, int& currentUmisChecked, std::vector<dataLinePtr>& dataLinesToDelete);
-        void correctUmisWithStats(const int& umiMismatches, StatsUmi& statsTmp, std::vector<dataLinePtr>& umiDataTmp, std::vector<abLine>& abDataTmp, 
+        void correctUmisWithStats(const int& umiMismatches, StatsUmi& statsTmp, std::vector<dataLinePtr>& umiDataTmp, std::vector<scAbCount>& abDataTmp, 
                          const std::vector<std::vector<dataLinePtr> >& AbScBucket, int& currentUmisCorrected);
 
         void umiQualityCheck(const std::vector< std::vector<dataLinePtr> >& uniqueUmis, umiQuality& qualTmp, int& currentUmisChecked);
@@ -133,8 +136,9 @@ class BarcodeProcessingHandler
                                      std::vector<std::pair<unsigned long long, unsigned long long>>& uniqueUmiToDiffAbSc, 
                                      std::vector<umiQualityExtended>& extendedQuality, const std::string& output);
 
-        //get positions of CIBarcodes
-        void getCiBarcodeInWholeSequence(const std::string& line, int& barcodeElements);
+        //get positions of all barcodes in the lines of demultiplexed data
+        void getBarcodePositions(const std::string& line, int& barcodeElements);
+
         //map all the barcodes of CI to a unique 'number' string as SingleCellIdx
         std::string generateSingleCellIndexFromBarcodes(std::vector<std::string> ciBarcodes);
 
@@ -145,19 +149,18 @@ class BarcodeProcessingHandler
         //new UMI data beeing filled with correcte umi codes
         std::vector<dataLinePtr> umiData;
         //data structure storing lines with: AB_id, SingleCell_id, Ab_count
-        std::vector<abLine> abData;
+        std::vector<scAbCount> abData;
 
-        //Dictionary used to generate the dataLines, maps for each barcode in the sequence all
-        //possibilities to an idx
-        NBarcodeInformation varyingBarcodesPos;
         //statistics of the whole process
         StatsUmi stats;    
         umiQuality qual;  
 
         std::mutex lock;  
         
+        //stores all the indices of variable barcodes in the barcode file (among all barcodes of [NNN...] pattern)
+        NBarcodeInformation varyingBarcodesPos;
         // variables to read the data from each fastq line
-        std::vector<int> fastqReadBarcodeIdx; // ids of the CI barcode within the whole string of all barcodes
+        std::vector<int> fastqReadBarcodeIdx; // ids of the CI barcode within the whole pattern of all barcodes
         int abIdx = INT_MAX;
         int umiIdx = INT_MAX;
         int treatmentIdx = INT_MAX;
