@@ -20,7 +20,7 @@
 #include <cmath>
 
 #include "DemultiplexedData.hpp"
-
+#include "helper.hpp"
 
 /**
  * @brief Structure storing a vector with a mapping of the barcode-sequence to a unique ID
@@ -28,7 +28,8 @@
  * 
  *        It also stores also the indices for Ci-barcodes, AB, treatment.
  *        These indices indicate the position within the file of all barcodes. So only the position
- *        among all barcodes with the [NNN...] pattern.
+ *        among all barcodes with the [NNN...] pattern - this data is used to then get the position in the
+ *        full dataLine of Demultiplexed file.
  */
 struct NBarcodeInformation
 {
@@ -42,35 +43,103 @@ struct NBarcodeInformation
     int NAbIdx; //AB index
 };
 
-//statistics of the UMI occurences
-struct StatsUmi
+//data type to represent final processed AB counts per single cell
+struct scAbCount
 {
-    //dict: key = number of mismatches; 
-    //value = how often this particular number of mismatches between any two UMIs of same AbSc-idx was observed
-    std::unordered_map<int, unsigned long long> umiMismatchDict;
+    const char* abName;
+    const char* treatment;
+    
+    const char* scID;
+    int abCount = 0;
+}; 
+
+//data type representing counts per unique UMI in final processed data (without collapsed UMIs)
+struct umiCount
+{
+    const char* umi;
+    const char* abName;
+    const char* treatment;
+    
+    const char* scID;
+    int abCount = 0;
+}; 
+
+//some information about the read/ UMI quality (how many reads removed, how many Mismatches, etc.)
+struct ProcessingLog
+{
+    unsigned long long umiMM = 0; //UMIs with mismatches that were converted into another one
+    unsigned long long removedReads = 0; // removed reads bcs. their UMI was not unique and was not present in >90% of the reads
+    unsigned long long totalReads = 0;
 };
 
-struct umiQuality
+/**
+ * @brief Class storing all the final values (after removing erroneous reads with non unique UMIs, correcting MIsmatches in UMIs)
+ *        the abData = final AB count data (represents a singleCell * AB matrix)
+ *        the umiData = final UMI count data (same data as above but not UMI collapsed)
+ *        the logData = basic values for number of removed reads due to mismatches, non-unique UMIs, etc.
+ * 
+ *        All the values are thread safe.
+ */
+class Results
 {
-    unsigned long long sameUmiDiffAbSc = 0;
-    unsigned long long sameUmiSameAbSc = 0;
-};
+    public:
+        //getter functions (assume we only get those value AFTER they are completely filled -> no locking at this point)
+        const std::vector<scAbCount> get_ab_data() const
+        {
+            return(abData);
+        }
+        const std::vector<umiCount> get_umi_data() const
+        {
+            return(umiData);
+        }
+        const ProcessingLog get_log_data() const
+        {
+            return(logData);
+        }
 
-struct umiQualityExtended
-{
-    unsigned long long numOfUmiOccurences = 0;
+        //setter functions, all locked for manipulation by threads
+        void add_ab_count(const scAbCount& abCount)
+        {
+            abLock.lock();
+            abData.push_back(abCount);
+            abLock.unlock();
+        }
+        void add_umi_count(const umiCount& umiCount)
+        {
+            umiLock.lock();
+            umiData.push_back(umiCount);
+            umiLock.unlock();
+        }
+        void add_umi_mismatches(const unsigned long long& mm)
+        {
+            logLock.lock();
+            ullong_save_add(logData.umiMM, mm);
+            logLock.unlock();
+        }
+        void add_removed_reads(const unsigned long long& reads)
+        {
+            logLock.lock();
+            ullong_save_add(logData.removedReads, reads);
+            logLock.unlock();
+        }
+        void set_total_reads(const unsigned long long& totalReads)
+        {
+            logLock.lock();
+            logData.totalReads = totalReads;
+            logLock.unlock();
+        }
 
-    unsigned long long numOfABDifferences = 0;
-    unsigned long long numOfBC4Differences = 0;
-    unsigned long long numOfBC1Differences = 0;
-    unsigned long long numOfBC2Differences = 0;
-    unsigned long long numOfBC3Differences = 0;
+    private:
+        //holding the counts per unique UMI (just for quality checks)
+        std::vector<umiCount> umiData;
+        //final data structures storing scID, AB-name, treatment-name and AB-count
+        std::vector<scAbCount> abData;
+        //statistics of the whole process
+        ProcessingLog logData;
 
-    std::vector<unsigned long long> AbBarcodeDistribution;
-    std::vector<unsigned long long> BC4Distribution;
-    std::vector<unsigned long long> BC1Distribution;
-    std::vector<unsigned long long> BC2Distribution;
-    std::vector<unsigned long long> BC3Distribution;
+        std::mutex umiLock;
+        std::mutex abLock;
+        std::mutex logLock;
 };
 
 /**
@@ -101,12 +170,13 @@ class BarcodeProcessingHandler
 
         void parseFile(const std::string fileName, const int& thread);
 
-        //correct the umis, so that UnprocessedDemultiplexedData holds the same UMI for UMIs within a certain mismatch range
-        //concurrently fills AbData, while iterating over AbSc lines, count the Ab occurence if this UMI has not been seen before
+        //counts AB and UMIs per single cell, data is stored in result (also saves basic information about processing
+        //like removed reads, mismatched UMIs, etc.)
         void processBarcodeMapping(const int& umiMismatches, const int& thread);
 
-        void writeStats(std::string output);
+        void writeLog(std::string output);
         void writeUmiCorrectedData(const std::string& output);
+
         inline void addTreatmentData(std::unordered_map<std::string, std::string > map)
         {
             rawData.setTreatmentDict(map);
@@ -115,8 +185,27 @@ class BarcodeProcessingHandler
         {
             rawData.setProteinDict(map);
         }
+        const UnprocessedDemultiplexedData getRawData() const
+        {
+            return rawData;
+        }
+        const std::vector<int> getCIBarcodeIdx() const
+        {
+            return(fastqReadBarcodeIdx);
+        }
+        const int getAbIdx() const
+        {
+            return(abIdx);
+        }
+        const int getUmiIdx() const
+        {
+            return(umiIdx);
+        }
+                const int getTreatmentIdx() const
+        {
+            return(treatmentIdx);
+        }
 
-        void extended_umi_quality_check(const int& thread, const std::string& output);
 
     private:
 
@@ -124,19 +213,27 @@ class BarcodeProcessingHandler
         // single cells are defined by a dot seperated list of indices)
         void addFastqReadToUmiData(const std::string& line, const int& elements);
         void parseBarcodeLines(std::istream* instream, const int& totalReads, int& currentReads);
-        void correctUmis(const int& umiMismatches, StatsUmi& statsTmp, std::vector<dataLinePtr>& umiDataTmp, std::vector<scAbCount>& abDataTmp, 
-                         const std::vector<std::vector<dataLinePtr> >& AbScBucket, int& currentUmisCorrected, 
-                         const std::vector<dataLinePtr>& dataLinesToDelete);
-        bool checkDataLineValidityDueToUmiBackground(const dataLinePtr& line, const std::vector<dataLinePtr>& dataLinesToDelete);
-
-        void removeFalseSingleCellsFromUmis(const std::vector< std::vector<dataLinePtr> >& uniqueUmis, int& currentUmisChecked, std::vector<dataLinePtr>& dataLinesToDelete);
-        void correctUmisWithStats(const int& umiMismatches, StatsUmi& statsTmp, std::vector<dataLinePtr>& umiDataTmp, std::vector<scAbCount>& abDataTmp, 
-                         const std::vector<std::vector<dataLinePtr> >& AbScBucket, int& currentUmisCorrected);
-
-        void umiQualityCheck(const std::vector< std::vector<dataLinePtr> >& uniqueUmis, umiQuality& qualTmp, int& currentUmisChecked);
-        void umiQualityCheckExtended(const std::vector< std::vector<dataLinePtr> >& uniqueUmis, int& currentUmisChecked, 
-                                     std::vector<std::pair<unsigned long long, unsigned long long>>& uniqueUmiToDiffAbSc, 
-                                     std::vector<umiQualityExtended>& extendedQuality, const std::string& output);
+        
+        //check if a read is in 'dataLinesToDelete' (not-unique UMI for this read)
+        bool checkIfLineIsDeleted(const dataLinePtr& line, const std::vector<dataLinePtr>& dataLinesToDelete);
+        //write all reads which come from a not-unique UMI into 'dataLinesToDelete' vector
+        //these lines are later not considered when the AB-count per single cell is calculated
+        void markReadsWithNoUniqueUmi(std::vector<dataLinePtr> uniqueUmis,
+                                      std::vector<dataLinePtr>& dataLinesToDelete, 
+                                      unsigned long long& count,
+                                      const unsigned long long& totalCount);
+        //used within 'count_abs_per_single_cell' to get counts per UMI for reads of one AB SC combination
+        void count_umi_occurence(std::vector<int>& positionsOfSameUmi, 
+                                                   umiCount& umiLineTmp,
+                                                   const std::vector<dataLinePtr>& allScAbCounts,
+                                                   const int& umiMismatches,
+                                                   const int& lastIdx);
+        //count the ABs per single cell (iterating over reads for a AB-SC combination and summing them)
+        //(not considering not-unique UMIs in 'dataLinesToDelete' vector, collapsing UMIs,etc.)
+        void count_abs_per_single_cell(const int& umiMismatches, std::vector<dataLinePtr> uniqueAbSc,
+                                                        const std::vector<dataLinePtr>& dataLinesToDelete, 
+                                                        unsigned long long& count,
+                                                        const unsigned long long& totalCount);
 
         //get positions of all barcodes in the lines of demultiplexed data
         void getBarcodePositions(const std::string& line, int& barcodeElements);
@@ -147,22 +244,12 @@ class BarcodeProcessingHandler
         //data structure storing lines with: UMI, AB_id, SingleCell_id
         //this is the raw data not UMI corrected
         UnprocessedDemultiplexedData rawData;
+        // the final data: ABCounts, UMICounts, and a processingLog containing basic values (removed reads, etc.)
+        Results result;
 
-        //a final data structure without summed Ab-counts storing the corrected dataLines, after removal of erroneous 
-        //dataLines and UMI corrections
-        std::vector<dataLinePtr> umiData;
+        std::mutex statusUpdateLock;  
 
-        //holding the counts per unique UMI (just for quality checks)
-        std::vector<umiCount> newUmiData;
-        //final data structures storing scID, AB-name, treatment-name and AB-count
-        std::vector<scAbCount> abData;
-
-        //statistics of the whole process
-        StatsUmi stats;    
-        umiQuality qual;  
-
-        std::mutex lock;  
-        
+        // DATA STRUCTURES FOR PARSING DEMULTIPLEXED DATA
         //stores all the indices of variable barcodes in the barcode file (among all barcodes of [NNN...] pattern)
         NBarcodeInformation varyingBarcodesPos;
         // variables to read the data from each fastq line

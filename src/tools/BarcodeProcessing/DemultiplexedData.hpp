@@ -11,28 +11,6 @@
 
 #include "dataTypes.hpp"
 
-
-
-struct scAbCount
-{
-    const char* abName;
-    const char* treatment;
-    
-    const char* scID;
-    int abCount = 0;
-}; 
-
-struct umiCount
-{
-    const char* umi;
-    const char* abName;
-    const char* treatment;
-    
-    const char* scID;
-    int abCount = 0;
-}; 
-
-
 /**
  * @brief A line in the demultiplexed data.
  * Storing the UMI sequence, Antibody sequence, 
@@ -111,10 +89,14 @@ class UnprocessedDemultiplexedData
         {
             return positonsOfABSingleCell;
         }
-        inline void changeUmi(const char* oldUmi, const char* newUmi, dataLinePtr line)
+        //we have to move the dataLine from the vector of lines for of oldUmi to newUmi
+        //additionally inside this line we must update the new UMI sequence
+        inline void changeUmi(const char* oldUmi, const char* newUmi, dataLinePtr oldLine)
         {
-            remove(positionsOfUmi.at(oldUmi).begin(), positionsOfUmi.at(oldUmi).end(), line);
-            positionsOfUmi.at(newUmi).push_back(line);
+            //move old line from 'wrong' UMI key to right key
+            remove(positionsOfUmi.at(oldUmi).begin(), positionsOfUmi.at(oldUmi).end(), oldLine);
+            positionsOfUmi.at(newUmi).push_back(oldLine);
+            oldLine->umiSeq = newUmi;
         }
         inline void setTreatmentDict(std::unordered_map<std::string, std::string > dict)
         {

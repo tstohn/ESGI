@@ -192,11 +192,8 @@ int main(int argc, char** argv)
     dataParser.parseFile(inFile, thread);
     //further process the data (correct UMIs, collapse same UMIs, etc.)
     dataParser.processBarcodeMapping(umiMismatches, thread);
-    dataParser.writeStats(outFile);
+    //dataParser.writeLog(outFile);
     dataParser.writeUmiCorrectedData(outFile);
-
-    //AbData abData(data);
-    //abData.writeFile(outFile);
 
     return(EXIT_SUCCESS);
 }
