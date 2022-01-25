@@ -57,6 +57,10 @@ testProcessing:
 	diff ./src/test/test_data/sortedSTATSprocessed_out.tsv ./bin/sortedSTATSprocessed_out.tsv
 	diff ./src/test/test_data/sortedABprocessed_out.tsv ./bin/sortedABprocessed_out.tsv
 
+	./bin/processing -i ./src/test/test_data/testSet_2.txt.gz -o ./bin/processed_out.tsv -t 2 -b ./src/test/test_data/processingBarcodeFile_2.txt  -c 0,2 -a ./src/test/test_data/antibody_2.txt -x 1 -g ./src/test/test_data/treatment_2.txt -y 2 -u 2
+	diff ./bin/ABprocessed_out.tsv ./src/test/test_data/ABprocessed_2_out.tsv
+	diff ./bin/UMIprocessed_out.tsv ./src/test/test_data/UMIprocessed_2_out.tsv
+
 testAnalysis:
 	php ./src/Pipelines/analyze.php -i ./src/test/test_data/inFastqTest.fastq -o ./bin/AnalysisTestOutput.tsv -p [NNNN][ATCAGTCAACAGATAAGCGA][NNNN][XXX][GATCAT] -m 1,4,1,3,2 -t 1
 

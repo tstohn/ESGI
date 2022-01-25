@@ -289,12 +289,12 @@ void BarcodeProcessingHandler::markReadsWithNoUniqueUmi(std::vector<dataLinePtr>
     if(!realSingleCellExists)
     {
         //delete all reads
-        //for(int i = 0; i < uniqueUmis.size(); ++i)
-        //{
-            //   {
-            //      dataLinesToDelete.push_back(uniqueUmis.at(i));
-            // }
-        //}
+        for(int i = 0; i < uniqueUmis.size(); ++i)
+        {
+               {
+                  dataLinesToDelete.push_back(uniqueUmis.at(i));
+             }
+        }
         result.add_removed_reads(uniqueUmis.size());
     }
     else
@@ -364,7 +364,6 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
    //correct for UMI mismatches and fill the AbCountvector
     //iterate through same AbScIdx, calculate levenshtein dist for all UMIs and match those with a certain number of mismatches
 
-        std::cout << __LINE__ << "\n";
         //all dataLines for this AB SC combination
         std::vector<dataLinePtr> scAbCounts = uniqueAbSc;
         
@@ -375,20 +374,16 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
         abLineTmp.scID = umiLineTemplate.scID = uniqueAbSc.at(0)->scID;
         abLineTmp.abName = umiLineTemplate.abName = uniqueAbSc.at(0)->abName;
         abLineTmp.treatment = umiLineTemplate.treatment = uniqueAbSc.at(0)->treatmentName;
-        std::cout << __LINE__ << "\n";
 
         //we take always last element in vector of read of same AB and SC ID
         //then store all reads wwhere UMIs are within distance, and delete those line, and sum up the AB count by one
         while(!scAbCounts.empty())
         {
-            std::cout << __LINE__ << "\n";
-
             dataLinePtr lastAbSc = scAbCounts.back();
             int lastIdx = scAbCounts.size() - 1;
             umiCount umiLineTmp = umiLineTemplate;
             //check if we have to delete element anyways, since it is not a unique UMI
             //in this case we simply delete this line and check the next one
-                    std::cout << __LINE__ << "\n";
 
             if(checkIfLineIsDeleted(lastAbSc, dataLinesToDelete))
             {
@@ -405,17 +400,14 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
                 scAbCounts.pop_back();
                 break;
             }
-                    std::cout << __LINE__ << "\n";
 
             //otherwise conmpare all and mark the ones to delete
             std::vector<int> deletePositions;
             deletePositions.push_back(lastIdx);
             ++umiLineTmp.abCount; //count the first occurence
             //count all occurences of the last UMI for this AB-SC
-                    std::cout << __LINE__ << "\n";
 
             count_umi_occurence(deletePositions, umiLineTmp, scAbCounts, umiMismatches, lastIdx);
-            std::cout << __LINE__ << "\n";
 
             //ADD UMI if exists
             if(umiLineTmp.abCount > 0)
@@ -423,7 +415,6 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
                 umiLineTmp.umi = lastAbSc->umiSeq;
                 result.add_umi_count(umiLineTmp);
             }
-                    std::cout << __LINE__ << "\n";
 
             //delte all same UMIs
             //positions have to be sorted, we first add the last read, and then sequencially all reads with the same UMI
@@ -431,17 +422,9 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
             sort(deletePositions.begin(), deletePositions.end());
             for(int posIdx = (deletePositions.size() - 1); posIdx >= 0; --posIdx)
             {
-                std::cout << "posIdx: "<< posIdx << "\n";
-                                std::cout << "Absc size: "<< scAbCounts.size() << "\n";
-                                std::cout << "del size: "<< deletePositions.size() << "\n";
-
                 int pos = deletePositions.at(posIdx);
-                std::cout << "del pos in vec: " << pos << "\n";
                 scAbCounts.erase(scAbCounts.begin() + pos);
-                        std::cout << __LINE__ << "\n";
-
             }
-            std::cout << __LINE__ << "\n";
 
             //increase AB count for this one UMI
             ++abLineTmp.abCount;
@@ -452,7 +435,6 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
         {
             result.add_ab_count(abLineTmp);
         }
-        std::cout << __LINE__ << "\n";
 
         if((totalCount >= 100) && (count % (totalCount / 100) == 0))
         {
