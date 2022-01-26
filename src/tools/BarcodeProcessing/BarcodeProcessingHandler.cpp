@@ -508,11 +508,11 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
 
             //otherwise conmpare all and mark the ones to delete
             std::vector<int> deletePositions;
-            deletePositions.push_back(lastIdx);
             ++umiLineTmp.abCount; //count the first occurence
             //count all occurences of the last UMI for this AB-SC
 
             count_umi_occurence(deletePositions, umiLineTmp, scAbCounts, umiMismatches, lastIdx, dataLinesToDelete);
+            deletePositions.push_back(lastIdx);
 
             //ADD UMI if exists
             if(umiLineTmp.abCount > 0)
@@ -522,9 +522,6 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
             }
 
             //delte all same UMIs
-            //positions have to be sorted, we first add the last read, and then sequencially all reads with the same UMI
-            //starting at the front. But we have to delete from the end to not run into segfaults
-            sort(deletePositions.begin(), deletePositions.end());
             for(int posIdx = (deletePositions.size() - 1); posIdx >= 0; --posIdx)
             {
                 int pos = deletePositions.at(posIdx);
