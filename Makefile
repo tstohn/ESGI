@@ -67,6 +67,10 @@ testProcessing:
 	(head -n 1 ./bin/UMIprocessed_out.tsv && tail -n +2 ./bin/UMIprocessed_out.tsv | LC_ALL=c sort) > ./bin/sortedUMIprocessed_out.tsv
 	diff ./bin/sortedABprocessed_out.tsv ./src/test/test_data/sortedABprocessed_treatment_out.tsv
 	diff ./bin/sortedUMIprocessed_out.tsv ./src/test/test_data/sortedUMIprocessed_treatment_out.tsv
+#testing the specific removal of two lines bcs the same SC (with two lines only) has two different treatments (additional one line is removed for UMI)
+	./bin/processing -i ./src/test/test_data/test_treatmentReadRemoval_Log.txt.gz -o ./bin/processed_out.tsv -t 2 -b ./src/test/test_data/processingBarcodeFile_2.txt  -c 0 -a ./src/test/test_data/antibody_2.txt -x 1 -g ./src/test/test_data/treatment_2.txt -y 2 -u 2
+	(head -n 1 ./bin/LOGprocessed_out.tsv && tail -n +2 ./bin/LOGprocessed_out.tsv | LC_ALL=c sort) > ./bin/sortedLOGprocessed_out.tsv
+	diff ./bin/sortedLOGprocessed_out.tsv ./src/test/test_data/sortedLOGprocessed_treatment_out.tsv
 
 testAnalysis:
 	php ./src/Pipelines/analyze.php -i ./src/test/test_data/inFastqTest.fastq -o ./bin/AnalysisTestOutput.tsv -p [NNNN][ATCAGTCAACAGATAAGCGA][NNNN][XXX][GATCAT] -m 1,4,1,3,2 -t 1
