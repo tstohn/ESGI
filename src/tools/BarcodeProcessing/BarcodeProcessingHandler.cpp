@@ -598,12 +598,15 @@ void BarcodeProcessingHandler::processBarcodeMapping(const int& umiMismatches, c
                     CharHash, CharPtrComparator>> uniqueUmiMap = 
                     rawData.getUniqueUmis();
 
-    for(std::pair<const char*, std::vector<dataLinePtr>> abSc : *rawData.getUniqueAbSc())
+std::shared_ptr< std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator>> AbScMap = rawData.getUniqueAbSc();
+    for(std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator>::const_iterator it = AbScMap->begin(); 
+        it != AbScMap->end(); 
+        it++)
     {
         //as above: abSc is copied only
         //dataLinesToDelete should be thread safe for read only, hope it holds in reality :D
         boost::asio::post(pool_3, std::bind(&BarcodeProcessingHandler::count_abs_per_single_cell, this, 
-                                          std::ref(umiMismatches), (abSc.second), 
+                                          std::ref(umiMismatches), std::cref(it->second), 
                                           std::cref(dataLinesToDelete), 
                                           std::ref(umiCount), std::cref(totalCount), std::ref(uniqueUmiMap) ));
     }
