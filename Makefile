@@ -51,13 +51,22 @@ testDemultiplexing:
 
 #test processing of the barcodes, includes several UMIs with mismatches, test the mapping of barcodes to unique CellIDs, ABids, treatments
 testProcessing:
+#origional first test with several basic examples
 	./bin/processing -i ./src/test/test_data/testSet.txt.gz -o ./bin/processed_out.tsv -t 2 -b ./src/test/test_data/processingBarcodeFile.txt  -c 0,2,3,4 -a ./src/test/test_data/antibody.txt -x 1 -g ./src/test/test_data/treatment.txt -y 2 -u 2
 	(head -n 1 ./bin/ABprocessed_out.tsv && tail -n +2 ./bin/ABprocessed_out.tsv | sort) > ./bin/sortedABprocessed_out.tsv
 	diff ./src/test/test_data/sortedABprocessed_out.tsv ./bin/sortedABprocessed_out.tsv
-
+#testing the removal of one wrong read bcs of different AB-Sc for same UMI
 	./bin/processing -i ./src/test/test_data/testSet_2.txt.gz -o ./bin/processed_out.tsv -t 2 -b ./src/test/test_data/processingBarcodeFile_2.txt  -c 0,2 -a ./src/test/test_data/antibody_2.txt -x 1 -g ./src/test/test_data/treatment_2.txt -y 2 -u 2
-	diff ./bin/ABprocessed_out.tsv ./src/test/test_data/ABprocessed_2_out.tsv
-	diff ./bin/UMIprocessed_out.tsv ./src/test/test_data/UMIprocessed_2_out.tsv
+	(head -n 1 ./bin/ABprocessed_out.tsv && tail -n +2 ./bin/ABprocessed_out.tsv | sort) > ./bin/sortedABprocessed_out.tsv
+	(head -n 1 ./bin/UMIprocessed_out.tsv && tail -n +2 ./bin/UMIprocessed_out.tsv | sort) > ./bin/sortedUMIprocessed_out.tsv
+	diff ./bin/sortedABprocessed_out.tsv ./src/test/test_data/sortedABprocessed_2_out.tsv
+	diff ./bin/sortedUMIprocessed_out.tsv ./src/test/test_data/sortedUMIprocessed_2_out.tsv
+#testing removal of two reads bcs both have different treatments for same SC
+	./bin/processing -i ./src/test/test_data/test_treatmentReadRemoval.txt.gz -o ./bin/processed_out.tsv -t 2 -b ./src/test/test_data/processingBarcodeFile_2.txt  -c 0,2 -a ./src/test/test_data/antibody_2.txt -x 1 -g ./src/test/test_data/treatment_2.txt -y 2 -u 2
+	(head -n 1 ./bin/ABprocessed_out.tsv && tail -n +2 ./bin/ABprocessed_out.tsv | sort) > ./bin/sortedABprocessed_out.tsv
+	(head -n 1 ./bin/UMIprocessed_out.tsv && tail -n +2 ./bin/UMIprocessed_out.tsv | sort) > ./bin/sortedUMIprocessed_out.tsv
+	diff ./bin/sortedABprocessed_out.tsv ./src/test/test_data/sortedABprocessed_treatment_out.tsv
+	diff ./bin/sortedUMIprocessed_out.tsv ./src/test/test_data/sortedUMIprocessed_treatment_out.tsv
 
 testAnalysis:
 	php ./src/Pipelines/analyze.php -i ./src/test/test_data/inFastqTest.fastq -o ./bin/AnalysisTestOutput.tsv -p [NNNN][ATCAGTCAACAGATAAGCGA][NNNN][XXX][GATCAT] -m 1,4,1,3,2 -t 1

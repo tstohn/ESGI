@@ -253,13 +253,14 @@ void BarcodeProcessingHandler::getBarcodePositions(const std::string& line, int&
     assert(abIdx != INT_MAX);
 }
 
-void BarcodeProcessingHandler::markReadsWithNoUniqueUmi(std::vector<dataLinePtr> uniqueUmis,
+void BarcodeProcessingHandler::markReadsWithNoUniqueUmi(const std::vector<dataLinePtr> uniqueUmis,
                                                         std::vector<dataLinePtr>& dataLinesToDelete, 
-                                                        unsigned long long& count,
+                                                        std::atomic<unsigned long long>& count,
                                                         const unsigned long long& totalCount)
 {
     //count how often we see which AB-SC-Treatment combinations for this certain UMI
     std::unordered_map<std::string, unsigned long long> umiCountMap;
+
     for(unsigned long long i = 0; i < uniqueUmis.size(); ++i)
     {
         std::string uniqueID = std::string(uniqueUmis.at(i)->scID) + std::string(uniqueUmis.at(i)->abName) + std::string(uniqueUmis.at(i)->treatmentName);
@@ -292,7 +293,11 @@ void BarcodeProcessingHandler::markReadsWithNoUniqueUmi(std::vector<dataLinePtr>
         for(int i = 0; i < uniqueUmis.size(); ++i)
         {
                {
+                                   statusUpdateLock.lock();
+
                   dataLinesToDelete.push_back(uniqueUmis.at(i));
+                                  statusUpdateLock.unlock();
+
              }
         }
         result.add_removed_reads(uniqueUmis.size());
@@ -306,7 +311,11 @@ void BarcodeProcessingHandler::markReadsWithNoUniqueUmi(std::vector<dataLinePtr>
             std::string uniqueID = std::string(uniqueUmis.at(i)->scID) + std::string(uniqueUmis.at(i)->abName) + std::string(uniqueUmis.at(i)->treatmentName);
             if(uniqueID != realSingleCellID)
             {
+                                statusUpdateLock.lock();
+
                 dataLinesToDelete.push_back(uniqueUmis.at(i));
+                                statusUpdateLock.unlock();
+
                 ++readCountToDelete;
             }
         }
@@ -318,11 +327,87 @@ void BarcodeProcessingHandler::markReadsWithNoUniqueUmi(std::vector<dataLinePtr>
         statusUpdateLock.lock();
         double perc = count/ (double) totalCount;
         printProgress(perc);
-        ++count;
         statusUpdateLock.unlock();
     }
+    ++count;
 }
 
+void BarcodeProcessingHandler::markReadsWithNoUniqueTreatment(const std::vector<dataLinePtr> uniqueSc,
+                                                              std::vector<dataLinePtr>& dataLinesToDelete, 
+                                                              std::atomic<unsigned long long>& count,
+                                                              const unsigned long long& totalCount)
+{
+    //calculate occurences of all treatments for a SC combination
+    std::unordered_map<std::string, unsigned long long> readsPerTreatment;
+    for(const dataLinePtr& abScLine : uniqueSc)
+    {
+        std::string treat = abScLine->treatmentName;
+        std::unordered_map<std::string, unsigned long long>::iterator readsPerTreatmentIt = readsPerTreatment.find(treat);
+        if( readsPerTreatmentIt != readsPerTreatment.end())
+        {
+            ++(readsPerTreatmentIt->second);
+        }
+        else
+        {
+            readsPerTreatment.insert(std::make_pair(treat, 1));
+        }
+    }
+
+    //get the treatment to keep
+    bool realTreatmentExists = false;
+    std::string realTreatmentId;
+    for(const std::pair<std::string, unsigned long long>& treatmentOfSc : readsPerTreatment)
+    {
+        double treatmentPerc = treatmentOfSc.second/readsPerTreatment.size();
+        if( treatmentPerc >= 0.9 )
+        {
+            realTreatmentId = treatmentOfSc.first;
+            realTreatmentExists = true;
+        }
+    }
+
+    //If real treatment exists mark all the one
+    if(!realTreatmentExists)
+    {
+        //delete all reads
+        for(int i = 0; i < uniqueSc.size(); ++i)
+        {
+            {
+                statusUpdateLock.lock();
+                dataLinesToDelete.push_back(uniqueSc.at(i));
+                statusUpdateLock.unlock();
+            }
+        }
+        result.add_removed_reads(uniqueSc.size());
+    }
+    else
+    {
+        //delete only the <=10% 'false' reads
+        unsigned long long readCountToDelete = 0;
+        for(int i = 0; i < uniqueSc.size(); ++i)
+        {
+            std::string uniqueID = std::string(uniqueSc.at(i)->treatmentName);
+            if(uniqueID != realTreatmentId)
+            {
+                statusUpdateLock.lock();
+                dataLinesToDelete.push_back(uniqueSc.at(i));
+                            statusUpdateLock.unlock();
+
+                ++readCountToDelete;
+            }
+        }
+        result.add_removed_reads(readCountToDelete);
+    }
+
+    if((totalCount >= 100) && (count % (totalCount / 100) == 0))
+    {
+        statusUpdateLock.lock();
+        double perc = count/ (double) totalCount;
+        printProgress(perc);
+        statusUpdateLock.unlock();
+    }
+    ++count;
+}
 
 void BarcodeProcessingHandler::count_umi_occurence(std::vector<int>& positionsOfSameUmi, 
                                                    umiCount& umiLineTmp,
@@ -356,9 +441,9 @@ void BarcodeProcessingHandler::count_umi_occurence(std::vector<int>& positionsOf
     }
 }
 
-void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatches, std::vector<dataLinePtr> uniqueAbSc,
+void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatches, const std::vector<dataLinePtr> uniqueAbSc,
                                                         const std::vector<dataLinePtr>& dataLinesToDelete, 
-                                                        unsigned long long& count,
+                                                        std::atomic<unsigned long long>& count,
                                                         const unsigned long long& totalCount)
 {
    //correct for UMI mismatches and fill the AbCountvector
@@ -366,7 +451,7 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
 
         //all dataLines for this AB SC combination
         std::vector<dataLinePtr> scAbCounts = uniqueAbSc;
-        
+
         //data structures to be filled for the UMI and AB count
         scAbCount abLineTmp; // we fill only this one AB SC count
         umiCount umiLineTemplate; //we fill several UMIcounts for every UMI of this AB-SC combination
@@ -395,6 +480,7 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
             if(scAbCounts.size() == 1)
             {
                 ++abLineTmp.abCount;
+                ++umiLineTmp.abCount; 
                 umiLineTmp.umi = lastAbSc->umiSeq;
                 result.add_umi_count(umiLineTmp);
                 scAbCounts.pop_back();
@@ -441,44 +527,59 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
             statusUpdateLock.lock();
             double perc = count/ (double) totalCount;
             printProgress(perc);
-            ++count;
             statusUpdateLock.unlock();
         }
+        ++count;
 }
 
 void BarcodeProcessingHandler::processBarcodeMapping(const int& umiMismatches, const int& thread)
 {
-    boost::asio::thread_pool pool(thread); //create thread pool
 
     //implement thread safe update functions for the data
     //Abcounts Umicounts UmiLog
 
-    //check all UMIs and keep thier reads only if they are for >90% a unique scID, ABname, treatmentname
+    //check all UMIs and keep their reads only if they are for >90% a unique scID, ABname, treatmentname
     std::vector<dataLinePtr> dataLinesToDelete; // the dataLines that contain reads that have to be deleted (several CIbarcodes, AB, treatments for same UMI)
-    unsigned long long umiCount = 0; //using atomic<int> as thread safe read count
+    std::atomic<unsigned long long> umiCount = 0; //using atomic<int> as thread safe read count
     unsigned long long totalCount = rawData.getUniqueUmis().size();
+    boost::asio::thread_pool pool_1(thread); //create thread pool
     for(std::pair<const char*, std::vector<dataLinePtr>> uniqueUmi : rawData.getUniqueUmis())
     {
         //careful: uniqueUmi goe sout of scope after enqueuing, therefore just copied...
-        boost::asio::post(pool, std::bind(&BarcodeProcessingHandler::markReadsWithNoUniqueUmi, this, 
+        boost::asio::post(pool_1, std::bind(&BarcodeProcessingHandler::markReadsWithNoUniqueUmi, this, 
                                           (uniqueUmi.second), std::ref(dataLinesToDelete), 
                                           std::ref(umiCount), std::cref(totalCount)));
     }
-    pool.join();
+    pool_1.join();
+
+    //check all AB-SC combinations, and keep only those reads with >90% from same treatment
+    umiCount = 0; //using atomic<int> as thread safe read count
+    totalCount = rawData.getUniqueSc().size();
+    boost::asio::thread_pool pool_2(thread); //create thread pool
+    for(std::pair<const char*, std::vector<dataLinePtr>> sc : rawData.getUniqueSc())
+    {
+        //as above: abSc is copied only
+        boost::asio::post(pool_2, std::bind(&BarcodeProcessingHandler::markReadsWithNoUniqueTreatment, this, 
+                                          sc.second, std::ref(dataLinesToDelete), std::ref(umiCount), 
+                                          std::cref(totalCount) ));
+    }
+    pool_2.join();
 
     //generate ABcounts per single cell:
     umiCount = 0; //using atomic<int> as thread safe read count
     totalCount = rawData.getUniqueAbSc().size();
-    boost::asio::thread_pool pool2(thread); //create thread pool
+    boost::asio::thread_pool pool_3(thread); //create thread pool
+
     for(std::pair<const char*, std::vector<dataLinePtr>> abSc : rawData.getUniqueAbSc())
     {
         //as above: abSc is copied only
-        boost::asio::post(pool2, std::bind(&BarcodeProcessingHandler::count_abs_per_single_cell, this, 
-                                          std::cref(umiMismatches), abSc.second, 
-                                          std::cref(dataLinesToDelete), std::ref(umiCount), 
-                                          std::cref(totalCount) ));
+        //dataLinesToDelete should be thread safe for read only, still handed over as copy just to be sure
+        boost::asio::post(pool_3, std::bind(&BarcodeProcessingHandler::count_abs_per_single_cell, this, 
+                                          std::ref(umiMismatches), abSc.second, 
+                                          (dataLinesToDelete), 
+                                          std::ref(umiCount), std::cref(totalCount) ));
     }
-    pool2.join();
+    pool_3.join();
 }
 
 bool BarcodeProcessingHandler::checkIfLineIsDeleted(const dataLinePtr& line, const std::vector<dataLinePtr>& dataLinesToDelete)
