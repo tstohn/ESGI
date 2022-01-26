@@ -470,10 +470,6 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
         //to minimize erros bcs e.g. three reads are within 2MM but we choose one UMI out the outer end regarding MM
         const std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator> umiMap = rawData.getUniqueUmis();
         sort(scAbCounts.rbegin(), scAbCounts.rend(), less_than_umi(umiLength, umiMap));
-        for(auto el : scAbCounts)
-        {
-            std::cout << el->umiSeq << "\n";
-        }
 
         //data structures to be filled for the UMI and AB count
         scAbCount abLineTmp; // we fill only this one AB SC count
