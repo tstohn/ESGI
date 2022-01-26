@@ -68,7 +68,10 @@ struct umiCount
 struct ProcessingLog
 {
     unsigned long long umiMM = 0; //UMIs with mismatches that were converted into another one
-    unsigned long long removedReads = 0; // removed reads bcs. their UMI was not unique and was not present in >90% of the reads
+    unsigned long long removedUmiReads = 0; // removed reads bcs. their UMI was not unique and was not present in >90% of the reads
+    unsigned long long removedTreatmentReads = 0; // removed reads bcs. their SC had not in more than 90% of reads the same treatment
+    unsigned long long totalRemovedReads = 0; // removed reads in total
+
     unsigned long long totalReads = 0;
 };
 
@@ -116,10 +119,22 @@ class Results
             ullong_save_add(logData.umiMM, mm);
             logLock.unlock();
         }
-        void add_removed_reads(const unsigned long long& reads)
+        void add_removed_reads_umi(const unsigned long long& reads)
         {
             logLock.lock();
-            ullong_save_add(logData.removedReads, reads);
+            ullong_save_add(logData.removedUmiReads, reads);
+            logLock.unlock();
+        }
+        void add_removed_reads_treat(const unsigned long long& reads)
+        {
+            logLock.lock();
+            ullong_save_add(logData.removedTreatmentReads, reads);
+            logLock.unlock();
+        }
+        void add_removed_reads_total(const unsigned long long& reads)
+        {
+            logLock.lock();
+            ullong_save_add(logData.totalRemovedReads, reads);
             logLock.unlock();
         }
         void set_total_reads(const unsigned long long& totalReads)
@@ -179,7 +194,7 @@ class BarcodeProcessingHandler
         void processBarcodeMapping(const int& umiMismatches, const int& thread);
 
         void writeLog(std::string output);
-        void writeUmiCorrectedData(const std::string& output);
+        void writeAbCountsPerSc(const std::string& output);
 
         inline void addTreatmentData(std::unordered_map<std::string, std::string > map)
         {

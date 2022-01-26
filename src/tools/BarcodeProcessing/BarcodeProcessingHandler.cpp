@@ -150,6 +150,8 @@ void BarcodeProcessingHandler::parseBarcodeLines(std::istream* instream, const i
         ++currentReads;
         printProgress(perc);        
     }
+
+    result.set_total_reads(currentReads);
     printProgress(1);
     std::cout << "\n";
 }
@@ -300,7 +302,7 @@ void BarcodeProcessingHandler::markReadsWithNoUniqueUmi(const std::vector<dataLi
 
              }
         }
-        result.add_removed_reads(uniqueUmis.size());
+        result.add_removed_reads_umi(uniqueUmis.size());
     }
     else
     {
@@ -319,7 +321,7 @@ void BarcodeProcessingHandler::markReadsWithNoUniqueUmi(const std::vector<dataLi
                 ++readCountToDelete;
             }
         }
-        result.add_removed_reads(readCountToDelete);
+        result.add_removed_reads_umi(readCountToDelete);
     }
 
     if( (totalCount >= 100) && (count % (totalCount / 100) == 0) )
@@ -378,7 +380,7 @@ void BarcodeProcessingHandler::markReadsWithNoUniqueTreatment(const std::vector<
                 statusUpdateLock.unlock();
             }
         }
-        result.add_removed_reads(uniqueSc.size());
+        result.add_removed_reads_treat(uniqueSc.size());
     }
     else
     {
@@ -396,7 +398,7 @@ void BarcodeProcessingHandler::markReadsWithNoUniqueTreatment(const std::vector<
                 ++readCountToDelete;
             }
         }
-        result.add_removed_reads(readCountToDelete);
+        result.add_removed_reads_treat(readCountToDelete);
     }
 
     if((totalCount >= 100) && (count % (totalCount / 100) == 0))
@@ -415,6 +417,7 @@ void BarcodeProcessingHandler::count_umi_occurence(std::vector<int>& positionsOf
                                                    const int& umiMismatches,
                                                    const int& lastIdx)
 {
+    unsigned long long numberAlignedUmis = 0;
     for(int j = 0; j < (allScAbCounts.size() - 1); ++j)
     {
         //calling outputSense algorithm, much faster than levenshtein O(e*max(m,n))
@@ -433,12 +436,17 @@ void BarcodeProcessingHandler::count_umi_occurence(std::vector<int>& positionsOf
         //same length, its the first occuring UMI
         if(dist <= umiMismatches)
         {
+            if(dist > 0)
+            {
+                ++numberAlignedUmis;
+            }
             //UMIs are not corrected in rawData (the rawData keeps the 'wrong' umi sequences)
             //they could be changed by calling 'changeUmi'
             positionsOfSameUmi.push_back(j);     
             ++umiLineTmp.abCount; // increase count for this UMI
         }
     }
+    result.add_umi_mismatches(numberAlignedUmis);
 }
 
 void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatches, const std::vector<dataLinePtr> uniqueAbSc,
@@ -568,6 +576,8 @@ void BarcodeProcessingHandler::processBarcodeMapping(const int& umiMismatches, c
     }
     pool_2.join();
     std::cout << "\n";
+    //all reads that should not be considered have been enumerated by now
+    result.add_removed_reads_total(dataLinesToDelete.size());
 
     //generate ABcounts per single cell:
     umiCount = 0; //using atomic<int> as thread safe read count
@@ -596,7 +606,7 @@ bool BarcodeProcessingHandler::checkIfLineIsDeleted(const dataLinePtr& line, con
     }
     return false;
 }
-/*
+
 void BarcodeProcessingHandler::writeLog(std::string output)
 {
     //WRITE INTO FILE
@@ -604,21 +614,25 @@ void BarcodeProcessingHandler::writeLog(std::string output)
     std::size_t found = output.find_last_of("/");
     if(found == std::string::npos)
     {
-        output = "STATS" + output;
+        output = "LOG" + output;
     }
     else
     {
-        output = output.substr(0,found) + "/" + "STATS" + output.substr(found+1);
+        output = output.substr(0,found) + "/" + "LOG" + output.substr(found+1);
     }
     outputFile.open (output);
 
-
+    outputFile << "TOTAL READS:\t" << result.get_log_data().totalReads << "\n";
+    outputFile << "TOTAL READS REMOVED:\t" << result.get_log_data().totalRemovedReads << "\n";
+    outputFile << "REMOVED BY UMI:\t" << result.get_log_data().removedUmiReads << "\n";
+    outputFile << "REMOVED BY TREATMENT:\t" << result.get_log_data().removedTreatmentReads << "\n";
+    outputFile << "UMI MM:\t" << result.get_log_data().umiMM << "\n";
 
     outputFile.close();
 
-}*/
+}
 
-void BarcodeProcessingHandler::writeUmiCorrectedData(const std::string& output)
+void BarcodeProcessingHandler::writeAbCountsPerSc(const std::string& output)
 {
     std::ofstream outputFile;
     std::size_t found = output.find_last_of("/");
