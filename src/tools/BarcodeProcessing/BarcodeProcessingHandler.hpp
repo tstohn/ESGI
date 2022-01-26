@@ -250,7 +250,8 @@ class BarcodeProcessingHandler
                                                    umiCount& umiLineTmp,
                                                    const std::vector<dataLinePtr>& allScAbCounts,
                                                    const int& umiMismatches,
-                                                   const int& lastIdx);
+                                                   const int& lastIdx,
+                                                   const std::vector<dataLinePtr>& dataLinesToDelete);
         //count the ABs per single cell (iterating over reads for a AB-SC combination and summing them)
         //(not considering not-unique UMIs in 'dataLinesToDelete' vector, collapsing UMIs,etc.)
         void count_abs_per_single_cell(const int& umiMismatches, const std::vector<dataLinePtr> uniqueAbSc,

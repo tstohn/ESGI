@@ -415,7 +415,8 @@ void BarcodeProcessingHandler::count_umi_occurence(std::vector<int>& positionsOf
                                                    umiCount& umiLineTmp,
                                                    const std::vector<dataLinePtr>& allScAbCounts,
                                                    const int& umiMismatches,
-                                                   const int& lastIdx)
+                                                   const int& lastIdx,
+                                                   const std::vector<dataLinePtr>& dataLinesToDelete)
 {
     unsigned long long numberAlignedUmis = 0;
     for(int j = 0; j < (allScAbCounts.size() - 1); ++j)
@@ -443,7 +444,11 @@ void BarcodeProcessingHandler::count_umi_occurence(std::vector<int>& positionsOf
             //UMIs are not corrected in rawData (the rawData keeps the 'wrong' umi sequences)
             //they could be changed by calling 'changeUmi'
             positionsOfSameUmi.push_back(j);     
-            ++umiLineTmp.abCount; // increase count for this UMI
+            
+            if(!checkIfLineIsDeleted(allScAbCounts.at(j), dataLinesToDelete))
+            {
+                ++umiLineTmp.abCount; // increase count for this UMI
+            }
         }
     }
     result.add_umi_mismatches(numberAlignedUmis);
@@ -459,6 +464,16 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
 
         //all dataLines for this AB SC combination
         std::vector<dataLinePtr> scAbCounts = uniqueAbSc;
+        //sort vector by distance to origional UMI length: 
+        //reads get a value for dsitance to UMi length (one Base plus minus gets same value)
+        //and are then sorted in decreasing fashion (when comparing UMIs a UMI of length umilength is chosen first)
+        //to minimize erros bcs e.g. three reads are within 2MM but we choose one UMI out the outer end regarding MM
+        const std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator> umiMap = rawData.getUniqueUmis();
+        sort(scAbCounts.rbegin(), scAbCounts.rend(), less_than_umi(umiLength, umiMap));
+        for(auto el : scAbCounts)
+        {
+            std::cout << el->umiSeq << "\n";
+        }
 
         //data structures to be filled for the UMI and AB count
         scAbCount abLineTmp; // we fill only this one AB SC count
@@ -501,7 +516,7 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
             ++umiLineTmp.abCount; //count the first occurence
             //count all occurences of the last UMI for this AB-SC
 
-            count_umi_occurence(deletePositions, umiLineTmp, scAbCounts, umiMismatches, lastIdx);
+            count_umi_occurence(deletePositions, umiLineTmp, scAbCounts, umiMismatches, lastIdx, dataLinesToDelete);
 
             //ADD UMI if exists
             if(umiLineTmp.abCount > 0)

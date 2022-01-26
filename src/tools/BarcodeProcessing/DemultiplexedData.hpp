@@ -26,6 +26,39 @@ struct dataLine
 };
 typedef std::shared_ptr<dataLine> dataLinePtr;
 
+//less operator to compare thwo dataLines, compares the length distance of the lines UMIs to the
+//origional length that this line is supposed to have
+struct less_than_umi
+{
+    less_than_umi(int origionalLength, 
+    const std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator> umiToReadsMap)
+    {
+        this->origionalLength = origionalLength;
+        this->umiToReadsMap = umiToReadsMap;
+    }
+    inline bool operator() (const dataLinePtr& line1, const dataLinePtr& line2)
+    {
+        int lenDiff1 = std::strlen(line1->umiSeq) - origionalLength;
+        lenDiff1 = sqrt(lenDiff1*lenDiff1);
+        int lenDiff2 = std::strlen(line2->umiSeq) - origionalLength;
+        lenDiff2 = sqrt(lenDiff2*lenDiff2);
+
+        unsigned long long readNum1 = umiToReadsMap[line1->umiSeq].size();
+        unsigned long long readNum2 = umiToReadsMap[line2->umiSeq].size();
+
+        if(lenDiff1 != lenDiff2)
+        {
+            return (lenDiff1 < lenDiff2);
+        }
+        else
+        {
+            return(readNum1 > readNum2);
+        }
+    }
+    int origionalLength;
+    std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator> umiToReadsMap;
+};
+
 /**
  * @brief A class storing all the demultiplexed barcodes.
  */
