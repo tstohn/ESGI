@@ -254,10 +254,12 @@ class BarcodeProcessingHandler
                                                    const std::vector<dataLinePtr>& dataLinesToDelete);
         //count the ABs per single cell (iterating over reads for a AB-SC combination and summing them)
         //(not considering not-unique UMIs in 'dataLinesToDelete' vector, collapsing UMIs,etc.)
-        void count_abs_per_single_cell(const int& umiMismatches, const std::vector<dataLinePtr> uniqueAbSc,
+        void count_abs_per_single_cell(const int& umiMismatches, const std::vector<dataLinePtr>& uniqueAbSc,
                                                         const std::vector<dataLinePtr>& dataLinesToDelete, 
                                                         std::atomic<unsigned long long>& count,
-                                                        const unsigned long long& totalCount);
+                                                        const unsigned long long& totalCount,
+                                                        std::shared_ptr<std::unordered_map<const char*, std::vector<dataLinePtr>, 
+                    CharHash, CharPtrComparator>>& umiMap);
 
         //get positions of all barcodes in the lines of demultiplexed data
         void getBarcodePositions(const std::string& line, int& barcodeElements);

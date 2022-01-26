@@ -454,10 +454,12 @@ void BarcodeProcessingHandler::count_umi_occurence(std::vector<int>& positionsOf
     result.add_umi_mismatches(numberAlignedUmis);
 }
 
-void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatches, const std::vector<dataLinePtr> uniqueAbSc,
+void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatches, const std::vector<dataLinePtr>& uniqueAbSc,
                                                         const std::vector<dataLinePtr>& dataLinesToDelete, 
                                                         std::atomic<unsigned long long>& count,
-                                                        const unsigned long long& totalCount)
+                                                        const unsigned long long& totalCount,
+                                                        std::shared_ptr<std::unordered_map<const char*, std::vector<dataLinePtr>, 
+                    CharHash, CharPtrComparator>>& umiMap)
 {
    //correct for UMI mismatches and fill the AbCountvector
     //iterate through same AbScIdx, calculate levenshtein dist for all UMIs and match those with a certain number of mismatches
@@ -468,7 +470,6 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
         //reads get a value for dsitance to UMi length (one Base plus minus gets same value)
         //and are then sorted in decreasing fashion (when comparing UMIs a UMI of length umilength is chosen first)
         //to minimize erros bcs e.g. three reads are within 2MM but we choose one UMI out the outer end regarding MM
-        const std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator> umiMap = rawData.getUniqueUmis();
         sort(scAbCounts.rbegin(), scAbCounts.rend(), less_than_umi(umiLength, umiMap));
 
         //data structures to be filled for the UMI and AB count
@@ -557,10 +558,10 @@ void BarcodeProcessingHandler::processBarcodeMapping(const int& umiMismatches, c
     //check all UMIs and keep their reads only if they are for >90% a unique scID, ABname, treatmentname
     std::vector<dataLinePtr> dataLinesToDelete; // the dataLines that contain reads that have to be deleted (several CIbarcodes, AB, treatments for same UMI)
     std::atomic<unsigned long long> umiCount = 0; //using atomic<int> as thread safe read count
-    unsigned long long totalCount = rawData.getUniqueUmis().size();
+    unsigned long long totalCount = rawData.getUniqueUmis()->size();
     boost::asio::thread_pool pool_1(thread); //create thread pool
     std::cout << "STEP[2/4]\t(Remove all reads for a UMI with <90% coming from same AB/SC/TREATMENT combination)\n";
-    for(std::pair<const char*, std::vector<dataLinePtr>> uniqueUmi : rawData.getUniqueUmis())
+    for(std::pair<const char*, std::vector<dataLinePtr>> uniqueUmi : *rawData.getUniqueUmis())
     {
         //careful: uniqueUmi goe sout of scope after enqueuing, therefore just copied...
         boost::asio::post(pool_1, std::bind(&BarcodeProcessingHandler::markReadsWithNoUniqueUmi, this, 
@@ -572,10 +573,10 @@ void BarcodeProcessingHandler::processBarcodeMapping(const int& umiMismatches, c
 
     //check all AB-SC combinations, and keep only those reads with >90% from same treatment
     umiCount = 0; //using atomic<int> as thread safe read count
-    totalCount = rawData.getUniqueSc().size();
+    totalCount = rawData.getUniqueSc()->size();
     boost::asio::thread_pool pool_2(thread); //create thread pool
     std::cout << "STEP[3/4]\t(Remove all reads for a single cell with <90% coming from same treatment)\n";
-    for(std::pair<const char*, std::vector<dataLinePtr>> sc : rawData.getUniqueSc())
+    for(std::pair<const char*, std::vector<dataLinePtr>> sc : *rawData.getUniqueSc())
     {
         //as above: abSc is copied only
         boost::asio::post(pool_2, std::bind(&BarcodeProcessingHandler::markReadsWithNoUniqueTreatment, this, 
@@ -589,17 +590,22 @@ void BarcodeProcessingHandler::processBarcodeMapping(const int& umiMismatches, c
 
     //generate ABcounts per single cell:
     umiCount = 0; //using atomic<int> as thread safe read count
-    totalCount = rawData.getUniqueAbSc().size();
+    totalCount = rawData.getUniqueAbSc()->size();
     boost::asio::thread_pool pool_3(thread); //create thread pool
     std::cout << "STEP[4/4]\t(Count reads for AB in single cells)\n";
-    for(std::pair<const char*, std::vector<dataLinePtr>> abSc : rawData.getUniqueAbSc())
+            
+    std::shared_ptr<std::unordered_map<const char*, std::vector<dataLinePtr>, 
+                    CharHash, CharPtrComparator>> uniqueUmiMap = 
+                    rawData.getUniqueUmis();
+
+    for(std::pair<const char*, std::vector<dataLinePtr>> abSc : *rawData.getUniqueAbSc())
     {
         //as above: abSc is copied only
-        //dataLinesToDelete should be thread safe for read only, still handed over as copy just to be sure
+        //dataLinesToDelete should be thread safe for read only, hope it holds in reality :D
         boost::asio::post(pool_3, std::bind(&BarcodeProcessingHandler::count_abs_per_single_cell, this, 
-                                          std::ref(umiMismatches), abSc.second, 
-                                          (dataLinesToDelete), 
-                                          std::ref(umiCount), std::cref(totalCount) ));
+                                          std::ref(umiMismatches), (abSc.second), 
+                                          std::cref(dataLinesToDelete), 
+                                          std::ref(umiCount), std::cref(totalCount), std::ref(uniqueUmiMap) ));
     }
     pool_3.join();
     std::cout << "\n";

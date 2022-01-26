@@ -144,7 +144,7 @@ void UmiQuality::runUmiQualityCheck(const int& thread, const std::string& output
 {
     boost::asio::thread_pool pool(thread); //create thread pool
     //Map of UMIs with duplicate Sc-Ab-treatments
-    for(std::pair<const char *, std::vector<dataLinePtr>> dataLinesOfUmi : rawData.getUniqueUmis())
+    for(std::pair<const char *, std::vector<dataLinePtr>> dataLinesOfUmi : *rawData.getUniqueUmis())
     {
         //handing over only lineCount as reference, everything else will be copied (Mapping object as handed overr as this-pointer)
         boost::asio::post(pool, std::bind(&UmiQuality::checkUniquenessOfUmis, this, dataLinesOfUmi.second));

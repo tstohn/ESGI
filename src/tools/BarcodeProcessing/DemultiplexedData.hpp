@@ -30,8 +30,9 @@ typedef std::shared_ptr<dataLine> dataLinePtr;
 //origional length that this line is supposed to have
 struct less_than_umi
 {
-    less_than_umi(int origionalLength, 
-    const std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator> umiToReadsMap)
+    less_than_umi(const int& origionalLength, 
+    std::shared_ptr<std::unordered_map<const char*, std::vector<dataLinePtr>, 
+                    CharHash, CharPtrComparator>>& umiToReadsMap)
     {
         this->origionalLength = origionalLength;
         this->umiToReadsMap = umiToReadsMap;
@@ -43,8 +44,8 @@ struct less_than_umi
         int lenDiff2 = std::strlen(line2->umiSeq) - origionalLength;
         lenDiff2 = sqrt(lenDiff2*lenDiff2);
 
-        unsigned long long readNum1 = umiToReadsMap[line1->umiSeq].size();
-        unsigned long long readNum2 = umiToReadsMap[line2->umiSeq].size();
+        unsigned long long readNum1 = (*umiToReadsMap)[line1->umiSeq].size();
+        unsigned long long readNum2 = (*umiToReadsMap)[line2->umiSeq].size();
 
         if(lenDiff1 != lenDiff2)
         {
@@ -56,7 +57,8 @@ struct less_than_umi
         }
     }
     int origionalLength;
-    std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator> umiToReadsMap;
+    std::shared_ptr<std::unordered_map<const char*, std::vector<dataLinePtr>, 
+                    CharHash, CharPtrComparator>> umiToReadsMap;
 };
 
 /**
@@ -69,6 +71,9 @@ class UnprocessedDemultiplexedData
         UnprocessedDemultiplexedData()
         {
             uniqueChars = std::make_shared<UniqueCharSet>();
+            positionsOfUmiPtr = std::make_shared< std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator> >();
+            positonsOfABSingleCellPtr = std::make_shared< std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator> >();
+            positionsOfSingleCellPtr = std::make_shared< std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator> >();
         }
 
         // add a dataLines to the vector
@@ -103,36 +108,36 @@ class UnprocessedDemultiplexedData
         }*/
         inline std::vector<dataLinePtr> getDataWithUmi(const char* umi) const
         {
-            return positionsOfUmi.at(umi);
+            return positionsOfUmiPtr->at(umi);
         }
         inline std::vector<dataLinePtr> getDataWithAbSc(const char* ab, const char* sc) const
         {
             std::string abScIdxStr = std::string((ab)) + std::string((sc));
-            return positonsOfABSingleCell.at(abScIdxStr.c_str());
+            return positonsOfABSingleCellPtr->at(abScIdxStr.c_str());
         }
         inline std::vector<dataLinePtr> getDataWithAbSc(const char* absc) const
         {
-            return positonsOfABSingleCell.at(absc);
+            return positonsOfABSingleCellPtr->at(absc);
         }
-        inline std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator> getUniqueUmis() const
+        inline std::shared_ptr< std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator>>getUniqueUmis() const
         {
-            return positionsOfUmi;
+            return positionsOfUmiPtr;
         }
-        inline std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator> getUniqueAbSc() const
+        inline std::shared_ptr< std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator>> getUniqueAbSc() const
         {
-            return positonsOfABSingleCell;
+            return positonsOfABSingleCellPtr;
         }
-        inline std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator> getUniqueSc() const
+        inline std::shared_ptr< std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator>> getUniqueSc() const
         {
-            return positionsOfSingleCell;
+            return positionsOfSingleCellPtr;
         }
         //we have to move the dataLine from the vector of lines for of oldUmi to newUmi
         //additionally inside this line we must update the new UMI sequence
         inline void changeUmi(const char* oldUmi, const char* newUmi, dataLinePtr oldLine)
         {
             //move old line from 'wrong' UMI key to right key
-            remove(positionsOfUmi.at(oldUmi).begin(), positionsOfUmi.at(oldUmi).end(), oldLine);
-            positionsOfUmi.at(newUmi).push_back(oldLine);
+            remove(positionsOfUmiPtr->at(oldUmi).begin(), positionsOfUmiPtr->at(oldUmi).end(), oldLine);
+            positionsOfUmiPtr->at(newUmi).push_back(oldLine);
             oldLine->umiSeq = newUmi;
         }
         inline void setTreatmentDict(std::unordered_map<std::string, std::string > dict)
@@ -167,16 +172,16 @@ class UnprocessedDemultiplexedData
 
             //2.) INSERT UMI POSITIONS
             //if umi already exists also store this new position
-            if(positionsOfUmi.find(line->umiSeq) == positionsOfUmi.end())
+            if(positionsOfUmiPtr->find(line->umiSeq) == positionsOfUmiPtr->end())
             {
                 std::vector<dataLinePtr> vec;
                 vec.push_back(line);
-                positionsOfUmi.insert(std::make_pair(line->umiSeq, vec));
+                positionsOfUmiPtr->insert(std::make_pair(line->umiSeq, vec));
             }
             //if not add this new umi with this actual position to map
             else
             {
-                positionsOfUmi[line->umiSeq].push_back(line);
+                (*positionsOfUmiPtr)[line->umiSeq].push_back(line);
             }
 
             // 3.) INSERT ABSC POSITIONS
@@ -184,30 +189,30 @@ class UnprocessedDemultiplexedData
             std::string abScIdxStr = std::string((line->abName)) + std::string((line->scID));
             
             const char* abScIdxChar = uniqueChars->getUniqueChar(abScIdxStr.c_str());
-            if(positonsOfABSingleCell.find(abScIdxChar) == positonsOfABSingleCell.end())
+            if(positonsOfABSingleCellPtr->find(abScIdxChar) == positonsOfABSingleCellPtr->end())
             {
                 std::vector<dataLinePtr> vec;
                 vec.push_back(line);
-                positonsOfABSingleCell.insert(std::make_pair(abScIdxChar, vec));
+                positonsOfABSingleCellPtr->insert(std::make_pair(abScIdxChar, vec));
             }
             //if not add this new umi with this actual position to map
             else
             {
-                positonsOfABSingleCell[abScIdxChar].push_back(line);
+                (*positonsOfABSingleCellPtr)[abScIdxChar].push_back(line);
             }
 
             // 3.) INSERT SC POSITIONS
             std::string singleCell = std::string((line->scID));
             const char* singleCellChar = uniqueChars->getUniqueChar(singleCell.c_str());
-            if(positionsOfSingleCell.find(singleCellChar) == positionsOfSingleCell.end())
+            if(positionsOfSingleCellPtr->find(singleCellChar) == positionsOfSingleCellPtr->end())
             {
                 std::vector<dataLinePtr> vec;
                 vec.push_back(line);
-                positionsOfSingleCell.insert(std::make_pair(singleCellChar, vec));
+                positionsOfSingleCellPtr->insert(std::make_pair(singleCellChar, vec));
             }
             else
             {
-                positionsOfSingleCell[singleCellChar].push_back(line);
+                (*positionsOfSingleCellPtr)[singleCellChar].push_back(line);
             }
         }
 
@@ -217,11 +222,11 @@ class UnprocessedDemultiplexedData
             return id;
         }
 
-        //hash tables storing all the positions of dataLines for a unique
+        //hash tables storing all the positions of dataLines for a unique (stored ad shared_ptr so handing those maps over during processing is cheap)
         // a) UMI  b) SingleCell-AB combination
-        std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator> positionsOfUmi;
-        std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator> positonsOfABSingleCell;
-        std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator> positionsOfSingleCell;
+        std::shared_ptr< std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator> > positionsOfUmiPtr;
+        std::shared_ptr< std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator> > positonsOfABSingleCellPtr;
+        std::shared_ptr< std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator> > positionsOfSingleCellPtr;
 
         //all the string inside this class are stored only once, 
         //for all strings scID, Ab-name, treatment-name we store the string only once, and then ptrs to it
