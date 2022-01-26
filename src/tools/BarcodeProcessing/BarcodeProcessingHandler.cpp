@@ -133,7 +133,7 @@ void BarcodeProcessingHandler::parseFile(const std::string fileName, const int& 
 void BarcodeProcessingHandler::parseBarcodeLines(std::istream* instream, const int& totalReads, int& currentReads)
 {
     std::string line;
-    std::cout << "READING ALL LINES INTO MEMORY\n";
+    std::cout << "STEP[1/4]\t(READING ALL LINES INTO MEMORY)\n";
     int count = 0;
     int elements = 0; //check that each row has the correct number of barcodes
     while(std::getline(*instream, line))
@@ -543,6 +543,7 @@ void BarcodeProcessingHandler::processBarcodeMapping(const int& umiMismatches, c
     std::atomic<unsigned long long> umiCount = 0; //using atomic<int> as thread safe read count
     unsigned long long totalCount = rawData.getUniqueUmis().size();
     boost::asio::thread_pool pool_1(thread); //create thread pool
+    std::cout << "STEP[2/4]\t(Remove all reads for a UMI with <90% coming from same AB/SC/TREATMENT combination)\n";
     for(std::pair<const char*, std::vector<dataLinePtr>> uniqueUmi : rawData.getUniqueUmis())
     {
         //careful: uniqueUmi goe sout of scope after enqueuing, therefore just copied...
@@ -551,11 +552,13 @@ void BarcodeProcessingHandler::processBarcodeMapping(const int& umiMismatches, c
                                           std::ref(umiCount), std::cref(totalCount)));
     }
     pool_1.join();
+    std::cout << "\n";
 
     //check all AB-SC combinations, and keep only those reads with >90% from same treatment
     umiCount = 0; //using atomic<int> as thread safe read count
     totalCount = rawData.getUniqueSc().size();
     boost::asio::thread_pool pool_2(thread); //create thread pool
+    std::cout << "STEP[3/4]\t(Remove all reads for a single cell with <90% coming from same treatment)\n";
     for(std::pair<const char*, std::vector<dataLinePtr>> sc : rawData.getUniqueSc())
     {
         //as above: abSc is copied only
@@ -564,12 +567,13 @@ void BarcodeProcessingHandler::processBarcodeMapping(const int& umiMismatches, c
                                           std::cref(totalCount) ));
     }
     pool_2.join();
+    std::cout << "\n";
 
     //generate ABcounts per single cell:
     umiCount = 0; //using atomic<int> as thread safe read count
     totalCount = rawData.getUniqueAbSc().size();
     boost::asio::thread_pool pool_3(thread); //create thread pool
-
+    std::cout << "STEP[4/4]\t(Count reads for AB in single cells)\n";
     for(std::pair<const char*, std::vector<dataLinePtr>> abSc : rawData.getUniqueAbSc())
     {
         //as above: abSc is copied only
@@ -580,6 +584,8 @@ void BarcodeProcessingHandler::processBarcodeMapping(const int& umiMismatches, c
                                           std::ref(umiCount), std::cref(totalCount) ));
     }
     pool_3.join();
+    std::cout << "\n";
+
 }
 
 bool BarcodeProcessingHandler::checkIfLineIsDeleted(const dataLinePtr& line, const std::vector<dataLinePtr>& dataLinesToDelete)
