@@ -237,11 +237,11 @@ class BarcodeProcessingHandler
         bool checkIfLineIsDeleted(const dataLinePtr& line, const std::vector<dataLinePtr>& dataLinesToDelete);
         //write all reads which come from a not-unique UMI into 'dataLinesToDelete' vector
         //these lines are later not considered when the AB-count per single cell is calculated
-        void markReadsWithNoUniqueUmi(const std::vector<dataLinePtr> uniqueUmis,
+        void markReadsWithNoUniqueUmi(const std::vector<dataLinePtr>& uniqueUmis,
                                       std::vector<dataLinePtr>& dataLinesToDelete, 
                                       std::atomic<unsigned long long>& count,
                                       const unsigned long long& totalCount);
-        void markReadsWithNoUniqueTreatment(const std::vector<dataLinePtr> uniqueSc,
+        void markReadsWithNoUniqueTreatment(const std::vector<dataLinePtr>& uniqueSc,
                                                               std::vector<dataLinePtr>& dataLinesToDelete, 
                                                               std::atomic<unsigned long long>& count,
                                                               const unsigned long long& totalCount);

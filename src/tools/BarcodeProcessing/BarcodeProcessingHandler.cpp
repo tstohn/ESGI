@@ -255,7 +255,7 @@ void BarcodeProcessingHandler::getBarcodePositions(const std::string& line, int&
     assert(abIdx != INT_MAX);
 }
 
-void BarcodeProcessingHandler::markReadsWithNoUniqueUmi(const std::vector<dataLinePtr> uniqueUmis,
+void BarcodeProcessingHandler::markReadsWithNoUniqueUmi(const std::vector<dataLinePtr>& uniqueUmis,
                                                         std::vector<dataLinePtr>& dataLinesToDelete, 
                                                         std::atomic<unsigned long long>& count,
                                                         const unsigned long long& totalCount)
@@ -334,7 +334,7 @@ void BarcodeProcessingHandler::markReadsWithNoUniqueUmi(const std::vector<dataLi
     ++count;
 }
 
-void BarcodeProcessingHandler::markReadsWithNoUniqueTreatment(const std::vector<dataLinePtr> uniqueSc,
+void BarcodeProcessingHandler::markReadsWithNoUniqueTreatment(const std::vector<dataLinePtr>& uniqueSc,
                                                               std::vector<dataLinePtr>& dataLinesToDelete, 
                                                               std::atomic<unsigned long long>& count,
                                                               const unsigned long long& totalCount)
@@ -561,11 +561,13 @@ void BarcodeProcessingHandler::processBarcodeMapping(const int& umiMismatches, c
     unsigned long long totalCount = rawData.getUniqueUmis()->size();
     boost::asio::thread_pool pool_1(thread); //create thread pool
     std::cout << "STEP[2/4]\t(Remove all reads for a UMI with <90% coming from same AB/SC/TREATMENT combination)\n";
-    for(std::pair<const char*, std::vector<dataLinePtr>> uniqueUmi : *rawData.getUniqueUmis())
-    {
+const std::shared_ptr< std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator>> umiMap = rawData.getUniqueUmis();
+    for(std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator>::const_iterator it = umiMap->begin(); 
+        it != umiMap->end(); 
+        it++)    {
         //careful: uniqueUmi goe sout of scope after enqueuing, therefore just copied...
         boost::asio::post(pool_1, std::bind(&BarcodeProcessingHandler::markReadsWithNoUniqueUmi, this, 
-                                          (uniqueUmi.second), std::ref(dataLinesToDelete), 
+                                          std::cref(it->second), std::ref(dataLinesToDelete), 
                                           std::ref(umiCount), std::cref(totalCount)));
     }
     pool_1.join();
@@ -576,11 +578,15 @@ void BarcodeProcessingHandler::processBarcodeMapping(const int& umiMismatches, c
     totalCount = rawData.getUniqueSc()->size();
     boost::asio::thread_pool pool_2(thread); //create thread pool
     std::cout << "STEP[3/4]\t(Remove all reads for a single cell with <90% coming from same treatment)\n";
-    for(std::pair<const char*, std::vector<dataLinePtr>> sc : *rawData.getUniqueSc())
+
+const std::shared_ptr< std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator>> scMap = rawData.getUniqueSc();
+    for(std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator>::const_iterator it = scMap->begin(); 
+        it != scMap->end(); 
+        it++)
     {
         //as above: abSc is copied only
         boost::asio::post(pool_2, std::bind(&BarcodeProcessingHandler::markReadsWithNoUniqueTreatment, this, 
-                                          sc.second, std::ref(dataLinesToDelete), std::ref(umiCount), 
+                                          std::cref(it->second), std::ref(dataLinesToDelete), std::ref(umiCount), 
                                           std::cref(totalCount) ));
     }
     pool_2.join();
@@ -598,7 +604,7 @@ void BarcodeProcessingHandler::processBarcodeMapping(const int& umiMismatches, c
                     CharHash, CharPtrComparator>> uniqueUmiMap = 
                     rawData.getUniqueUmis();
 
-std::shared_ptr< std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator>> AbScMap = rawData.getUniqueAbSc();
+const std::shared_ptr< std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator>> AbScMap = rawData.getUniqueAbSc();
     for(std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator>::const_iterator it = AbScMap->begin(); 
         it != AbScMap->end(); 
         it++)

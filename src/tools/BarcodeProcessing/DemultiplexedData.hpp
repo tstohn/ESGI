@@ -24,7 +24,7 @@ struct dataLine
     const char* scID;
     const char* treatmentName;
 };
-typedef std::shared_ptr<dataLine> dataLinePtr;
+typedef std::shared_ptr<const dataLine> dataLinePtr;
 
 //less operator to compare thwo dataLines, compares the length distance of the lines UMIs to the
 //origional length that this line is supposed to have
@@ -119,26 +119,46 @@ class UnprocessedDemultiplexedData
         {
             return positonsOfABSingleCellPtr->at(absc);
         }
-        inline std::shared_ptr< std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator>>getUniqueUmis() const
+        inline const std::shared_ptr< std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator>>getUniqueUmis() const
         {
             return positionsOfUmiPtr;
         }
-        inline std::shared_ptr< std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator>> getUniqueAbSc() const
+        inline const std::shared_ptr< std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator>> getUniqueAbSc() const
         {
             return positonsOfABSingleCellPtr;
         }
-        inline std::shared_ptr< std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator>> getUniqueSc() const
+        inline const std::shared_ptr< std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator>> getUniqueSc() const
         {
             return positionsOfSingleCellPtr;
         }
         //we have to move the dataLine from the vector of lines for of oldUmi to newUmi
         //additionally inside this line we must update the new UMI sequence
+        //THIS FUNCTION IS NOT TESTED, also not used at the moment: be aware when using !!!!
         inline void changeUmi(const char* oldUmi, const char* newUmi, dataLinePtr oldLine)
         {
-            //move old line from 'wrong' UMI key to right key
+            //we have 3 dictionaries to update
+
+            //we have the key for the umiDict, but need the two keys for the other dicts
+            std::string abScIdxStr = std::string((oldLine->abName)) + std::string((oldLine->scID));
+            const char* abScIdxChar = uniqueChars->getUniqueChar(abScIdxStr.c_str());
+
+            std::string singleCell = std::string((oldLine->scID));
+            const char* singleCellChar = uniqueChars->getUniqueChar(singleCell.c_str());
+            
+            //remove all the old unnecessary lines from the dicts
             remove(positionsOfUmiPtr->at(oldUmi).begin(), positionsOfUmiPtr->at(oldUmi).end(), oldLine);
-            positionsOfUmiPtr->at(newUmi).push_back(oldLine);
-            oldLine->umiSeq = newUmi;
+            remove(positonsOfABSingleCellPtr->at(abScIdxChar).begin(), positonsOfABSingleCellPtr->at(abScIdxChar).end(), oldLine);
+            remove(positionsOfSingleCellPtr->at(singleCellChar).begin(), positionsOfSingleCellPtr->at(singleCellChar).end(), oldLine);
+
+            //generate the new line
+            dataLine newLine = *oldLine;
+            newLine.umiSeq = newUmi;
+            std::shared_ptr<const dataLine> newLinePtr = std::make_shared<const dataLine>(newLine);
+            
+            //and add the new line to all dicts
+            positionsOfUmiPtr->at(newUmi).push_back(newLinePtr);
+            positonsOfABSingleCellPtr->at(abScIdxChar).push_back(newLinePtr);
+            positionsOfSingleCellPtr->at(singleCellChar).push_back(newLinePtr);
         }
         inline void setTreatmentDict(std::unordered_map<std::string, std::string > dict)
         {
