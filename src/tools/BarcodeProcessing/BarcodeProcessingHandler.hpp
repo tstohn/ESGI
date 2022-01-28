@@ -75,6 +75,17 @@ struct ProcessingLog
     unsigned long long totalReads = 0;
 };
 
+//during parsing of the fastq file we might have to parse reads for AB counts
+//as well as reads with guides, to firstly parse them all and then combine the data
+//we have this temporary struct
+struct tmpAbLineData
+{
+    std::string umi;
+    std::string sc;
+    std::string ab;
+    std::string treat;
+};
+
 /**
  * @brief Class storing all the final values (after removing erroneous reads with non unique UMIs, correcting MIsmatches in UMIs)
  *        the abData = final AB count data (represents a singleCell * AB matrix)
@@ -230,7 +241,7 @@ class BarcodeProcessingHandler
 
         //parse the file, store each line in UnprocessedDemultiplexedData structure (ABs, treatment is already stored as a name,
         // single cells are defined by a dot seperated list of indices)
-        void addFastqReadToUmiData(const std::string& line, const int& elements);
+        void add_line_to_temporary_data(const std::string& line, const int& elements, const bool& checkClass);
         void parseBarcodeLines(std::istream* instream, const int& totalReads, int& currentReads);
         
         //check if a read is in 'dataLinesToDelete' (not-unique UMI for this read)
@@ -274,6 +285,8 @@ class BarcodeProcessingHandler
         Results result;
 
         std::mutex statusUpdateLock;  
+        std::mutex writeToRawDataLock; //while processing reads of same UMI, we write UMI collapsed reads into the dict
+        //for reads of same AB/SC and have to lock writing
 
         // DATA STRUCTURES FOR PARSING DEMULTIPLEXED DATA
         //stores all the indices of variable barcodes in the barcode file (among all barcodes of [NNN...] pattern)

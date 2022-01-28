@@ -110,6 +110,16 @@ void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, N
 
 }
 
+void BarcodeProcessingHandler::generate_unique_sc_to_class_dict()
+{
+
+}
+
+void BarcodeProcessingHandler::combine_ab_and_guide_data()
+{
+    //firstly generate a unique dict to map a sc with its class
+}
+
 void BarcodeProcessingHandler::parseFile(const std::string fileName, const int& thread)
 {
     int totalReads = totalNumberOfLines(fileName);
@@ -126,16 +136,27 @@ void BarcodeProcessingHandler::parseFile(const std::string fileName, const int& 
     inbuf.push(file);
     std::istream instream(&inbuf);
     
-    parseBarcodeLines(&instream, totalReads, currentReads);
+
+    std::vector<tmpAbLineData> abDataLines;
+    std::unordered_map< const char*, std::unordered_map< const char*, unsigned long long>> scClasseCountDict;
+
+    parseBarcodeLines(&instream, totalReads, currentReads, abDataLines, scClasseCountDict);
+
+    //finally add the class of each single cell
+
+
     file.close();
 }
 
-void BarcodeProcessingHandler::parseBarcodeLines(std::istream* instream, const int& totalReads, int& currentReads)
+void BarcodeProcessingHandler::parseBarcodeLines(std::istream* instream, const int& totalReads, int& currentReads,
+                                                 std::vector<tmpAbLineData>& abDataLines,
+                                                 std::unordered_map< const char*, std::unordered_map< const char*, unsigned long long>>& scClasseCountDict)
 {
     std::string line;
     std::cout << "STEP[1/4]\t(READING ALL LINES INTO MEMORY)\n";
     int count = 0;
     int elements = 0; //check that each row has the correct number of barcodes
+    bool checkClass = rawData.check_class();
     while(std::getline(*instream, line))
     {
         //for the first read check the positions in the string that refer to CIBarcoding positions
@@ -144,7 +165,7 @@ void BarcodeProcessingHandler::parseBarcodeLines(std::istream* instream, const i
             getBarcodePositions(line, elements);
             continue;
         }
-        addFastqReadToUmiData(line, elements);   
+        add_line_to_temporary_data(line, elements, checkClass, abDataLines, scClasseCountDict);   
 
         double perc = currentReads/ (double)totalReads;
         ++currentReads;
@@ -156,7 +177,9 @@ void BarcodeProcessingHandler::parseBarcodeLines(std::istream* instream, const i
     std::cout << "\n";
 }
 
-void BarcodeProcessingHandler::addFastqReadToUmiData(const std::string& line, const int& elements)
+void BarcodeProcessingHandler::add_line_to_temporary_data(const std::string& line, const int& elements, const bool& checkClass,
+                                                     std::vector<tmpAbLineData>& abDataLines,
+                                                     std::unordered_map< const char*, std::unordered_map< const char*, unsigned long long>>& scClasseCountDict)
 {
     //split the line into barcodes
     std::vector<std::string> result;
@@ -181,16 +204,33 @@ void BarcodeProcessingHandler::addFastqReadToUmiData(const std::string& line, co
         ciBarcodes.push_back(result.at(i));
     }
     std::string singleCellIdx = generateSingleCellIndexFromBarcodes(ciBarcodes);
-    std::string proteinName = rawData.getProteinName(result.at(abIdx));
+    
+    std::string proteinName = "";
+    if(checkClass)
+    {
+        bool classLine = false;
+        std::string name = rawData.get_protein_or_class_name(result.at(abIdx), classLine);
+        if(classLine)
+        {
+            rawData.add_class_line(name, singleCellIdx);
+        }
+        else
+        {
+            proteinName = name;
+        }
+    }
+    else
+    {
+        proteinName = rawData.getProteinName(result.at(abIdx));
+    }
     
     std::string treatment = "";
-
     if(treatmentIdx != INT_MAX)
     {
         treatment = rawData.getTreatmentName(result.at(treatmentIdx));
     }
 
-    rawData.add(result.at(umiIdx), proteinName, singleCellIdx, treatment);
+    rawData.add_to_umiDict(result.at(umiIdx), proteinName, singleCellIdx, treatment);
 }
 
 std::string BarcodeProcessingHandler::generateSingleCellIndexFromBarcodes(std::vector<std::string> ciBarcodes)
@@ -286,39 +326,36 @@ void BarcodeProcessingHandler::markReadsWithNoUniqueUmi(const std::vector<dataLi
         {
             realSingleCellID = singleCellCountPair.first;
             realSingleCellExists = true;
+            break;
         }
     }
 
     if(!realSingleCellExists)
     {
-        //delete all reads
-        for(int i = 0; i < uniqueUmis.size(); ++i)
-        {
-               {
-                                   statusUpdateLock.lock();
-
-                  dataLinesToDelete.push_back(uniqueUmis.at(i));
-                                  statusUpdateLock.unlock();
-
-             }
-        }
         result.add_removed_reads_umi(uniqueUmis.size());
     }
     else
     {
         //delete only the <=10% 'false' reads
         unsigned long long readCountToDelete = 0;
+        bool setRealDataLine = false;
         for(int i = 0; i < uniqueUmis.size(); ++i)
         {
             std::string uniqueID = std::string(uniqueUmis.at(i)->scID) + std::string(uniqueUmis.at(i)->abName) + std::string(uniqueUmis.at(i)->treatmentName);
             if(uniqueID != realSingleCellID)
             {
-                                statusUpdateLock.lock();
-
-                dataLinesToDelete.push_back(uniqueUmis.at(i));
-                                statusUpdateLock.unlock();
-
                 ++readCountToDelete;
+            }
+            else if(!setRealDataLine)      //add to new DIct
+            {
+                std::string umiStr = std::string(uniqueUmis.at(i)->umiSeq);
+                std::string abStr = std::string(uniqueUmis.at(i)->abName);
+                std::string scStr = std::string(uniqueUmis.at(i)->scID);
+                std::string trStr = std::string(uniqueUmis.at(i)->treatmentName);
+                writeToRawDataLock.lock(); //maybe better lock inside the rawData (keep in mind)
+                rawData.add_to_scAbDict(umiStr, abStr, scStr, trStr);
+                writeToRawDataLock.unlock();
+                setRealDataLine = true;
             }
         }
         result.add_removed_reads_umi(readCountToDelete);
@@ -445,10 +482,7 @@ void BarcodeProcessingHandler::count_umi_occurence(std::vector<int>& positionsOf
             //they could be changed by calling 'changeUmi'
             positionsOfSameUmi.push_back(j);     
             
-            if(!checkIfLineIsDeleted(allScAbCounts.at(j), dataLinesToDelete))
-            {
-                ++umiLineTmp.abCount; // increase count for this UMI
-            }
+            ++umiLineTmp.abCount; // increase count for this UMI
         }
     }
     result.add_umi_mismatches(numberAlignedUmis);
@@ -466,10 +500,18 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
 
         //all dataLines for this AB SC combination
         std::vector<dataLinePtr> scAbCounts = uniqueAbSc;
+        /*for (auto it = scAbCounts.begin(); it != scAbCounts.end(); it++)
+        {
+            if(checkIfLineIsDeleted(*it, dataLinesToDelete))
+            {
+                scAbCounts.erase(it--);
+            }
+        }*/
         //sort vector by distance to origional UMI length: 
         //reads get a value for dsitance to UMi length (one Base plus minus gets same value)
         //and are then sorted in decreasing fashion (when comparing UMIs a UMI of length umilength is chosen first)
         //to minimize erros bcs e.g. three reads are within 2MM but we choose one UMI out the outer end regarding MM
+        
         sort(scAbCounts.rbegin(), scAbCounts.rend(), less_than_umi(umiLength, umiMap));
 
         //data structures to be filled for the UMI and AB count
@@ -489,12 +531,6 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
             umiCount umiLineTmp = umiLineTemplate;
             //check if we have to delete element anyways, since it is not a unique UMI
             //in this case we simply delete this line and check the next one
-
-            if(checkIfLineIsDeleted(lastAbSc, dataLinesToDelete))
-            {
-                scAbCounts.pop_back();
-                continue;
-            }
 
             //if in last element
             if(scAbCounts.size() == 1)

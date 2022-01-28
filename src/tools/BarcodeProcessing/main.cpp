@@ -32,13 +32,14 @@ using namespace boost::program_options;
 
 bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& outFile, int& threats, 
                      std::string& barcodeFile, std::string& barcodeIndices, int& umiMismatches,
-                     std::string& abFile, int& abIdx, std::string& treatmentFile, int& treatmentIdx)
+                     std::string& abFile, int& abIdx, std::string& treatmentFile, int& treatmentIdx,
+                     std::string& classSeqFile, std::string& classNameFile)
 {
     try
     {
         options_description desc("Options");
         desc.add_options()
-            ("input,i", value<std::string>(&inFile)->required(), "directory of files or single file in fastq(.gz) format")
+            ("input,i", value<std::string>(&inFile)->required(), "input file of demultiplexed reads for ABs in Single cells in tsv format")
             ("output,o", value<std::string>(&outFile)->required(), "output file with all split barcodes")
 
             ("barcodeList,b", value<std::string>(&(barcodeFile)), "file with a list of all allowed well barcodes (comma seperated barcodes across several rows)\
@@ -49,6 +50,9 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             ("groupList,g", value<std::string>(&(treatmentFile)), "file with a list of all groups (e.g.treatments) used, should be in same order as the specific arcodes in the barcodeList. \
             If tis argument is given, you must also add the index of barcodes used for grouping")
             ("GroupingIndex,y", value<int>(&treatmentIdx), "Index used to group cells(e.g. by treatment). This is the x-th barcode from the barcodeFile (0 indexed).")
+
+            ("classSeq,s", value<std::string>(&(classSeqFile)), "file with the sequences that define origin of cells (e.g. sgRNA seauences along the experiment)")
+            ("className,n", value<std::string>(&(classNameFile)), "file with names to replace the seuqence of origin")
 
             ("CombinatorialIndexingBarcodeIndices,c", value<std::string>(&(barcodeIndices))->required(), "comma seperated list of indexes, that are used during \
             combinatorial indexing and should distinguish a unique cell. Be aware that this is the index of the line inside the barcodeList file (see above). \
@@ -116,7 +120,7 @@ std::unordered_map<std::string, std::string > generateProteinDict(std::string ab
 
 // generate a dictionary to map sequences to treatments
 std::unordered_map<std::string, std::string > generateTreatmentDict(std::string treatmentFile, int treatmentIdx,
-                                                                                                const std::vector<std::string>& treatmentBarcodes)
+                                                                    const std::vector<std::string>& treatmentBarcodes)
 {
     std::unordered_map<std::string, std::string > map;
     std::vector<std::string> treatmentNames;
@@ -148,6 +152,59 @@ std::unordered_map<std::string, std::string > generateTreatmentDict(std::string 
     return map;
 }
 
+// generate a dictionary to map sequences to treatments
+std::unordered_map<std::string, std::string > generateClassDict(const std::string& classSeqFile,
+                                                                const std::string& classNameFile)
+{
+    std::unordered_map<std::string, std::string > map;
+    std::vector<std::string> names;
+    std::vector<std::string> seqs;
+
+    //parse all sequences
+    std::ifstream seqFileStream(classSeqFile);
+    for(std::string line; std::getline(seqFileStream, line);)
+    {
+        std::string delimiter = ",";
+        std::string seq;
+        size_t pos = 0;
+        std::vector<std::string> seqVector;
+        while ((pos = line.find(delimiter)) != std::string::npos) 
+        {
+            seq = line.substr(0, pos);
+            line.erase(0, pos + 1);
+            seqs.push_back(seq);
+        }
+        seq = line;
+        seqs.push_back(seq);
+    }
+    seqFileStream.close();
+    //parse all names
+    std::ifstream nameFileStream(classNameFile);
+    for(std::string line; std::getline(nameFileStream, line);)
+    {
+        std::string delimiter = ",";
+        std::string seq;
+        size_t pos = 0;
+        std::vector<std::string> seqVector;
+        while ((pos = line.find(delimiter)) != std::string::npos) 
+        {
+            seq = line.substr(0, pos);
+            line.erase(0, pos + 1);
+            names.push_back(seq);
+        }
+        seq = line;
+        names.push_back(seq);
+    }
+    nameFileStream.close();
+
+    assert(names.size() == seqs.size());
+    for(int i = 0; i < names.size(); ++i)
+    {
+        map.insert(std::make_pair(seqs.at(i), names.at(i)));
+    }
+
+    return map;
+}
 
 int main(int argc, char** argv)
 {
@@ -167,13 +224,20 @@ int main(int argc, char** argv)
     std::vector<std::string> abBarcodes;
     std::vector<std::string> treatmentBarcodes;
 
-    parse_arguments(argv, argc, inFile, outFile, thread, barcodeFile, barcodeIndices, umiMismatches, abFile, abIdx, treatmentFile, treatmentIdx);
+    //data for class information (given e.g. by guide RNA)
+    std::string classSeqFile;
+    std::string classNameFile;
+
+    parse_arguments(argv, argc, inFile, outFile, thread, barcodeFile, barcodeIndices, 
+                    umiMismatches, abFile, abIdx, treatmentFile, treatmentIdx,
+                    classSeqFile, classNameFile, classIdx);
     
     //generate the dictionary of barcode alternatives to idx
     NBarcodeInformation barcodeIdData;
     generateBarcodeDicts(barcodeFile, barcodeIndices, barcodeIdData, abBarcodes, abIdx, &treatmentBarcodes, treatmentIdx);
     BarcodeProcessingHandler dataParser(barcodeIdData);
 
+    //generate dictionaries to map sequences to the real names of Protein/ treatment/ etc...
     if(!abFile.empty())
     {
         std::unordered_map<std::string, std::string > map = generateProteinDict(abFile, abIdx, abBarcodes);
@@ -183,6 +247,11 @@ int main(int argc, char** argv)
     {
         std::unordered_map<std::string, std::string > map = generateTreatmentDict(treatmentFile, treatmentIdx, treatmentBarcodes);
         dataParser.addTreatmentData(map);
+    }
+    if(!classSeqFile.empty()) //could take any of both files: generateClassDict checks for both files beeing same length
+    {
+        std::unordered_map<std::string, std::string > map = generateClassDict(classSeqFile, classNameFile);
+        dataParser.addClassData(map);
     }
 
     //parse the file of demultiplexed barcodes and
