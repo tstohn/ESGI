@@ -110,7 +110,7 @@ void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, N
 
 }
 
-void BarcodeProcessingHandler::generate_unique_sc_to_class_dict()
+/*void BarcodeProcessingHandler::generate_unique_sc_to_class_dict()
 {
 
 }
@@ -118,7 +118,7 @@ void BarcodeProcessingHandler::generate_unique_sc_to_class_dict()
 void BarcodeProcessingHandler::combine_ab_and_guide_data()
 {
     //firstly generate a unique dict to map a sc with its class
-}
+}*/
 
 void BarcodeProcessingHandler::parseFile(const std::string fileName, const int& thread)
 {
@@ -140,7 +140,7 @@ void BarcodeProcessingHandler::parseFile(const std::string fileName, const int& 
     std::vector<tmpAbLineData> abDataLines;
     std::unordered_map< const char*, std::unordered_map< const char*, unsigned long long>> scClasseCountDict;
 
-    parseBarcodeLines(&instream, totalReads, currentReads, abDataLines, scClasseCountDict);
+    parseBarcodeLines(&instream, totalReads, currentReads);//, abDataLines, scClasseCountDict);
 
     //finally add the class of each single cell
 
@@ -148,9 +148,8 @@ void BarcodeProcessingHandler::parseFile(const std::string fileName, const int& 
     file.close();
 }
 
-void BarcodeProcessingHandler::parseBarcodeLines(std::istream* instream, const int& totalReads, int& currentReads,
-                                                 std::vector<tmpAbLineData>& abDataLines,
-                                                 std::unordered_map< const char*, std::unordered_map< const char*, unsigned long long>>& scClasseCountDict)
+void BarcodeProcessingHandler::parseBarcodeLines(std::istream* instream, const int& totalReads, int& currentReads)
+//, std::vector<tmpAbLineData>& abDataLines, std::unordered_map< const char*, std::unordered_map< const char*, unsigned long long>>& scClasseCountDict)
 {
     std::string line;
     std::cout << "STEP[1/4]\t(READING ALL LINES INTO MEMORY)\n";
@@ -165,7 +164,7 @@ void BarcodeProcessingHandler::parseBarcodeLines(std::istream* instream, const i
             getBarcodePositions(line, elements);
             continue;
         }
-        add_line_to_temporary_data(line, elements, checkClass, abDataLines, scClasseCountDict);   
+        add_line_to_temporary_data(line, elements, checkClass);//, abDataLines, scClasseCountDict);   
 
         double perc = currentReads/ (double)totalReads;
         ++currentReads;
@@ -177,9 +176,8 @@ void BarcodeProcessingHandler::parseBarcodeLines(std::istream* instream, const i
     std::cout << "\n";
 }
 
-void BarcodeProcessingHandler::add_line_to_temporary_data(const std::string& line, const int& elements, const bool& checkClass,
-                                                     std::vector<tmpAbLineData>& abDataLines,
-                                                     std::unordered_map< const char*, std::unordered_map< const char*, unsigned long long>>& scClasseCountDict)
+void BarcodeProcessingHandler::add_line_to_temporary_data(const std::string& line, const int& elements, const bool& checkClass)
+//,  std::vector<tmpAbLineData>& abDataLines,   std::unordered_map< const char*, std::unordered_map< const char*, unsigned long long>>& scClasseCountDict)
 {
     //split the line into barcodes
     std::vector<std::string> result;

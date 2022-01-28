@@ -230,7 +230,7 @@ int main(int argc, char** argv)
 
     parse_arguments(argv, argc, inFile, outFile, thread, barcodeFile, barcodeIndices, 
                     umiMismatches, abFile, abIdx, treatmentFile, treatmentIdx,
-                    classSeqFile, classNameFile, classIdx);
+                    classSeqFile, classNameFile);
     
     //generate the dictionary of barcode alternatives to idx
     NBarcodeInformation barcodeIdData;

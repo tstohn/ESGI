@@ -399,6 +399,8 @@ class UnprocessedDemultiplexedData
         //for all strings scID, Ab-name, treatment-name we store the string only once, and then ptrs to it
         std::shared_ptr<UniqueCharSet> uniqueChars;
 
+    std::unordered_map< const char*, std::unordered_map< const char*, unsigned long long>> scClasseCountDict;
+
         //dictionaries to map a barcode-sequence to the treatment, and Protein, class
         //those dicts are used in the very beginning when lines r parsed, so the real barcode sequence is never stored
         std::unordered_map<std::string, std::string > treatmentDict;
