@@ -215,6 +215,10 @@ class BarcodeProcessingHandler
         {
             rawData.setProteinDict(map);
         }
+        inline void addClassData(std::unordered_map<std::string, std::string > map)
+        {
+            rawData.setClassDict(map);
+        }
         const UnprocessedDemultiplexedData getRawData() const
         {
             return rawData;
