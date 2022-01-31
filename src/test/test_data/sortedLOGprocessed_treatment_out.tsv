@@ -1,5 +1,7 @@
-TOTAL READS:	14
-REMOVED BY TREATMENT:	2
-REMOVED BY UMI:	1
-TOTAL READS REMOVED:	3
+TOTAL READS:	15
+Lost SINGLECELL->CLASS mappings because guide reads for single cell were not unique(>=90% reads for same CLASS):	1
+REMOVED READS because UMI was not unique(>=90% reads are from same AB/SC):	1
+REMOVED READS because the single cell had no mapped CLASS:	12
+TOTAL AB-READS:	13
+TOTAL GUIDE-READS:	2
 UMI MM:	0
