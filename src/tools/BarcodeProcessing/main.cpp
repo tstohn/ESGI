@@ -5,29 +5,17 @@
 using namespace boost::program_options;
 
 /**
- * HOW TO:
- * PREREQUISITS:
- *  THE BARCODE FILE TO ANALYSE MUST HAVE A HEADER WITH THE BARCODEPATTERNS AS IN FASTQPARSER TOOL, THERE MUST BE A UMI SEQU< AND A AB SEQ, which MUST BE THE ONLY
- *  VARYING BARCODE SEQUENCE EXCEPT THE CI BARCODES
+ * Tool to count antobodies for single cell in demultiplexed data.
+ * It can consist of reads from ABs as well as guides. If guide reads r present two files with
+ * the corresponding barcode sequences and their names (e.g. cell types) should be present. In this
+ * case the barcodeList should still ONLY contain the AB barcodes.
  * 
- * - generates two files: 
- *          - firstly collapse all UMI_barcodes and have a file: UMI_idx, Ab_idx, cell_idx
- *          - secondly collapse all UMI_idxs: Ab_idx, Ab_count, cell_idx
+ * Output is a file with AB counts for all found single cells.
  * 
- *  - get all unique UMIs
- *  - cluster UMIs that r similar to the same group of UMIs
- * => make a file where UMI column is the 'expected' UMI, from this file we can calculate the saturation...
- * 
- *  - delete doublicate reads (based on UMI and BC 1-4)
- *  - for the same cell (based on BC 1-4) count the number of UMIs per AB_barcode and write a new column AB_count,
- *    so that we end up with a file Ab_id, sample_id, Ab_count
- * => generate the file format for our ScRNA_seq_Normalization pipeline
- * 
- * DISTINGUISH THOSE TWO BY UMI-DATA and BARCODE-DATA
- * 
- * PARAMETER FOR ABRCODE POSITIONS:
- *  give a list of indices for the CIBarcodes within the file, which hold all alternatives for the varying indices (the real position indide the fastqRead is then parsed
- *  by checking for NNNN sequences), the other one left NNN sequence is the AB sequence and the XXX is the UMI sequence
+ * Algorithm does following:
+ * 1.) If guides are present, map each single cell to their guide, the guide must be unique for a single cell for >= 90% of the guide reads
+ * 2.) compare all reads form a single UMI, and remove reads that are not unique (same AB/ single cell barcodes) and represent 90% of the reads
+ * 3.) collapse all UMIs and also allow or mismatches between UMIs (only checked for reads of same AB and Single cell)
  * */
 
 bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& outFile, int& threats, 

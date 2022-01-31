@@ -683,7 +683,6 @@ void BarcodeProcessingHandler::writeAbCountsPerSc(const std::string& output)
         outputFile << "AB_BARCODE" << "\t" << "SingleCell_BARCODE" << "\t" << "AB_COUNT" << "\t" << "TREATMENT" << "\n"; 
     }
 
-    //outputFile << "AB" << "\t" << "SingleCell_ID" << "\t" << "TREATMENT" << "\t" << "AB_COUNT" << "\n"; 
     for(scAbCount line : result.get_ab_data())
     {
         if(writeClassLabels)
@@ -694,8 +693,6 @@ void BarcodeProcessingHandler::writeAbCountsPerSc(const std::string& output)
         {
                 outputFile << line.abName << "\t" << line.scID << "\t" << line.abCount << "\t" << line.treatment << "\n"; 
         }
-
-        //outputFile << line.abName << "\t" << line.scID << "\t" << line.treatment << "\t" << line.abCount << "\n"; 
     }
     outputFile.close();
 }
