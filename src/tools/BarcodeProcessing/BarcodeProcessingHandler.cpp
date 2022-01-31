@@ -485,6 +485,7 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
         abLineTmp.scID = umiLineTmp.scID = uniqueAbSc.at(0)->scID;
         abLineTmp.abName = umiLineTmp.abName = uniqueAbSc.at(0)->abName;
         abLineTmp.treatment = umiLineTmp.treatment = uniqueAbSc.at(0)->treatmentName;
+        abLineTmp.className = uniqueAbSc.at(0)->cellClassname;
 
         //we take always last element in vector of read of same AB and SC ID
         //then store all reads wwhere UMIs are within distance, and delete those line, and sum up the AB count by one
@@ -672,12 +673,27 @@ void BarcodeProcessingHandler::writeAbCountsPerSc(const std::string& output)
         abOutput = output.substr(0,found) + "/" + "AB" + output.substr(found+1);
     }
     outputFile.open (abOutput);
+    bool writeClassLabels = rawData.check_class();
+    if(writeClassLabels)
+    {
+        outputFile << "AB_BARCODE" << "\t" << "SingleCell_BARCODE" << "\t" << "AB_COUNT" << "\t" << "TREATMENT" << "\t" << "CLASS" << "\n"; 
+    }
+    else
+    {
         outputFile << "AB_BARCODE" << "\t" << "SingleCell_BARCODE" << "\t" << "AB_COUNT" << "\t" << "TREATMENT" << "\n"; 
+    }
 
     //outputFile << "AB" << "\t" << "SingleCell_ID" << "\t" << "TREATMENT" << "\t" << "AB_COUNT" << "\n"; 
     for(scAbCount line : result.get_ab_data())
     {
+        if(writeClassLabels)
+        {
+                outputFile << line.abName << "\t" << line.scID << "\t" << line.abCount << "\t" << line.treatment << "\t" << line.className << "\n"; 
+        }
+        else
+        {
                 outputFile << line.abName << "\t" << line.scID << "\t" << line.abCount << "\t" << line.treatment << "\n"; 
+        }
 
         //outputFile << line.abName << "\t" << line.scID << "\t" << line.treatment << "\t" << line.abCount << "\n"; 
     }

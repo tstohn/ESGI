@@ -59,7 +59,8 @@ if(array_key_exists("help", $options))
        AB barcode, sgRNA), e.g. [AGGCAGTC][XXXXXXXXXXX][NNNN][GACTCAGAGC][NNNNN]
        (for RNA use the char 'R')
     -b barcode file: comma seperated file holding the possible barcodes for each pattern with X. Each line
-       is a new barcode, in the same order is given in mapping pattern
+       is a new barcode, in the same order is given in mapping pattern (DO NOT include the guide barcodes here, add them as two seperate
+       parameters as a file with guide sequences and guide names)
 
     #MANDATORY TO MAP BARCODES TO SINGLE CELLS/ ABS/ TREATMENT
     -c list of indices: the indices of the mapping pattern (starting at 0) used as CI-barcodes to define a single cell,
@@ -126,6 +127,8 @@ foreach($parameters as $element)
         $command = $command . " -" . $element . " " . $options[$element];
     }
 }
+//add guide barcodes to barcodeFile
+
 //TODO: add output file manually
 run($command);
 //gzip the output

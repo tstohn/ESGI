@@ -44,7 +44,8 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
 
             ("barcodeList,b", value<std::string>(&(barcodeFile)), "file with a list of all allowed well barcodes (comma seperated barcodes across several rows)\
             the row refers to the correponding bracket enclosed sequence substring. E.g. for two bracket enclosed substrings in out sequence a possible list could be:\
-            AGCTTCGAG,ACGTTCAGG\nACGTCTAGACT,ATCGGCATACG,ATCGCGATC,ATCGCGCATAC. This can be the same list as it was for FastqParser.")
+            AGCTTCGAG,ACGTTCAGG\nACGTCTAGACT,ATCGGCATACG,ATCGCGATC,ATCGCGCATAC. This can be the same list as it was for FastqParser. Do not inlcude the barcodes for the\
+            guide reads here; add them as two seperate files guide reads are present.")
             ("antibodyList,a", value<std::string>(&(abFile)), "file with a list of all antbodies used, should be in same order as the ab-barcodes in the barcodeList.")
             ("antibodyIndex,x", value<int>(&abIdx), "Index used for antibody distinction.")
             ("groupList,g", value<std::string>(&(treatmentFile)), "file with a list of all groups (e.g.treatments) used, should be in same order as the specific arcodes in the barcodeList. \
@@ -178,6 +179,12 @@ std::unordered_map<std::string, std::string > generateClassDict(const std::strin
         seqs.push_back(seq);
     }
     seqFileStream.close();
+    if(seqs.empty())
+    {
+        std::cout << "ERROR: Could not parse any sequence for guides! Check the guide sequence file.\n";
+        exit(EXIT_FAILURE);
+    }
+
     //parse all names
     std::ifstream nameFileStream(classNameFile);
     for(std::string line; std::getline(nameFileStream, line);)
@@ -196,8 +203,18 @@ std::unordered_map<std::string, std::string > generateClassDict(const std::strin
         names.push_back(seq);
     }
     nameFileStream.close();
+    if(names.empty())
+    {
+        std::cout << "ERROR: Could not parse any names for guides! Check the guide name file.\n";
+        exit(EXIT_FAILURE);
+    }
 
-    assert(names.size() == seqs.size());
+    if(names.size() != seqs.size())
+    {
+        std::cout << "ERROR: The number of sequences and names for guide reads does not match. Check files for guide sequences and names.\n";
+        exit(EXIT_FAILURE);
+    }
+
     for(int i = 0; i < names.size(); ++i)
     {
         map.insert(std::make_pair(seqs.at(i), names.at(i)));

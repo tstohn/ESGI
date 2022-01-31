@@ -48,7 +48,8 @@ struct scAbCount
 {
     const char* abName;
     const char* treatment;
-    
+    const char* className;
+
     const char* scID;
     int abCount = 0;
 }; 
