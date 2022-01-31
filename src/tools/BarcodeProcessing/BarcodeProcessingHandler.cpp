@@ -110,20 +110,53 @@ void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, N
 
 }
 
-/*void BarcodeProcessingHandler::generate_unique_sc_to_class_dict()
+void BarcodeProcessingHandler::generate_unique_sc_to_class_dict(const std::unordered_map< const char*, 
+                                                                std::unordered_map< const char*, unsigned long long>>& scClasseCountDict)
 {
+    std::unordered_map< const char*, const char*> scClassDict;
+
+    //calculate real class for each single cell
+    std::unordered_map< const char*, std::unordered_map< const char*, unsigned long long>>::const_iterator it;
+    for (it = scClasseCountDict.begin(); it != scClasseCountDict.end(); it++)
+    {
+        //count the read for each class for the single cell
+        std::unordered_map< const char*, unsigned long long>::const_iterator it2;
+        unsigned long long totalReads = 0;
+        for(it2 = it->second.begin(); it2 != it->second.end(); it2++)
+        {
+            totalReads += it2->second;
+        }
+        //check if any class represents more than 90% of reads
+        const char* realClass = nullptr;
+        bool foundUniqueClass = false;
+        for(it2 = it->second.begin(); it2 != it->second.end(); it2++)
+        {
+            if( (it2->second/totalReads) >= 0.9 )
+            {
+                realClass = it2->first;
+                foundUniqueClass = true;
+            }
+        }
+
+        //add class for single cell to dict
+        if(foundUniqueClass)
+        {
+            scClassDict.insert(std::pair<const char*, const char*>(it->first, realClass));
+        }
+        else
+        {
+            result.add_removed_class_for_single_cell();
+        }
+    }
+
+    rawData.set_cell_to_class_dict(scClassDict);
 
 }
 
-void BarcodeProcessingHandler::combine_ab_and_guide_data()
-{
-    //firstly generate a unique dict to map a sc with its class
-}*/
-
 void BarcodeProcessingHandler::parseFile(const std::string fileName, const int& thread)
 {
-    int totalReads = totalNumberOfLines(fileName);
-    int currentReads = 0;
+    unsigned long long totalReads = totalNumberOfLines(fileName);
+    unsigned long long currentReads = 0;
     //open gz file
     if(!endWith(fileName,".gz"))
     {
@@ -136,26 +169,27 @@ void BarcodeProcessingHandler::parseFile(const std::string fileName, const int& 
     inbuf.push(file);
     std::istream instream(&inbuf);
     
-
-    std::vector<tmpAbLineData> abDataLines;
     std::unordered_map< const char*, std::unordered_map< const char*, unsigned long long>> scClasseCountDict;
-
-    parseBarcodeLines(&instream, totalReads, currentReads);//, abDataLines, scClasseCountDict);
+    parseBarcodeLines(&instream, totalReads, currentReads, scClasseCountDict);
 
     //finally add the class of each single cell
-
+    if(rawData.check_class())
+    {
+        generate_unique_sc_to_class_dict(scClasseCountDict);
+    }
 
     file.close();
 }
 
-void BarcodeProcessingHandler::parseBarcodeLines(std::istream* instream, const int& totalReads, int& currentReads)
-//, std::vector<tmpAbLineData>& abDataLines, std::unordered_map< const char*, std::unordered_map< const char*, unsigned long long>>& scClasseCountDict)
+void BarcodeProcessingHandler::parseBarcodeLines(std::istream* instream, const unsigned long long& totalReads, unsigned long long& currentReads, 
+                                                    std::unordered_map< const char*, std::unordered_map< const char*, unsigned long long>>& scClasseCountDict)
 {
     std::string line;
-    std::cout << "STEP[1/4]\t(READING ALL LINES INTO MEMORY)\n";
+    std::cout << "STEP[1/3]\t(READING ALL LINES INTO MEMORY)\n";
     int count = 0;
     int elements = 0; //check that each row has the correct number of barcodes
-    bool checkClass = rawData.check_class();
+    unsigned long long abReadCount = 0;
+    unsigned long long guideReadCount = 0;
     while(std::getline(*instream, line))
     {
         //for the first read check the positions in the string that refer to CIBarcoding positions
@@ -164,20 +198,24 @@ void BarcodeProcessingHandler::parseBarcodeLines(std::istream* instream, const i
             getBarcodePositions(line, elements);
             continue;
         }
-        add_line_to_temporary_data(line, elements, checkClass);//, abDataLines, scClasseCountDict);   
+        add_line_to_temporary_data(line, elements, scClasseCountDict, abReadCount, guideReadCount);   
 
         double perc = currentReads/ (double)totalReads;
         ++currentReads;
         printProgress(perc);        
     }
 
-    result.set_total_reads(currentReads);
+    result.set_total_reads(currentReads-1); //minus header line
+    result.set_total_ab_reads(abReadCount);
+    result.set_total_guide_reads(guideReadCount);
+
     printProgress(1);
     std::cout << "\n";
 }
 
-void BarcodeProcessingHandler::add_line_to_temporary_data(const std::string& line, const int& elements, const bool& checkClass)
-//,  std::vector<tmpAbLineData>& abDataLines,   std::unordered_map< const char*, std::unordered_map< const char*, unsigned long long>>& scClasseCountDict)
+void BarcodeProcessingHandler::add_line_to_temporary_data(const std::string& line, const int& elements,
+   std::unordered_map< const char*, std::unordered_map< const char*, unsigned long long>>& scClasseCountDict,
+   unsigned long long& abReadCount, unsigned long long& guideReadCount)
 {
     //split the line into barcodes
     std::vector<std::string> result;
@@ -204,13 +242,15 @@ void BarcodeProcessingHandler::add_line_to_temporary_data(const std::string& lin
     std::string singleCellIdx = generateSingleCellIndexFromBarcodes(ciBarcodes);
     
     std::string proteinName = "";
-    if(checkClass)
+    if(rawData.check_class())
     {
         bool classLine = false;
         std::string name = rawData.get_protein_or_class_name(result.at(abIdx), classLine);
         if(classLine)
         {
-            rawData.add_class_line(name, singleCellIdx);
+            ++guideReadCount;
+            rawData.add_tmp_class_line(name, singleCellIdx, scClasseCountDict);
+            return;
         }
         else
         {
@@ -228,6 +268,7 @@ void BarcodeProcessingHandler::add_line_to_temporary_data(const std::string& lin
         treatment = rawData.getTreatmentName(result.at(treatmentIdx));
     }
 
+    ++abReadCount;
     rawData.add_to_umiDict(result.at(umiIdx), proteinName, singleCellIdx, treatment);
 }
 
@@ -293,17 +334,16 @@ void BarcodeProcessingHandler::getBarcodePositions(const std::string& line, int&
     assert(abIdx != INT_MAX);
 }
 
-void BarcodeProcessingHandler::markReadsWithNoUniqueUmi(const std::vector<dataLinePtr>& uniqueUmis,
-                                                        std::vector<dataLinePtr>& dataLinesToDelete, 
+void BarcodeProcessingHandler::markReadsWithNoUniqueUmi(const std::vector<umiDataLinePtr>& uniqueUmis,
                                                         std::atomic<unsigned long long>& count,
                                                         const unsigned long long& totalCount)
 {
-    //count how often we see which AB-SC-Treatment combinations for this certain UMI
+    //count how often we see which AB-SC combinations for this certain UMI
     std::unordered_map<std::string, unsigned long long> umiCountMap;
-
+    unsigned long long totalReadCount = uniqueUmis.size();
     for(unsigned long long i = 0; i < uniqueUmis.size(); ++i)
     {
-        std::string uniqueID = std::string(uniqueUmis.at(i)->scID) + std::string(uniqueUmis.at(i)->abName) + std::string(uniqueUmis.at(i)->treatmentName);
+        std::string uniqueID = std::string(uniqueUmis.at(i)->scID) + std::string(uniqueUmis.at(i)->abName);
         std::unordered_map<std::string, unsigned long long>::iterator umiCountMapIt = umiCountMap.find(uniqueID);
         if( umiCountMapIt != umiCountMap.end())
         {
@@ -315,49 +355,60 @@ void BarcodeProcessingHandler::markReadsWithNoUniqueUmi(const std::vector<dataLi
         }
     }
 
+    //check there is a single cell + AB combination representing more than 90% of the UMI reads
     std::string realSingleCellID;
     bool realSingleCellExists = false;
+    unsigned long long readsToKeep = 0;
     for(auto singleCellCountPair : umiCountMap)
     {
-        double singleCellPerc = singleCellCountPair.second/umiCountMap.size();
+        double singleCellPerc = (double)singleCellCountPair.second/totalReadCount;
         if( singleCellPerc >= 0.9 )
         {
             realSingleCellID = singleCellCountPair.first;
             realSingleCellExists = true;
+            readsToKeep = singleCellCountPair.second;
             break;
         }
     }
 
-    if(!realSingleCellExists)
-    {
-        result.add_removed_reads_umi(uniqueUmis.size());
-    }
-    else
+    //Collapse UMIs, remove false reads, map a single cell class name to single cells
+    unsigned long long readsWithNoClass = 0;
+    if(realSingleCellExists)
     {
         //delete only the <=10% 'false' reads
-        unsigned long long readCountToDelete = 0;
-        bool setRealDataLine = false;
         for(int i = 0; i < uniqueUmis.size(); ++i)
         {
-            std::string uniqueID = std::string(uniqueUmis.at(i)->scID) + std::string(uniqueUmis.at(i)->abName) + std::string(uniqueUmis.at(i)->treatmentName);
-            if(uniqueID != realSingleCellID)
+            std::string uniqueID = std::string(uniqueUmis.at(i)->scID) + std::string(uniqueUmis.at(i)->abName);
+            if(uniqueID == realSingleCellID)      //add to new DIct
             {
-                ++readCountToDelete;
-            }
-            else if(!setRealDataLine)      //add to new DIct
-            {
-                std::string umiStr = std::string(uniqueUmis.at(i)->umiSeq);
-                std::string abStr = std::string(uniqueUmis.at(i)->abName);
-                std::string scStr = std::string(uniqueUmis.at(i)->scID);
-                std::string trStr = std::string(uniqueUmis.at(i)->treatmentName);
-                writeToRawDataLock.lock(); //maybe better lock inside the rawData (keep in mind)
-                rawData.add_to_scAbDict(umiStr, abStr, scStr, trStr);
-                writeToRawDataLock.unlock();
-                setRealDataLine = true;
+
+                    const char* className = nullptr;
+                    if(rawData.check_class())
+                    {
+                        className = rawData.get_sc_class_name(uniqueUmis.at(i)->scID);
+                        if(className == nullptr)
+                        {
+                            //single cell has no class name
+                            readsWithNoClass = readsToKeep;
+                            break;
+                        }
+                    }
+
+                    //add ABSc dataLine
+                    writeToRawDataLock.lock(); //maybe better lock inside the rawData (keep in mind)
+                    rawData.add_to_scAbDict(uniqueUmis.at(i), readsToKeep, className);
+                    writeToRawDataLock.unlock();
+
+                    break;
             }
         }
-        result.add_removed_reads_umi(readCountToDelete);
+        if(readsWithNoClass > 0)
+        {
+            result.add_removed_reads_class(readsWithNoClass);
+        }
     }
+
+    result.add_removed_reads_umi(totalReadCount - readsToKeep);
 
     if( (totalCount >= 100) && (count % (totalCount / 100) == 0) )
     {
@@ -369,89 +420,12 @@ void BarcodeProcessingHandler::markReadsWithNoUniqueUmi(const std::vector<dataLi
     ++count;
 }
 
-void BarcodeProcessingHandler::markReadsWithNoUniqueTreatment(const std::vector<dataLinePtr>& uniqueSc,
-                                                              std::vector<dataLinePtr>& dataLinesToDelete, 
-                                                              std::atomic<unsigned long long>& count,
-                                                              const unsigned long long& totalCount)
-{
-    //calculate occurences of all treatments for a SC combination
-    std::unordered_map<std::string, unsigned long long> readsPerTreatment;
-    for(const dataLinePtr& abScLine : uniqueSc)
-    {
-        std::string treat = abScLine->treatmentName;
-        std::unordered_map<std::string, unsigned long long>::iterator readsPerTreatmentIt = readsPerTreatment.find(treat);
-        if( readsPerTreatmentIt != readsPerTreatment.end())
-        {
-            ++(readsPerTreatmentIt->second);
-        }
-        else
-        {
-            readsPerTreatment.insert(std::make_pair(treat, 1));
-        }
-    }
-
-    //get the treatment to keep
-    bool realTreatmentExists = false;
-    std::string realTreatmentId;
-    for(const std::pair<std::string, unsigned long long>& treatmentOfSc : readsPerTreatment)
-    {
-        double treatmentPerc = treatmentOfSc.second/readsPerTreatment.size();
-        if( treatmentPerc >= 0.9 )
-        {
-            realTreatmentId = treatmentOfSc.first;
-            realTreatmentExists = true;
-        }
-    }
-
-    //If real treatment exists mark all the one
-    if(!realTreatmentExists)
-    {
-        //delete all reads
-        for(int i = 0; i < uniqueSc.size(); ++i)
-        {
-            {
-                statusUpdateLock.lock();
-                dataLinesToDelete.push_back(uniqueSc.at(i));
-                statusUpdateLock.unlock();
-            }
-        }
-        result.add_removed_reads_treat(uniqueSc.size());
-    }
-    else
-    {
-        //delete only the <=10% 'false' reads
-        unsigned long long readCountToDelete = 0;
-        for(int i = 0; i < uniqueSc.size(); ++i)
-        {
-            std::string uniqueID = std::string(uniqueSc.at(i)->treatmentName);
-            if(uniqueID != realTreatmentId)
-            {
-                statusUpdateLock.lock();
-                dataLinesToDelete.push_back(uniqueSc.at(i));
-                            statusUpdateLock.unlock();
-
-                ++readCountToDelete;
-            }
-        }
-        result.add_removed_reads_treat(readCountToDelete);
-    }
-
-    if((totalCount >= 100) && (count % (totalCount / 100) == 0))
-    {
-        statusUpdateLock.lock();
-        double perc = count/ (double) totalCount;
-        printProgress(perc);
-        statusUpdateLock.unlock();
-    }
-    ++count;
-}
 
 void BarcodeProcessingHandler::count_umi_occurence(std::vector<int>& positionsOfSameUmi, 
                                                    umiCount& umiLineTmp,
                                                    const std::vector<dataLinePtr>& allScAbCounts,
                                                    const int& umiMismatches,
-                                                   const int& lastIdx,
-                                                   const std::vector<dataLinePtr>& dataLinesToDelete)
+                                                   const int& lastIdx)
 {
     unsigned long long numberAlignedUmis = 0;
     for(int j = 0; j < (allScAbCounts.size() - 1); ++j)
@@ -480,53 +454,45 @@ void BarcodeProcessingHandler::count_umi_occurence(std::vector<int>& positionsOf
             //they could be changed by calling 'changeUmi'
             positionsOfSameUmi.push_back(j);     
             
-            ++umiLineTmp.abCount; // increase count for this UMI
+            umiLineTmp.abCount += allScAbCounts.at(j)->umiCount; // increase count for this UMI
         }
     }
     result.add_umi_mismatches(numberAlignedUmis);
 }
 
 void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatches, const std::vector<dataLinePtr>& uniqueAbSc,
-                                                        const std::vector<dataLinePtr>& dataLinesToDelete, 
                                                         std::atomic<unsigned long long>& count,
                                                         const unsigned long long& totalCount,
-                                                        std::shared_ptr<std::unordered_map<const char*, std::vector<dataLinePtr>, 
-                    CharHash, CharPtrComparator>>& umiMap)
+                                                        std::shared_ptr<std::unordered_map<const char*, std::vector<umiDataLinePtr>, 
+                                                        CharHash, CharPtrComparator>>& umiMap)
 {
    //correct for UMI mismatches and fill the AbCountvector
     //iterate through same AbScIdx, calculate levenshtein dist for all UMIs and match those with a certain number of mismatches
 
         //all dataLines for this AB SC combination
         std::vector<dataLinePtr> scAbCounts = uniqueAbSc;
-        /*for (auto it = scAbCounts.begin(); it != scAbCounts.end(); it++)
-        {
-            if(checkIfLineIsDeleted(*it, dataLinesToDelete))
-            {
-                scAbCounts.erase(it--);
-            }
-        }*/
+
         //sort vector by distance to origional UMI length: 
         //reads get a value for dsitance to UMi length (one Base plus minus gets same value)
         //and are then sorted in decreasing fashion (when comparing UMIs a UMI of length umilength is chosen first)
         //to minimize erros bcs e.g. three reads are within 2MM but we choose one UMI out the outer end regarding MM
-        
         sort(scAbCounts.rbegin(), scAbCounts.rend(), less_than_umi(umiLength, umiMap));
 
         //data structures to be filled for the UMI and AB count
         scAbCount abLineTmp; // we fill only this one AB SC count
-        umiCount umiLineTemplate; //we fill several UMIcounts for every UMI of this AB-SC combination
-        
-        abLineTmp.scID = umiLineTemplate.scID = uniqueAbSc.at(0)->scID;
-        abLineTmp.abName = umiLineTemplate.abName = uniqueAbSc.at(0)->abName;
-        abLineTmp.treatment = umiLineTemplate.treatment = uniqueAbSc.at(0)->treatmentName;
+        umiCount umiLineTmp;
+
+        abLineTmp.scID = umiLineTmp.scID = uniqueAbSc.at(0)->scID;
+        abLineTmp.abName = umiLineTmp.abName = uniqueAbSc.at(0)->abName;
+        abLineTmp.treatment = umiLineTmp.treatment = uniqueAbSc.at(0)->treatmentName;
 
         //we take always last element in vector of read of same AB and SC ID
         //then store all reads wwhere UMIs are within distance, and delete those line, and sum up the AB count by one
         while(!scAbCounts.empty())
         {
+
             dataLinePtr lastAbSc = scAbCounts.back();
             int lastIdx = scAbCounts.size() - 1;
-            umiCount umiLineTmp = umiLineTemplate;
             //check if we have to delete element anyways, since it is not a unique UMI
             //in this case we simply delete this line and check the next one
 
@@ -534,7 +500,7 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
             if(scAbCounts.size() == 1)
             {
                 ++abLineTmp.abCount;
-                ++umiLineTmp.abCount; 
+                umiLineTmp.abCount += lastAbSc->umiCount; 
                 umiLineTmp.umi = lastAbSc->umiSeq;
                 result.add_umi_count(umiLineTmp);
                 scAbCounts.pop_back();
@@ -543,10 +509,10 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
 
             //otherwise conmpare all and mark the ones to delete
             std::vector<int> deletePositions;
-            ++umiLineTmp.abCount; //count the first occurence
+            umiLineTmp.abCount += lastAbSc->umiCount; //count the first occurence
             //count all occurences of the last UMI for this AB-SC
 
-            count_umi_occurence(deletePositions, umiLineTmp, scAbCounts, umiMismatches, lastIdx, dataLinesToDelete);
+            count_umi_occurence(deletePositions, umiLineTmp, scAbCounts, umiMismatches, lastIdx);
             deletePositions.push_back(lastIdx);
 
             //ADD UMI if exists
@@ -590,67 +556,46 @@ void BarcodeProcessingHandler::processBarcodeMapping(const int& umiMismatches, c
     //Abcounts Umicounts UmiLog
 
     //check all UMIs and keep their reads only if they are for >90% a unique scID, ABname, treatmentname
-    std::vector<dataLinePtr> dataLinesToDelete; // the dataLines that contain reads that have to be deleted (several CIbarcodes, AB, treatments for same UMI)
+    //also collapse UMIs, and assign the className to each new dataLine, dataLines are now stored as const lines and can no longer be changed
     std::atomic<unsigned long long> umiCount = 0; //using atomic<int> as thread safe read count
     unsigned long long totalCount = rawData.getUniqueUmis()->size();
     boost::asio::thread_pool pool_1(thread); //create thread pool
-    std::cout << "STEP[2/4]\t(Remove all reads for a UMI with <90% coming from same AB/SC/TREATMENT combination)\n";
-const std::shared_ptr< std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator>> umiMap = rawData.getUniqueUmis();
-    for(std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator>::const_iterator it = umiMap->begin(); 
+    std::cout << "STEP[2/3]\t(Remove all reads for a UMI with <90% coming from same AB/SC combination)\n";
+    const std::shared_ptr< std::unordered_map<const char*, std::vector<umiDataLinePtr>, CharHash, CharPtrComparator>> umiMap = rawData.getUniqueUmis();
+    for(std::unordered_map<const char*, std::vector<umiDataLinePtr>, CharHash, CharPtrComparator>::const_iterator it = umiMap->begin(); 
         it != umiMap->end(); 
         it++)    {
         //careful: uniqueUmi goe sout of scope after enqueuing, therefore just copied...
         boost::asio::post(pool_1, std::bind(&BarcodeProcessingHandler::markReadsWithNoUniqueUmi, this, 
-                                          std::cref(it->second), std::ref(dataLinesToDelete), 
+                                          std::cref(it->second), 
                                           std::ref(umiCount), std::cref(totalCount)));
     }
     pool_1.join();
+    printProgress(1);
     std::cout << "\n";
-
-    //check all AB-SC combinations, and keep only those reads with >90% from same treatment
-    umiCount = 0; //using atomic<int> as thread safe read count
-    totalCount = rawData.getUniqueSc()->size();
-    boost::asio::thread_pool pool_2(thread); //create thread pool
-    std::cout << "STEP[3/4]\t(Remove all reads for a single cell with <90% coming from same treatment)\n";
-
-const std::shared_ptr< std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator>> scMap = rawData.getUniqueSc();
-    for(std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator>::const_iterator it = scMap->begin(); 
-        it != scMap->end(); 
-        it++)
-    {
-        //as above: abSc is copied only
-        boost::asio::post(pool_2, std::bind(&BarcodeProcessingHandler::markReadsWithNoUniqueTreatment, this, 
-                                          std::cref(it->second), std::ref(dataLinesToDelete), std::ref(umiCount), 
-                                          std::cref(totalCount) ));
-    }
-    pool_2.join();
-    std::cout << "\n";
-    //all reads that should not be considered have been enumerated by now
-    result.add_removed_reads_total(dataLinesToDelete.size());
 
     //generate ABcounts per single cell:
     umiCount = 0; //using atomic<int> as thread safe read count
     totalCount = rawData.getUniqueAbSc()->size();
     boost::asio::thread_pool pool_3(thread); //create thread pool
-    std::cout << "STEP[4/4]\t(Count reads for AB in single cells)\n";
+    std::cout << "STEP[3/3]\t(Count reads for AB in single cells)\n";
             
-    std::shared_ptr<std::unordered_map<const char*, std::vector<dataLinePtr>, 
+    std::shared_ptr<std::unordered_map<const char*, std::vector<umiDataLinePtr>, 
                     CharHash, CharPtrComparator>> uniqueUmiMap = 
                     rawData.getUniqueUmis();
 
-const std::shared_ptr< std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator>> AbScMap = rawData.getUniqueAbSc();
+    const std::shared_ptr< std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator>> AbScMap = rawData.getUniqueAbSc();
     for(std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator>::const_iterator it = AbScMap->begin(); 
         it != AbScMap->end(); 
         it++)
     {
         //as above: abSc is copied only
-        //dataLinesToDelete should be thread safe for read only, hope it holds in reality :D
         boost::asio::post(pool_3, std::bind(&BarcodeProcessingHandler::count_abs_per_single_cell, this, 
                                           std::ref(umiMismatches), std::cref(it->second), 
-                                          std::cref(dataLinesToDelete), 
                                           std::ref(umiCount), std::cref(totalCount), std::ref(uniqueUmiMap) ));
     }
     pool_3.join();
+    printProgress(1);
     std::cout << "\n";
 
 }
@@ -680,10 +625,14 @@ void BarcodeProcessingHandler::writeLog(std::string output)
     outputFile.open (output);
 
     outputFile << "TOTAL READS:\t" << result.get_log_data().totalReads << "\n";
-    outputFile << "TOTAL READS REMOVED:\t" << result.get_log_data().totalRemovedReads << "\n";
-    outputFile << "REMOVED BY UMI:\t" << result.get_log_data().removedUmiReads << "\n";
-    outputFile << "REMOVED BY TREATMENT:\t" << result.get_log_data().removedTreatmentReads << "\n";
+    outputFile << "TOTAL GUIDE-READS:\t" << result.get_log_data().totalGuideReads << "\n";
+    outputFile << "TOTAL AB-READS:\t" << result.get_log_data().totalAbReads << "\n";
+
+    outputFile << "REMOVED READS because UMI was not unique(>=90% reads are from same AB/SC):\t" << result.get_log_data().removedUmiReads << "\n";
+    outputFile << "REMOVED READS because the single cell had no mapped CLASS:\t" << result.get_log_data().removedClassReads << "\n";
+
     outputFile << "UMI MM:\t" << result.get_log_data().umiMM << "\n";
+    outputFile << "Lost SINGLECELL->CLASS mappings because guide reads for single cell were not unique(>=90% reads for same CLASS):\t" << result.get_log_data().removedClasses << "\n";
 
     outputFile.close();
 

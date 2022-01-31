@@ -67,23 +67,21 @@ struct umiCount
 //some information about the read/ UMI quality (how many reads removed, how many Mismatches, etc.)
 struct ProcessingLog
 {
+    //number of mismatches within reads for same AB/SC
     unsigned long long umiMM = 0; //UMIs with mismatches that were converted into another one
-    unsigned long long removedUmiReads = 0; // removed reads bcs. their UMI was not unique and was not present in >90% of the reads
-    unsigned long long removedTreatmentReads = 0; // removed reads bcs. their SC had not in more than 90% of reads the same treatment
-    unsigned long long totalRemovedReads = 0; // removed reads in total
+    
+    //number of removed reads for ...
+    unsigned long long removedUmiReads = 0; // removed reads bcs. their UMI was not unique and was not present in >= 90% of the reads
+    unsigned long long removedClassReads = 0; // removed reads bcs. the single cell had no class mapped
+    
+    //additional information about classes 
+    unsigned long long removedSCDueToNoClass = 0; //equivalent for the reads with no class, but counting only unique cells that r removed
+    uint removedClasses = 0; //removed class for a single cell, bcs. the reads for the class for this singel cell did not represent for
+                             // >= 90% the same class
 
     unsigned long long totalReads = 0;
-};
-
-//during parsing of the fastq file we might have to parse reads for AB counts
-//as well as reads with guides, to firstly parse them all and then combine the data
-//we have this temporary struct
-struct tmpAbLineData
-{
-    std::string umi;
-    std::string sc;
-    std::string ab;
-    std::string treat;
+    unsigned long long totalGuideReads = 0;
+    unsigned long long totalAbReads = 0;
 };
 
 /**
@@ -136,22 +134,34 @@ class Results
             ullong_save_add(logData.removedUmiReads, reads);
             logLock.unlock();
         }
-        void add_removed_reads_treat(const unsigned long long& reads)
+        void add_removed_reads_class(const unsigned long long& reads)
         {
             logLock.lock();
-            ullong_save_add(logData.removedTreatmentReads, reads);
+            ullong_save_add(logData.removedClassReads, reads);
             logLock.unlock();
         }
-        void add_removed_reads_total(const unsigned long long& reads)
+        void add_removed_class_for_single_cell()
         {
             logLock.lock();
-            ullong_save_add(logData.totalRemovedReads, reads);
+            ++logData.removedClasses;
             logLock.unlock();
         }
         void set_total_reads(const unsigned long long& totalReads)
         {
             logLock.lock();
             logData.totalReads = totalReads;
+            logLock.unlock();
+        }
+        void set_total_guide_reads(const unsigned long long& totalGuideReadsTmp)
+        {
+            logLock.lock();
+            logData.totalGuideReads = totalGuideReadsTmp;
+            logLock.unlock();
+        }
+        void set_total_ab_reads(const unsigned long long& totalAbReadsTmp)
+        {
+            logLock.lock();
+            logData.totalAbReads = totalAbReadsTmp;
             logLock.unlock();
         }
 
@@ -185,6 +195,11 @@ void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices,
  *  - correcting UMIs, that are within a certain edit-distance
  *  - count finally all UMIs per single-cell AB combination
  *  - correct for errors in the data (same AB-scID has different UMIs, different treatments, etc. )
+ * 
+ *  Overall workflow is:
+ *  1.) parse lines (we cna parse normal AB counts and guide data for same single cells)
+ *  2.) write temporary lines into for each umi (dict mapping umi to all their reads)
+ *  3.) after collapsing UMI we write final liens into a dict mapping counts for AB+SC
  */
 class BarcodeProcessingHandler
 {
@@ -245,15 +260,17 @@ class BarcodeProcessingHandler
 
         //parse the file, store each line in UnprocessedDemultiplexedData structure (ABs, treatment is already stored as a name,
         // single cells are defined by a dot seperated list of indices)
-        void add_line_to_temporary_data(const std::string& line, const int& elements, const bool& checkClass);
-        void parseBarcodeLines(std::istream* instream, const int& totalReads, int& currentReads);
+        void add_line_to_temporary_data(const std::string& line, const int& elements,
+                                        std::unordered_map< const char*, std::unordered_map< const char*, unsigned long long>>& scClasseCountDict,
+                                        unsigned long long& abReadCount, unsigned long long& guideReadCount);
+        void parseBarcodeLines(std::istream* instream, const unsigned long long& totalReads, unsigned long long& currentReads,
+                               std::unordered_map< const char*, std::unordered_map< const char*, unsigned long long>>& scClasseCountDict);
         
         //check if a read is in 'dataLinesToDelete' (not-unique UMI for this read)
         bool checkIfLineIsDeleted(const dataLinePtr& line, const std::vector<dataLinePtr>& dataLinesToDelete);
         //write all reads which come from a not-unique UMI into 'dataLinesToDelete' vector
         //these lines are later not considered when the AB-count per single cell is calculated
-        void markReadsWithNoUniqueUmi(const std::vector<dataLinePtr>& uniqueUmis,
-                                      std::vector<dataLinePtr>& dataLinesToDelete, 
+        void markReadsWithNoUniqueUmi(const std::vector<umiDataLinePtr>& uniqueUmis,
                                       std::atomic<unsigned long long>& count,
                                       const unsigned long long& totalCount);
         void markReadsWithNoUniqueTreatment(const std::vector<dataLinePtr>& uniqueSc,
@@ -265,15 +282,13 @@ class BarcodeProcessingHandler
                                                    umiCount& umiLineTmp,
                                                    const std::vector<dataLinePtr>& allScAbCounts,
                                                    const int& umiMismatches,
-                                                   const int& lastIdx,
-                                                   const std::vector<dataLinePtr>& dataLinesToDelete);
+                                                   const int& lastIdx);
         //count the ABs per single cell (iterating over reads for a AB-SC combination and summing them)
         //(not considering not-unique UMIs in 'dataLinesToDelete' vector, collapsing UMIs,etc.)
         void count_abs_per_single_cell(const int& umiMismatches, const std::vector<dataLinePtr>& uniqueAbSc,
-                                                        const std::vector<dataLinePtr>& dataLinesToDelete, 
                                                         std::atomic<unsigned long long>& count,
                                                         const unsigned long long& totalCount,
-                                                        std::shared_ptr<std::unordered_map<const char*, std::vector<dataLinePtr>, 
+                                                        std::shared_ptr<std::unordered_map<const char*, std::vector<umiDataLinePtr>, 
                     CharHash, CharPtrComparator>>& umiMap);
 
         //get positions of all barcodes in the lines of demultiplexed data
@@ -281,6 +296,13 @@ class BarcodeProcessingHandler
 
         //map all the barcodes of CI to a unique 'number' string as SingleCellIdx
         std::string generateSingleCellIndexFromBarcodes(std::vector<std::string> ciBarcodes);
+
+        //functions processing the class labels for single cells (obtained by guide reads)
+        void generate_unique_sc_to_class_dict(const std::unordered_map< const char*, 
+                                              std::unordered_map< const char*, unsigned long long>>& scClasseCountDict);
+
+        void combine_ab_and_guide_data(std::vector<dataLine>& abDataLines,
+                                       const std::unordered_map< const char*, const char*>& scClassMap);
 
         //data structure storing lines with: UMI, AB_id, SingleCell_id
         //this is the raw data not UMI corrected
