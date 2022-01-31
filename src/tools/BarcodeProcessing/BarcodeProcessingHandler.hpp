@@ -68,17 +68,19 @@ struct umiCount
 struct ProcessingLog
 {
     //number of mismatches within reads for same AB/SC
-    unsigned long long umiMM = 0; //UMIs with mismatches that were converted into another one
+    unsigned long long umiMM = 0; //UMIs with mismatches that were converted into another one 
+                                    //(after reads were removed for 1.) non unique UMIs 2.) no class mapped to them )
     
     //number of removed reads for ...
     unsigned long long removedUmiReads = 0; // removed reads bcs. their UMI was not unique and was not present in >= 90% of the reads
-    unsigned long long removedClassReads = 0; // removed reads bcs. the single cell had no class mapped
+    unsigned long long removedClassReads = 0; // removed reads bcs. the single cell had no class mapped (after non unique UMIs were already removed)
     
     //additional information about classes 
     unsigned long long removedSCDueToNoClass = 0; //equivalent for the reads with no class, but counting only unique cells that r removed
-    uint removedClasses = 0; //removed class for a single cell, bcs. the reads for the class for this singel cell did not represent for
-                             // >= 90% the same class
+    uint removedClasses = 0; //number of mappings [SingleCell => Class] that were removed bcs.for a single cell all reads with guide did
+                             // not represent to >=90% one unique Class
 
+    //total number of raw reads, without the removed reads due to processing (the removed reads are removed from this full set of reads)
     unsigned long long totalReads = 0;
     unsigned long long totalGuideReads = 0;
     unsigned long long totalAbReads = 0;
