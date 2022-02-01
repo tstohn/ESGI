@@ -92,6 +92,8 @@ struct input{
     std::string inFile;
     std::string outFile;
 
+    std::string reverseFile = "";
+
     std::string barcodeFile; //file of all barcode-vectors, each line sequentially representing a barcode 
     std::string mismatchLine; //coma seperated list of mismathces per barcode
     std::string patternLine; //list of patterns in abstract form

@@ -81,10 +81,38 @@ class DemultiplexedReads
  **/
 class MapEachBarcodeSequentiallyPolicy
 {
-    private:
-        bool check_if_seq_too_short(const int& offset, const std::string& seq);
     public:
-        bool split_line_into_barcode_patterns(const std::string& seq, const input& input, DemultiplexedReads& barcodeMap,
+        bool split_line_into_barcode_patterns(std::pair<const std::string&, const std::string&> seq, const input& input, DemultiplexedReads& barcodeMap,
+                                      BarcodePatternVectorPtr barcodePatterns, fastqStats& stats);
+};
+
+/** @brief like the sequential barcode mapping policy, for paired-end reads
+ **/
+class MapEachBarcodeSequentiallyPolicyPairwise
+{
+    private:
+        bool map_forward(const std::string& seq, const input& input, 
+                        BarcodePatternVectorPtr barcodePatterns,
+                        fastqStats& stats,
+                        std::vector<std::string>& barcodeList,
+                        uint& barcodePosition,
+                        int& score_sum);
+        bool map_reverse(const std::string& seq, const input& input, 
+                        BarcodePatternVectorPtr barcodePatterns,
+                        fastqStats& stats,
+                        std::vector<std::string>& barcodeList,
+                        uint& barcodePosition,
+                        int& score_sum);
+        bool combine_mapping(DemultiplexedReads& barcodeMap,
+                             const BarcodePatternVectorPtr& barcodePatterns,
+                             std::vector<std::string>& barcodeListFw, //this list is extended to real list
+                             const uint& barcodePositionFw,
+                             const std::vector<std::string>& barcodeListRv,
+                             const uint& barcodePositionRv,
+                             fastqStats& stats,
+                             int& score_sum);
+    public:
+        bool split_line_into_barcode_patterns(std::pair<const std::string&, const std::string&> seq,  const input& input, DemultiplexedReads& barcodeMap,
                                       BarcodePatternVectorPtr barcodePatterns, fastqStats& stats);
 };
 
@@ -95,7 +123,7 @@ class MapEachBarcodeSequentiallyPolicy
 class MapAroundConstantBarcodesAsAnchorPolicy
 {
     public:
-    bool split_line_into_barcode_patterns(const std::string& seq, const input& input, DemultiplexedReads& barcodeMap,
+    bool split_line_into_barcode_patterns(std::pair<const std::string&, const std::string&> seq, const input& input, DemultiplexedReads& barcodeMap,
                                       BarcodePatternVectorPtr barcodePatterns, fastqStats& stats);
 };
 
@@ -103,25 +131,25 @@ class MapAroundConstantBarcodesAsAnchorPolicy
 class ExtractLinesFromTxtFilesPolicy
 {
     public:
-    void init_file(const std::string& inFile)
+    void init_file(const std::string& fwFile, const std::string& rvFile)
     {       
         //no error handling for txt file right now
-        fileStream.open(inFile);
+        fileStream.open(fwFile);
 
         totalReads = std::count(std::istreambuf_iterator<char>(fileStream), std::istreambuf_iterator<char>(), '\n');
         fileStream.clear();
         fileStream.seekg(0);
     }
 
-    bool get_next_line(std::string& line)
+    bool get_next_line(std::pair<std::string&, std::string&> line)
     {   bool returnValue = true;
-        if(!std::getline(fileStream, line))
+        if(!std::getline(fileStream, line.first))
         {
             returnValue = false;
         }
         if(returnValue)
         {
-            line.erase(std::remove(line.begin(), line.end(), '\n'), line.end());
+            line.first.erase(std::remove(line.first.begin(), line.first.end(), '\n'), line.first.end());
         }
 
         return(returnValue);
@@ -145,47 +173,42 @@ class ExtractLinesFromTxtFilesPolicy
 class ExtractLinesFromFastqFilePolicy
 {
     public:
-    void init_file(const std::string& inFile)
+
+    void init_file(const std::string& fwFile, const std::string& rvFile)
     {
-        fp = gzopen(inFile.c_str(),"r");
-        if(NULL == fp)
+        fp = gzopen(fwFile.c_str(),"r");
+        if(fp == Z_NULL)
         {
-            fprintf(stderr,"Fail to open file: %s\n", inFile.c_str());
+            std::string errMess = "Invalid file: " + fwFile;
+            throw std::domain_error(errMess);
             exit(EXIT_FAILURE);
         }
+        ks = kseq_init(fp);
         totalReads = 0;
-        unsigned char buffer[1000];
-        while(!gzeof(fp))
+        std::pair<std::string, std::string> line;
+        while(get_next_line(line))
         {
-            gzread(fp, buffer, 999);
-            for (const char &c : buffer) 
+            if(totalReads == ULLONG_MAX)
             {
-                if ( c == '\n' )
-                {
-                    if(totalReads == ULLONG_MAX)
-                    {
-                        std::cout << "WARNING: Analysing more than " << std::to_string(ULLONG_MAX) << " reads. There will be no status update\n";
-                        gzrewind(fp);
-                        ks = kseq_init(fp);
-                        return;
-                    }
-                    ++totalReads;
-                }
+                std::cout << "WARNING: Analysing more than " << std::to_string(ULLONG_MAX) << " reads. There will be no status update\n";
+                gzrewind(fp);
+                ks = kseq_init(fp);
+                return;
             }
+            ++totalReads;
         }
-        totalReads = totalReads/4;
         gzrewind(fp);
         ks = kseq_init(fp);
     }
 
-    bool get_next_line(std::string& line)
+    bool get_next_line(std::pair<std::string&, std::string&> line)
     {
         if(kseq_read(ks) < 0)
         {
             return false;
         }
 
-        line = std::string(ks->seq.s);
+        line.first = std::string(ks->seq.s);
         return true;
     }
 
@@ -204,6 +227,44 @@ class ExtractLinesFromFastqFilePolicy
     unsigned long long totalReads;
     gzFile fp;
 
+};
+
+class ExtractLinesFromFastqFilePolicyPairedEnd
+{
+
+    public:
+        void init_file(const std::string& fwFile, const std::string& rvFile)
+        {
+            fwFileManager.init_file(fwFile, "");
+            rvFileManager.init_file(rvFile, "");
+        }
+
+        bool get_next_line(std::pair<std::string&, std::string&> line)
+        {
+            std::string emptyStr = "";
+            std::pair<std::string&, std::string&> fwPair = std::pair<std::string&, std::string&>(line.first, emptyStr);
+            std::pair<std::string&, std::string&> rvPair = std::pair<std::string&, std::string&>(line.second, emptyStr);
+
+            bool fwBool = fwFileManager.get_next_line(fwPair);
+            bool rvBool = rvFileManager.get_next_line(rvPair);
+            return(fwBool&&rvBool);
+        }
+
+        void close_file()
+        {
+            fwFileManager.close_file();
+            rvFileManager.close_file();
+        }
+
+        unsigned long long get_read_number()
+        {
+            std::cout << fwFileManager.get_read_number() << " "<< rvFileManager.get_read_number();
+            assert(fwFileManager.get_read_number() == rvFileManager.get_read_number());
+            return(fwFileManager.get_read_number());
+        }
+
+        ExtractLinesFromFastqFilePolicy fwFileManager;
+        ExtractLinesFromFastqFilePolicy rvFileManager;
 };
 
 /** @brief generic class for the barcode mapping
@@ -295,7 +356,7 @@ class Mapping : protected MappingPolicy, protected FilePolicy
         //pairs that hold <barcode-regex, char determining the kind of barcode> with kind of barcode beeing e.g. a variable, constant, etc.
         std::vector<std::pair<std::string, char> > generate_barcode_patterns(const input& input);
         //wrapper to call the actual mapping function on one read and updates the status bar
-        bool demultiplex_read(const std::string& seq, const input& input, std::atomic<unsigned long long>& count, const unsigned long long& totalReadCount);
+        bool demultiplex_read(std::pair<const std::string&, const std::string&>  seq, const input& input, std::atomic<unsigned long long>& count, const unsigned long long& totalReadCount);
         //run the actual mapping
         void run_mapping(const input& input);
 };

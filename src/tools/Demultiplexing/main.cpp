@@ -55,7 +55,11 @@ bool parse_arguments(char** argv, int argc, input& input)
     {
         options_description desc("Options");
         desc.add_options()
-            ("input,i", value<std::string>(&(input.inFile))->required(), "directory of files or single file in fastq(.gz) format")
+            ("input,i", value<std::string>(&(input.inFile))->required(), "single file in fastq(.gz) format or the forward read file, if <-r> is also set for the\
+            reverse reads.")
+            ("reverse,r", value<std::string>(&(input.reverseFile)), "Use this parameter for paired-end analysis as the reverse read file. <-i> is the forward read in \
+            this case.")
+
             ("output,o", value<std::string>(&(input.outFile))->required(), "output file with all split barcodes")
             
             ("sequencePattern,p", value<std::string>(&(input.patternLine))->required(), "pattern for the sequence to match, \
@@ -117,11 +121,27 @@ int main(int argc, char** argv)
         }
 
         // run demultiplexing
-        if(endWith(input.inFile, "fastq") || endWith(input.inFile, "fastq.gz"))
+        if(!input.reverseFile.empty())
+        {
+            //run in paired-end mode (allowing only fastq(.gz) format)
+            if(!(endWith(input.inFile, "fastq") || endWith(input.inFile, "fastq.gz")))
+            {
+                std::cout << "Wrong file format for forward-read file <-i>!\n";
+                exit(EXIT_FAILURE);
+            }
+            if(!(endWith(input.reverseFile, "fastq") || endWith(input.reverseFile, "fastq.gz")))
+            {
+                std::cout << "Wrong file format for reverse-read file <-r>!\n";
+                exit(EXIT_FAILURE);
+            }
+
+            DemultiplexedLinesWriter<MapEachBarcodeSequentiallyPolicyPairwise, ExtractLinesFromFastqFilePolicyPairedEnd> mapping;
+            mapping.run(input);
+        }
+        else if(endWith(input.inFile, "fastq") || endWith(input.inFile, "fastq.gz"))
         {
             DemultiplexedLinesWriter<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromFastqFilePolicy> mapping;
             mapping.run(input);
-
         }
         else if(endWith(input.inFile, "txt"))
         {

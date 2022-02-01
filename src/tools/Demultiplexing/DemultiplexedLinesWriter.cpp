@@ -72,27 +72,70 @@ void write_stats(const input& input, const std::map<std::string, std::vector<int
 }
 
 /// write failed lines into a txt file
-void write_failed_line(const input& input, const std::string& failedLine)
+void write_failed_line(const input& input, std::pair<const std::string&, const std::string&> failedLine)
 {
-    std::string output = input.outFile;
-    std::ofstream outputFile;
-
-    //write real sequences that map to barcodes
-    std::size_t found = output.find_last_of("/");
-    std::string outputFail;
-    if(found == std::string::npos)
+    if(failedLine.second.empty())
     {
-        outputFail = "FailedLines_" + output;
+        std::string output = input.outFile;
+        std::ofstream outputFile;
+
+        //write real sequences that map to barcodes
+        std::size_t found = output.find_last_of("/");
+        std::string outputFail;
+        if(found == std::string::npos)
+        {
+            outputFail = "FailedLines_" + output;
+        }
+        else
+        {
+            outputFail = output.substr(0,found) + "/" + "FailedLines_" + output.substr(found+1);
+        }
+        outputFile.open (outputFail, std::ofstream::app);
+        
+        outputFile << failedLine.first << "\n";
+        
+        outputFile.close();
     }
     else
     {
-        outputFail = output.substr(0,found) + "/" + "FailedLines_" + output.substr(found+1);
+        //write forward reads
+        std::string output = input.outFile;
+        std::ofstream outputFile;
+
+        //write real sequences that map to barcodes
+        std::size_t found = output.find_last_of("/");
+        std::string outputFail;
+        if(found == std::string::npos)
+        {
+            outputFail = "FailedLines_1_" + output;
+        }
+        else
+        {
+            outputFail = output.substr(0,found) + "/" + "FailedLines_1_" + output.substr(found+1);
+        }
+        outputFile.open (outputFail, std::ofstream::app);
+        
+        outputFile << failedLine.first << "\n";
+        
+        outputFile.close();
+
+        //write reverse reads
+        //write real sequences that map to barcodes
+        if(found == std::string::npos)
+        {
+            outputFail = "FailedLines_2_" + output;
+        }
+        else
+        {
+            outputFail = output.substr(0,found) + "/" + "FailedLines_2_" + output.substr(found+1);
+        }
+        outputFile.open (outputFail, std::ofstream::app);
+        
+        outputFile << failedLine.second << "\n";
+        
+        outputFile.close();
     }
-    outputFile.open (outputFail, std::ofstream::app);
-    
-    outputFile << failedLine << "\n";
-    
-    outputFile.close();
+
 }
 
 /// write mapped barcodes to a tab separated file
@@ -139,7 +182,7 @@ void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::initialize_output_file
 * in the current queue. Used to allow processing of only a few lines a time instead of writing all into RAM.
 **/
 template <typename MappingPolicy, typename FilePolicy>
-void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::demultiplex_wrapper(const std::string& line,
+void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::demultiplex_wrapper(std::pair<const std::string&, const std::string&> line,
                                                             const input& input,
                                                             std::atomic<unsigned long long>& lineCount,
                                                             const unsigned long long& totalReadCount,
@@ -164,8 +207,8 @@ void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::run_mapping(const inpu
     boost::asio::thread_pool pool(input.threads); //create thread pool
 
     //read line by line and add to thread pool
-    this->FilePolicy::init_file(input.inFile);
-    std::string line;
+    this->FilePolicy::init_file(input.inFile, input.reverseFile);
+    std::pair<std::string, std::string> line;
     std::atomic<unsigned long long> lineCount = 0; //using atomic<int> as thread safe read count
     std::atomic<long long int> elementsInQueue = 0;
     unsigned long long totalReadCount = FilePolicy::get_read_number();
@@ -223,3 +266,4 @@ void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::run(const input& input
 
 template class DemultiplexedLinesWriter<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromFastqFilePolicy>;
 template class DemultiplexedLinesWriter<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromTxtFilesPolicy>;
+template class DemultiplexedLinesWriter<MapEachBarcodeSequentiallyPolicyPairwise, ExtractLinesFromFastqFilePolicyPairedEnd>;
