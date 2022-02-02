@@ -141,7 +141,7 @@ class ExtractLinesFromTxtFilesPolicy
         fileStream.seekg(0);
     }
 
-    bool get_next_line(std::pair<std::string&, std::string&> line)
+    bool get_next_line(std::pair<std::string, std::string>& line)
     {   bool returnValue = true;
         if(!std::getline(fileStream, line.first))
         {
@@ -201,14 +201,20 @@ class ExtractLinesFromFastqFilePolicy
         ks = kseq_init(fp);
     }
 
-    bool get_next_line(std::pair<std::string&, std::string&> line)
+    bool get_next_line(std::pair<std::string, std::string>& line, bool reverse = false)
     {
         if(kseq_read(ks) < 0)
         {
             return false;
         }
-
-        line.first = std::string(ks->seq.s);
+        if(!reverse)
+        {
+            line.first = std::string(ks->seq.s);
+        }
+        else
+        {
+            line.second = std::string(ks->seq.s);
+        }
         return true;
     }
 
@@ -239,14 +245,10 @@ class ExtractLinesFromFastqFilePolicyPairedEnd
             rvFileManager.init_file(rvFile, "");
         }
 
-        bool get_next_line(std::pair<std::string&, std::string&> line)
+        bool get_next_line(std::pair<std::string, std::string>& line)
         {
-            std::string emptyStr = "";
-            std::pair<std::string&, std::string&> fwPair = std::pair<std::string&, std::string&>(line.first, emptyStr);
-            std::pair<std::string&, std::string&> rvPair = std::pair<std::string&, std::string&>(line.second, emptyStr);
-
-            bool fwBool = fwFileManager.get_next_line(fwPair);
-            bool rvBool = rvFileManager.get_next_line(rvPair);
+            bool fwBool = fwFileManager.get_next_line(line);
+            bool rvBool = rvFileManager.get_next_line(line, true);
             return(fwBool&&rvBool);
         }
 
