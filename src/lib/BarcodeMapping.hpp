@@ -258,7 +258,6 @@ class ExtractLinesFromFastqFilePolicyPairedEnd
 
         unsigned long long get_read_number()
         {
-            std::cout << fwFileManager.get_read_number() << " "<< rvFileManager.get_read_number();
             assert(fwFileManager.get_read_number() == rvFileManager.get_read_number());
             return(fwFileManager.get_read_number());
         }

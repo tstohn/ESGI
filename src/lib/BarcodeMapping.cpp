@@ -421,8 +421,6 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const std::string& se
     //iterate over BarcodeMappingVector
     int offset = 0;
 
-    std::cout << "WHOLE STRING: " << seq << "\n";
-
     int old_offset = offset;
     bool wildCardToFill = false;
     int wildCardLength = 0, differenceInBarcodeLength = 0;
@@ -454,15 +452,11 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const std::string& se
             return true;
         }
 
-        std::cout <<"firstpat: " << (*patternItr)->get_patterns().at(0) << "\n";
-
         //map each pattern with reverse complement
         if(!(*patternItr)->match_pattern(seq, offset, start, end, score, barcode, differenceInBarcodeLength, startCorrection, true))
         {
             return false;
         }
-
-        std::cout << "# " << barcode << "\n";
 
         //set the length difference after barcode mapping
         //for the case of insertions inside the barcode sequence set the difference explicitely to zero 
@@ -523,21 +517,9 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(DemultiplexedRead
     //check that we span the whole sequence (except constant regions)
     int patternNum = barcodePatterns->size();
 
-    for(auto el : barcodeListFw)
-    {
-        std::cout << el << " - ";
-    }
-    std::cout << "\n";
-    for(auto el : barcodeListRv)
-    {
-        std::cout << el << " - ";
-    }
-    std::cout << "\n";
-
     //if positions are next to each other just return
     if(patternNum == (barcodePositionFw + barcodePositionRv))
     {
-        std::cout << __LINE__ << "\n";
         for(std::vector<std::string>::const_reverse_iterator rvBarcodeIt = barcodeListRv.crbegin(); rvBarcodeIt != barcodeListRv.crend(); ++rvBarcodeIt)
         {
             barcodeListFw.push_back({*rvBarcodeIt});
@@ -546,17 +528,12 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(DemultiplexedRead
     //if they r overlapping, check all overlapping ones are the same
     if(patternNum < (barcodePositionFw + barcodePositionRv))
     {
-                std::cout << __LINE__ << "\n";
-
         //assert all overlapping barcodes r the same
-
-        std::cout << patternNum << " " << barcodePositionRv << " " << barcodePositionFw << "\n";
         int start = (patternNum - barcodePositionRv); // this is the idx of the first shared barcode
         int end = barcodePositionFw - 1; //this is the idnex of the last shared barcode
         int j = barcodeListRv.size() - 1;
         for(int i = start; i <= end; ++i)
         {
-            std::cout << i << " " << j << "\n";
             if(barcodeListFw.at(i) != barcodeListRv.at(j))
             {
                 ++stats.noMatches;
@@ -570,7 +547,6 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(DemultiplexedRead
         //combine them to one vector
         for(int i = missingPatternStartIdx; i >= 0; --i)
         {
-            std::cout << "adding: " << i << "\n";
             barcodeListFw.push_back(barcodeListRv.at(i));
         }
     }
@@ -578,8 +554,6 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(DemultiplexedRead
     //non-found-constant barcode
     if(patternNum > (barcodePositionFw + barcodePositionRv))
     {
-                std::cout << __LINE__ << "\n";
-
         //check if missing barcodes are only constant
         int start = barcodePositionFw; // index of first missing barcode
         int end = (patternNum - barcodePositionRv) - 1; //last idnex that can be missing

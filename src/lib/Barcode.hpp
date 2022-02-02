@@ -114,8 +114,6 @@ class ConstantBarcode : public Barcode
             subSequence = sequence;
         }
 
-        if(reverse){std::cout << "->"<< subSequence << "\n";}
-
         int endInPattern = 0; // store the number of missing bases in the pattern (in this case we might have to elongate the mapped sequence)
         // e.g.: [AGTAGT]cccc: start=0 end=6 end is first not included idx
         int startInPattern = 0;
@@ -253,8 +251,6 @@ class VariableBarcode : public Barcode
 
         std::vector<std::string> patternsToMap = patterns;
         if(reverse){patternsToMap = revCompPatterns;}
-
-        if(reverse){std::cout << "->"<< sequence.substr(offset, patterns.at(0).length()) << "\n";}
 
         for(int patternIdx = 0; patternIdx!= patternsToMap.size(); ++patternIdx)
         {
