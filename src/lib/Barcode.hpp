@@ -129,8 +129,8 @@ class ConstantBarcode : public Barcode
             int diffEnd = pattern.length()-endInPattern;
 
             //calculate possible mapping that we oversaw bcs our window has a fixed size
-            //possible extension to teh end
-            if(diffEnd != 0)
+            //if we have not mathced the whole pattern to subsequence and we can even still elongate to the end of the subsequence in the read
+            if( (diffEnd != 0) && (sequence.length() >= offset + pattern.length() + diffEnd) )
             {
                 std::string subSequenceElongated = sequence.substr(offset, pattern.length() + diffEnd);
                 if(subSequence.length() != subSequenceElongated.length() && seq_end < subSequenceElongated.length())
@@ -140,8 +140,8 @@ class ConstantBarcode : public Barcode
                 }
             }
 
-            //possible extension at the beginning
-            if(startInPattern > 0 && startCorrection)
+            //possible extension at the beginning: is only possible if before we had a wildcard
+            if(startInPattern > 0 && startCorrection && (offset >= startInPattern) )
             {
                 //we have startInPattern additional bases to check before sequence
                 std::string subSequenceElongated = sequence.substr(offset-startInPattern, pattern.length());
@@ -272,8 +272,8 @@ class VariableBarcode : public Barcode
                     seq_end = seq_end+offsetShiftValue;
                 }
                 int diffEnd = pattern.length()-endInPattern;
-
-                if(diffEnd != 0)
+                //if we have not mathced the whole pattern to subsequence and we can even still elongate to the end of the subsequence in the read
+                if( (diffEnd != 0) && (sequence.length() >= offset + pattern.length() + diffEnd) )
                 {
                     std::string subSequenceElongated = sequence.substr(offset, pattern.length() + diffEnd);
                     if(subSequence.length() != subSequenceElongated.length() && seq_end < subSequenceElongated.length())
@@ -283,9 +283,9 @@ class VariableBarcode : public Barcode
                     }
                 }
 
-                if( (startInPattern > 0) && (offset >startInPattern) && startCorrection )
+                if( (startInPattern > 0) && (offset >=startInPattern) && startCorrection )
                 {
-                    //we have startInPattern additional bases to check before sequence
+                    //we have startInPattern additional bases to check before sequence: is only possible if before we had a wildcard
                     std::string subSequenceElongated = sequence.substr(offset-startInPattern, pattern.length());
 
                     int extension = frontBarcodeMappingExtension(subSequenceElongated, usedPattern, seq_start, startInPattern);
