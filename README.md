@@ -1,4 +1,4 @@
-# Combinatorial Indexing Pipeline
+# Combinatorial Indexing Analysis Pipeline
 
 Pipeline for demultiplexing Combinatorial Indexing data of single cell Epitope measurements and generating a CELL * PROTEIN matrix.
 Any arbitrary barcode pattern can be mapped to the reads, where the pattern can include: 
@@ -9,12 +9,16 @@ Any arbitrary barcode pattern can be mapped to the reads, where the pattern can 
 
 The Pipeline can be used with a different number of allowed mismatches in each sequence of the pattern. Each sequence of the pattern is mapped sequentially to the fastq-reads using semi-global alignments with Levenshtein distance.
 Finally a UMI correction step can be performed to count UMIs within close proximity once.
+(A version for counting RNA instead of Epitopes is in development).
 
 A short overview of the Pipeline:
 ![Pipeline](https://github.com/tstohn/CombinatorialIndexingPipeline/blob/CITool/docs/media/PipelineReview.png)
 
 The repository contains a few cpp tools that can be used for demultiplexing/ protein number counting seperately.
 Otherwise you can also run the whole pipeline as a php script, which will perform demultiplexing & subsequent read counting.
+
+Input are the raw fastq(.gz) files (the pipeline supports single or paired-end reads). However a single read is recommended if you want to run the Pipeline with a predefined number of mismatches in the overlapping region (stitch e.g. with fastq-join). In single read mode one pattern after the other is sequentially mapped to the reads (e.g. first UMI pattern, then AB pattern as in image above), however in paired-end mode it might well be that the pattern in the middle can not be completely mapped in ether read (forward & reverse), in that scenario this pattern is skipped as long as it is only a Linker sequence and ehter way not of interest for the CI Analysis. This however means that we can not assure the maximum number of mismatches in this region that the tool considers.
+Output is a tsv file, with a column for the [protein], the [single cell ID], the [protein count] and dependant on the input parameters also a treatment of this cell and/or the cell origin (gRNA).
 
 
 # Overview Pipeline/ Tools:
