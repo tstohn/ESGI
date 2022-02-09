@@ -1,15 +1,35 @@
 # Combinatorial Indexing Pipeline
-Tools for fast mapping of a Barcode Pattern to fastq-reads and subsequent creation of a Cell * Gene Matrix
 
-# Important Tools:
+Pipeline for demultiplexing Combinatorial Indexing data of single cell Epitope measurements and generating a CELL * PROTEIN matrix.
+Any arbitrary barcode pattern can be mapped to the reads, where the pattern can include: 
+  - CI-barcodes
+  - any Linker sequenes between barcodes
+  - UMI sequence
+  - gRNA sequence
+
+The Pipeline can be used with a different number of allowed mismatches in each sequence of the pattern. Each sequence of the pattern is mapped sequentially to the fastq-reads using semi-global alignments with Levenshtein distance.
+Finally a UMI correction step can be performed to count UMIs within close proximity once.
+
+A short overview of the Pipeline:
+![Pipeline](https://github.com/tstohn/CombinatorialIndexingPipeline/blob/CITool/docs/media/PipelineReview.png)
+
+The repository contains a few cpp tools that can be used for demultiplexing/ protein number counting seperately.
+Otherwise you can also run the whole pipeline as a php script, which will perform demultiplexing & subsequent read counting.
+
+
+# Overview Pipeline/ Tools:
+
+After compilation of the tools you can run *php src/Pipelines/analyze.php* to run the pipeline.
+
 After compilation tools are found in *./bin*
-
-  - **PARSER**: Mapping of a Barcode Pattern to fastq-reads
-  - **PROCESSING**: Generating a Cell * Gene Matrix for those mapped reads
+  - **Demultiplexing**: Splitting the fastq-reads into tab seperated sequences. in the order of the barcode pattern
+  - **READ PROCESSING**: Generating a Cell * Gene Matrix for the mapped reads
+   
   
 # Get started:
 
   `make install`  
-  `make parser`  
-  `make processing`  
- - Have a look in the Makefile for how to use tool
+  `make demultiplexing`  
+  `make processing` 
+  
+ - run *php src/Pipelines/analyze.php --help* to get started
