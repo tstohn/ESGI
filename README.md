@@ -35,8 +35,24 @@ After compilation tools are found in *./bin*
   
 # Get started:
 
-  `make install`  
-  `make demultiplexing`  
-  `make processing` 
+Firstly install necessary dependancies and build tools:
+```bash
+  make install
+  make demultiplexing
+  make processing
+```
   
- - run *php src/Pipelines/analyze.php --help* to get started
+ For help how to run the pipeline run:
+ ```bash
+ php src/Pipelines/analyze.php --help
+ ```
+
+# Example
+
+The Barcode File might look like this:
+
+```
+AGCTTAGC,ACGTTAAT,ATGCATGC
+ACGTTAGC,ACTGCGAT,ACTGGATA
+ACGT,ACTG
+```
