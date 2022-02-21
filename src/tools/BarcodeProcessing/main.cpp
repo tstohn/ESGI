@@ -27,7 +27,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
     {
         options_description desc("Options");
         desc.add_options()
-            ("input,i", value<std::string>(&inFile)->required(), "input file of demultiplexed reads for ABs in Single cells in tsv format")
+            ("input,i", value<std::string>(&inFile)->required(), "input file of demultiplexed reads for ABs in Single cells in tsv.gz format (input must be gzipped)")
             ("output,o", value<std::string>(&outFile)->required(), "output file with all split barcodes")
 
             ("barcodeList,b", value<std::string>(&(barcodeFile)), "file with a list of all allowed well barcodes (comma seperated barcodes across several rows)\
