@@ -32,16 +32,16 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
 
             ("barcodeList,b", value<std::string>(&(barcodeFile)), "file with a list of all allowed well barcodes (comma seperated barcodes across several rows)\
             the row refers to the correponding bracket enclosed sequence substring. E.g. for two bracket enclosed substrings in out sequence a possible list could be:\
-            AGCTTCGAG,ACGTTCAGG\nACGTCTAGACT,ATCGGCATACG,ATCGCGATC,ATCGCGCATAC. This can be the same list as it was for FastqParser. Do not inlcude the barcodes for the\
+            AGCTTCGAG,ACGTTCAGG\nACGTCTAGACT,ATCGGCATACG,ATCGCGATC,ATCGCGCATAC. This can be the same list as it was for FastqParser. Do not include the barcodes for the\
             guide reads here; add them as two seperate files guide reads are present.")
             ("antibodyList,a", value<std::string>(&(abFile)), "file with a list of all antbodies used, should be in same order as the ab-barcodes in the barcodeList.")
             ("antibodyIndex,x", value<int>(&abIdx), "Index used for antibody distinction.")
             ("groupList,g", value<std::string>(&(treatmentFile)), "file with a list of all groups (e.g.treatments) used, should be in same order as the specific arcodes in the barcodeList. \
-            If tis argument is given, you must also add the index of barcodes used for grouping")
+            If this argument is given, you must also add the index of barcodes used for grouping")
             ("GroupingIndex,y", value<int>(&treatmentIdx), "Index used to group cells(e.g. by treatment). This is the x-th barcode from the barcodeFile (0 indexed).")
 
-            ("classSeq,s", value<std::string>(&(classSeqFile)), "file with the sequences that define origin of cells (e.g. sgRNA seauences along the experiment)")
-            ("className,n", value<std::string>(&(classNameFile)), "file with names to replace the seuqence of origin")
+            ("classSeq,s", value<std::string>(&(classSeqFile)), "file with the sequences that define origin of cells (e.g. sgRNA sequences along the experiment)")
+            ("className,n", value<std::string>(&(classNameFile)), "file with names to replace the sequence of origin")
 
             ("CombinatorialIndexingBarcodeIndices,c", value<std::string>(&(barcodeIndices))->required(), "comma seperated list of indexes, that are used during \
             combinatorial indexing and should distinguish a unique cell. Be aware that this is the index of the line inside the barcodeList file (see above). \
@@ -233,9 +233,12 @@ int main(int argc, char** argv)
     std::string classSeqFile;
     std::string classNameFile;
 
-    parse_arguments(argv, argc, inFile, outFile, thread, barcodeFile, barcodeIndices, 
+    if(!parse_arguments(argv, argc, inFile, outFile, thread, barcodeFile, barcodeIndices, 
                     umiMismatches, abFile, abIdx, treatmentFile, treatmentIdx,
-                    classSeqFile, classNameFile);
+                    classSeqFile, classNameFile))
+    {
+        exit(EXIT_FAILURE);
+    }
     
     //generate the dictionary of barcode alternatives to idx
     NBarcodeInformation barcodeIdData;
