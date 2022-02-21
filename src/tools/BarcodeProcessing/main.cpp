@@ -35,12 +35,12 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             AGCTTCGAG,ACGTTCAGG\nACGTCTAGACT,ATCGGCATACG,ATCGCGATC,ATCGCGCATAC. This can be the same list as it was for FastqParser. Do not include the barcodes for the\
             guide reads here; add them as two seperate files guide reads are present.")
             ("antibodyList,a", value<std::string>(&(abFile)), "file with a list of all antbodies used, should be in same order as the ab-barcodes in the barcodeList.")
-            ("antibodyIndex,x", value<int>(&abIdx), "Index used for antibody distinction.")
-            ("groupList,g", value<std::string>(&(treatmentFile)), "file with a list of all groups (e.g.treatments) used, should be in same order as the specific arcodes in the barcodeList. \
+            ("antibodyIndex,x", value<int>(&abIdx), "Index used for antibody distinction. This is the x-th barcode from the barcodeFile (0 indexed)")
+            ("groupList,d", value<std::string>(&(treatmentFile)), "file with a list of all groups (e.g.treatments) used, should be in same order as the specific arcodes in the barcodeList. \
             If this argument is given, you must also add the index of barcodes used for grouping")
             ("GroupingIndex,y", value<int>(&treatmentIdx), "Index used to group cells(e.g. by treatment). This is the x-th barcode from the barcodeFile (0 indexed).")
 
-            ("classSeq,s", value<std::string>(&(classSeqFile)), "file with the sequences that define origin of cells (e.g. sgRNA sequences along the experiment)")
+            ("classSeq,g", value<std::string>(&(classSeqFile)), "file with the sequences that define origin of cells (e.g. sgRNA sequences along the experiment)")
             ("className,n", value<std::string>(&(classNameFile)), "file with names to replace the sequence of origin")
 
             ("CombinatorialIndexingBarcodeIndices,c", value<std::string>(&(barcodeIndices))->required(), "comma seperated list of indexes, that are used during \

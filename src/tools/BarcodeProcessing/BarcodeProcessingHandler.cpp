@@ -103,11 +103,10 @@ void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, N
 
     proteinDict = barcodeList.at(protIdx);
 
-    if(treatmentDict != nullptr)
+    if(!treatmentDict->empty())
     {
         *treatmentDict = barcodeList.at(treatmentIdx);
     }
-
 }
 
 void BarcodeProcessingHandler::generate_unique_sc_to_class_dict(const std::unordered_map< const char*, 
