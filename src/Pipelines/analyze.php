@@ -55,9 +55,10 @@ $shortopts .= "t:"; //number of threads maximally used for tools
 //Index (starting at zero) defines the x-th line in barcode file, or x-th 'NNN...' pattern
 $shortopts .= "c:"; //list of indexes used for defining a single cell.
 $shortopts .= "a:"; //list of AB names, in order of the barcodes in barcode file (to map barcode to AB name)
-$shortopts .= "x:"; //index for AB
+$shortopts .= "x:"; //index for AB (within barcodefile)
 $shortopts .= "d:"; //list of treatment names (e.g. treatments: can be a CI-round, gRNA), in order of the barcodes in barcode file
-$shortopts .= "y:"; //index for treatment
+$shortopts .= "y:"; //index for treatment (within barcodefile)
+$shortopts .= "n:"; //list of name to map guide barcodes to a name (e.g. cell line name)
 
 $longopts = array("help");
 
@@ -88,13 +89,14 @@ if(array_key_exists("help", $options))
     -c list of indices: the indices of the mapping pattern (starting at 0) used as CI-barcodes to define a single cell,
     
     -a list of AB names: names of the ABs, in the same order as their barcodes in file '-b' to map barcode to AB names
-    -x index defining the AB
+    -x index defining the AB (index for the line within barcodefile that contains the AB barcodes (0-indexed))
     
     -d list of treatment names: names of treatments in same order as the barcodes in '-b' file to map cells to a treatment (e.b. in barcoding round 1
        cells from certain wells were treated with a drug, this barcoding round is added by parameter '-y')
-    -y the index defining the treatment
+    -y the index defining the treatment (index for the line within barcodefile that contains the 'treatment' barcodes 
+       (mostly this is a CI-round barcode where treatment was performed in this round) (0-indexed))
 
-
+    -n list of names for the guide barcodes (e.g. names of the cell lines/ knock outs). Must be in same order as the guide barcodes.
 
     #NON MANDATORY PARAMTERS
     -m mismatches per patter (default = 1)
@@ -120,7 +122,7 @@ if($options['g']!=NULL && $options['x']==NULL)
     fwrite(STDERR, "If (also) guide barcodes ar mapped, provide also the index in the pattern, where the guide barcodes can occur. -x is missing!\n");
     exit(1);
 }
-if($options['a']!=NULL && !$options['x']==NULL)
+if($options['a']!=NULL && $options['x']==NULL)
 {
     fwrite(STDERR, "If you want to map AB barcodes to AB names, provide also the idnex of the AB: -x missing!\n");
     exit(1);
@@ -154,7 +156,8 @@ if($options['m']!=NULL)
         }
 
         //write the umi mismatch seperately
-        $options['u'] = $index;
+        $allowedMM = explode(",",$options['m']);
+        $options['u'] = $allowedMM[$index];
     }
 }
 
@@ -194,7 +197,6 @@ mkdir($tmpFolder, 0777, true);
 
 //add guide barcodes to barcodeFile
 $guideBarcodeFile = $tmpFolder . "/barcodeFile.tsv";
-print($guideBarcodeFile);
 if($options['g']!=NULL)
 {    
     fwrite($logfileHandle, "Adding the guide barcodes to the barcode file (attach barcodes to the line of AB barcodes).\n");
@@ -218,7 +220,7 @@ if($options['g']!=NULL)
 }
 
 $command = "./bin/demultiplexing";
-$parameters = ['i', 'r', 'p', 'b', 'm', 't'];
+$parameters = ['i', 'r', 'p', 'm', 't'];
 foreach($parameters as $element)
 {
     if($options[$element]!=NULL)
@@ -226,7 +228,8 @@ foreach($parameters as $element)
         $command = $command . " -" . $element . " " . $options[$element];
     }
 }
-
+//add barcode file with additional guide barcodes
+$command = $command . " -b " . $guideBarcodeFile;
 //add output folder
 $command = $command . " -o " . $options['o'] . "/Demultiplexing.tsv";
 fwrite($logfileHandle, "#RUNNING COMMAND: ".$command."\n");
@@ -259,8 +262,9 @@ foreach($parameters as $element)
         $command = $command . " -" . $element . " " . $options[$element];
     }
 }
-//set new input file = output of Demultiplexing
+//set new input file = output of Demultiplexing and output file
 $command = $command . " -i " . $outputDemultiplexing . ".gz";
+$command = $command . " -o " . $options['o'] . "/Processing.tsv";
 
 //TODO: add output file manually
 fwrite($logfileHandle, "#RUNNING COMMAND: ".$command."\n");
@@ -277,6 +281,6 @@ fwrite($logfileHandle, "-> DONE\n");
 // clean analysiss
 ######################################
 
-clean($tmpFolder, $logfileHandle);
+//clean($tmpFolder, $logfileHandle);
 
 ?>
