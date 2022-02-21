@@ -205,6 +205,11 @@ class ExtractLinesFromFastqFilePolicy
     {
         if(kseq_read(ks) < 0)
         {
+            if(strlen(ks->seq.s) != strlen(ks->qual.s))
+            {
+                std::cout << "Warning: base quality and read are of different length!\n";
+                return(true);
+            }
             return false;
         }
         if(!reverse)
