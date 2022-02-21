@@ -6,8 +6,8 @@ install:
 
 #parse fastq lines and map abrcodes to each sequence
 parser:
-	g++ -c src/lib/mapping.cpp -I ./Tools/ -I ./src/lib -I src/Tools/AbFastqParser --std=c++17
-	g++ -c src/Tools/AbFastqParser/FastqParser.cpp -I ./Tools/ -I ./src/lib -I src/Tools/AbFastqParser --std=c++17
+	g++ -c src/lib/mapping.cpp -I ./Tools/ -I ./src/lib -I ./include -I src/Tools/AbFastqParser --std=c++17
+	g++ -c src/Tools/AbFastqParser/FastqParser.cpp -I ./Tools/ -I ./src/lib -I ./include -I src/Tools/AbFastqParser --std=c++17
 	g++ FastqParser.o mapping.o -o ./bin/parser -lpthread -lz -lboost_program_options -lboost_iostreams
 
 qualityControl:
