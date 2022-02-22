@@ -280,7 +280,6 @@ fwrite($logfileHandle, "-> DONE\n");
 ######################################
 // clean analysiss
 ######################################
-
-//clean($tmpFolder, $logfileHandle);
+clean($tmpFolder, $logfileHandle);
 
 ?>
