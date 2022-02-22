@@ -78,6 +78,7 @@ testProcessing:
 	(head -n 1 ./bin/UMIprocessed_out.tsv && tail -n +2 ./bin/UMIprocessed_out.tsv | LC_ALL=c sort) > ./bin/sortedUMIprocessed_out.tsv
 	diff ./bin/sortedUMIprocessed_out.tsv ./src/test/test_data/UMIprocessed_out_editTest.tsv
 
+#testing the whole analysis pipeline to smoothly run through with a few additional test scenarios
 testAnalysis:
 #a basic test from mostly already existing files, just to check tool runs through
 	php ./src/Pipelines/analyze.php -a ./src/test/test_data/antibody_3.txt -i ./src/test/test_data/inFastqTest_2.fastq -o ./bin/AnalysisTestOutput -p [NNNN][ATCAGTCAACAGATAAGCGA][NNNN][XXX][GATCAT] -m 1,4,1,0,2 -t 1 -b ./src/test/test_data/barcodeFile.txt -g ./src/test/test_data/guideTest_class_seqs.txt -n ./src/test/test_data/guideTest_class_names.txt -x 1 -c 0 
