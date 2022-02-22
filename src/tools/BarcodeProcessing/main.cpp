@@ -225,7 +225,7 @@ int main(int argc, char** argv)
     std::string abFile; 
     int abIdx;
     std::string treatmentFile;
-    int treatmentIdx;
+    int treatmentIdx = INT_MAX;
     std::vector<std::string> abBarcodes;
     std::vector<std::string> treatmentBarcodes;
 

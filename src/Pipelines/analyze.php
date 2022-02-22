@@ -254,7 +254,7 @@ if($mapRNA)
 ######################################
 
 $command = "./bin/processing ";
-$parameters = ['b', 'c', 'u', 't', 'a', 'x', 'd', 'y'];
+$parameters = ['b', 'c', 'u', 't', 'a', 'x', 'd', 'y', 'g', 'n'];
 foreach($parameters as $element)
 {
     if($options[$element]!=NULL)

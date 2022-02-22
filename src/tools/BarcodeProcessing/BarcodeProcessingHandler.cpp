@@ -103,7 +103,7 @@ void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, N
 
     proteinDict = barcodeList.at(protIdx);
 
-    if(!treatmentDict->empty())
+    if(treatmentIdx!=INT_MAX)
     {
         *treatmentDict = barcodeList.at(treatmentIdx);
     }
