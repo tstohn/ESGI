@@ -11,6 +11,9 @@ using namespace boost::program_options;
  * case the barcodeList should still ONLY contain the AB barcodes.
  * 
  * Output is a file with AB counts for all found single cells.
+ * The UmiProcessing file contains the counts for each UMI that is in the end considered for the AB counts.
+ * This is so to speak the number of PCR duplicates that we have for each single count of an AB within a single cell
+ * This means guide reads are neglected, as well are all reads neglected that are filtered out during the processing (e.g. bcs of non unique UMI in reads, etc.)
  * 
  * Algorithm does following:
  * 1.) If guides are present, map each single cell to their guide, the guide must be unique for a single cell for >= 90% of the guide reads

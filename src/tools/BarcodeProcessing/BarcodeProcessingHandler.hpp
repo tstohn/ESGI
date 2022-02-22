@@ -271,8 +271,8 @@ class BarcodeProcessingHandler
         
         //check if a read is in 'dataLinesToDelete' (not-unique UMI for this read)
         bool checkIfLineIsDeleted(const dataLinePtr& line, const std::vector<dataLinePtr>& dataLinesToDelete);
-        //write all reads which come from a not-unique UMI into 'dataLinesToDelete' vector
-        //these lines are later not considered when the AB-count per single cell is calculated
+        //stores a real unique read in a dict for the corresponding AB-SC (only read with UMI presence > 90 considered)
+        //reads r collapsed
         void markReadsWithNoUniqueUmi(const std::vector<umiDataLinePtr>& uniqueUmis,
                                       std::atomic<unsigned long long>& count,
                                       const unsigned long long& totalCount);
@@ -286,8 +286,8 @@ class BarcodeProcessingHandler
                                                    const std::vector<dataLinePtr>& allScAbCounts,
                                                    const int& umiMismatches,
                                                    const int& lastIdx);
-        //count the ABs per single cell (iterating over reads for a AB-SC combination and summing them)
-        //(not considering not-unique UMIs in 'dataLinesToDelete' vector, collapsing UMIs,etc.)
+        //count the ABs per single cell (iterating over reads for a AB-SC combination and summing them, this is already a sparse vector)
+        //reads of same UMI are collapsed before
         void count_abs_per_single_cell(const int& umiMismatches, const std::vector<dataLinePtr>& uniqueAbSc,
                                                         std::atomic<unsigned long long>& count,
                                                         const unsigned long long& totalCount,

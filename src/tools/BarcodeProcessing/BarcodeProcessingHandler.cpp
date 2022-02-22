@@ -333,6 +333,8 @@ void BarcodeProcessingHandler::getBarcodePositions(const std::string& line, int&
     assert(abIdx != INT_MAX);
 }
 
+//all reads of the same UMI are combined -> written to a dict for an AB of a unique cell (this read is stored only once, there can already be seen
+//as a UMI collapsing step)
 void BarcodeProcessingHandler::markReadsWithNoUniqueUmi(const std::vector<umiDataLinePtr>& uniqueUmis,
                                                         std::atomic<unsigned long long>& count,
                                                         const unsigned long long& totalCount)
@@ -398,6 +400,7 @@ void BarcodeProcessingHandler::markReadsWithNoUniqueUmi(const std::vector<umiDat
                     rawData.add_to_scAbDict(uniqueUmis.at(i), readsToKeep, className);
                     writeToRawDataLock.unlock();
 
+                    //ONLY the first encountered real read with unique UMI (>90%) is written into dict
                     break;
             }
         }
@@ -502,6 +505,7 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
                 ++abLineTmp.abCount;
                 umiLineTmp.abCount += lastAbSc->umiCount; 
                 umiLineTmp.umi = lastAbSc->umiSeq;
+
                 result.add_umi_count(umiLineTmp);
                 scAbCounts.pop_back();
                 break;
@@ -511,7 +515,6 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
             std::vector<int> deletePositions;
             umiLineTmp.abCount += lastAbSc->umiCount; //count the first occurence
             //count all occurences of the last UMI for this AB-SC
-
             count_umi_occurence(deletePositions, umiLineTmp, scAbCounts, umiMismatches, lastIdx);
             deletePositions.push_back(lastIdx);
 
@@ -520,6 +523,7 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
             {
                 umiLineTmp.umi = lastAbSc->umiSeq;
                 result.add_umi_count(umiLineTmp);
+                umiLineTmp.abCount = 0; //reset the count for this umi, all other variables stay the same (Ab name, cellID, etc...)
             }
 
             //delte all same UMIs
