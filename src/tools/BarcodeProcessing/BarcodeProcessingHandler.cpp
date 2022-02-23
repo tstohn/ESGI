@@ -341,6 +341,8 @@ void BarcodeProcessingHandler::markReadsWithNoUniqueUmi(const std::vector<umiDat
 {
     //count how often we see which AB-SC combinations for this certain UMI
     std::unordered_map<std::string, unsigned long long> umiCountMap;
+    std::unordered_map<std::string, umiDataLinePtr> umiReadMap; //mapping the unique ID to the first occuring actual read
+
     unsigned long long totalReadCount = uniqueUmis.size();
     for(unsigned long long i = 0; i < uniqueUmis.size(); ++i)
     {
@@ -353,55 +355,55 @@ void BarcodeProcessingHandler::markReadsWithNoUniqueUmi(const std::vector<umiDat
         else
         {
             umiCountMap.insert(std::make_pair(uniqueID, 1));
+            umiReadMap.insert(std::make_pair(uniqueID, uniqueUmis.at(i)));
         }
     }
-
     //check there is a single cell + AB combination representing more than 90% of the UMI reads
-    std::string realSingleCellID;
+    std::vector<std::string> realSingleCellIDVec;
     bool realSingleCellExists = false;
-    unsigned long long readsToKeep = 0;
     for(auto singleCellCountPair : umiCountMap)
     {
         double singleCellPerc = (double)singleCellCountPair.second/totalReadCount;
-        if( singleCellPerc >= 0.9 )
+        if( singleCellPerc >= umiFilterThreshold) //default = 0.9
         {
-            realSingleCellID = singleCellCountPair.first;
+            realSingleCellIDVec.push_back(singleCellCountPair.first);
             realSingleCellExists = true;
-            readsToKeep = singleCellCountPair.second;
-            break;
+            if(umiFilterThreshold>0.5){break;} //in this case we have only one entry in the vector
         }
     }
-
     //Collapse UMIs, remove false reads, map a single cell class name to single cells
     unsigned long long readsWithNoClass = 0;
+    unsigned long long readsToKeep = 0;
     if(realSingleCellExists)
     {
         //delete only the <=10% 'false' reads
-        for(int i = 0; i < uniqueUmis.size(); ++i)
+        for(auto it = umiReadMap.begin(); it != umiReadMap.end(); it++)
         {
-            std::string uniqueID = std::string(uniqueUmis.at(i)->scID) + std::string(uniqueUmis.at(i)->abName);
-            if(uniqueID == realSingleCellID)      //add to new DIct
+            std::string uniqueID = it->first;
+            if(std::find(realSingleCellIDVec.begin(), realSingleCellIDVec.end(), uniqueID) != realSingleCellIDVec.end())//add to new DIct
             {
-
                     const char* className = nullptr;
                     if(rawData.check_class())
                     {
-                        className = rawData.get_sc_class_name(uniqueUmis.at(i)->scID);
+                        className = rawData.get_sc_class_name(it->second->scID);
                         if(className == nullptr)
                         {
                             //single cell has no class name
-                            readsWithNoClass = readsToKeep;
-                            break;
+                            readsWithNoClass += umiCountMap.at(uniqueID);
+                            if(umiFilterThreshold>0.5){break;}
+                            else{continue;}
                         }
                     }
 
                     //add ABSc dataLine
                     writeToRawDataLock.lock(); //maybe better lock inside the rawData (keep in mind)
-                    rawData.add_to_scAbDict(uniqueUmis.at(i), readsToKeep, className);
+                    rawData.add_to_scAbDict(it->second, umiCountMap.at(uniqueID), className);
                     writeToRawDataLock.unlock();
 
+                    readsToKeep += umiCountMap.at(uniqueID);
+
                     //ONLY the first encountered real read with unique UMI (>90%) is written into dict
-                    break;
+                    if(umiFilterThreshold>0.5){break;}
             }
         }
         if(readsWithNoClass > 0)
@@ -409,8 +411,7 @@ void BarcodeProcessingHandler::markReadsWithNoUniqueUmi(const std::vector<umiDat
             result.add_removed_reads_class(readsWithNoClass);
         }
     }
-
-    result.add_removed_reads_umi(totalReadCount - readsToKeep);
+    result.add_removed_reads_umi(totalReadCount - (readsToKeep + readsWithNoClass) );
 
     if( (totalCount >= 100) && (count % (totalCount / 100) == 0) )
     {

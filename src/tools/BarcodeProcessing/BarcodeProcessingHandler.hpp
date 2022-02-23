@@ -253,11 +253,14 @@ class BarcodeProcessingHandler
         {
             return(umiIdx);
         }
-                const int getTreatmentIdx() const
+        const int getTreatmentIdx() const
         {
             return(treatmentIdx);
         }
-
+        void setUmiFilterThreshold(double threshold)
+        {
+            umiFilterThreshold = threshold;
+        }
 
     private:
 
@@ -326,4 +329,6 @@ class BarcodeProcessingHandler
         int umiIdx = INT_MAX;
         int treatmentIdx = INT_MAX;
         int umiLength = 0;
+
+        double umiFilterThreshold = 0.9;
 };

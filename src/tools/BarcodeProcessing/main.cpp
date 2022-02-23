@@ -24,7 +24,7 @@ using namespace boost::program_options;
 bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& outFile, int& threats, 
                      std::string& barcodeFile, std::string& barcodeIndices, int& umiMismatches,
                      std::string& abFile, int& abIdx, std::string& treatmentFile, int& treatmentIdx,
-                     std::string& classSeqFile, std::string& classNameFile)
+                     std::string& classSeqFile, std::string& classNameFile, double& umiThreshold)
 {
     try
     {
@@ -54,6 +54,9 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             ("mismatches,u", value<int>(&umiMismatches)->default_value(2), "number of allowed mismatches in a UMI. The nucleotides in the beginning and end do NOT count.\
             Since the UMI is defined as the sequence between the last and first match of neighboring sequences, bases of mismatches could be in the beginning/ end.")
             ("thread,t", value<int>(&threats)->default_value(5), "number of threads")
+            ("umiThreshold,f", value<double>(&umiThreshold)->default_value(0.9), "threshold for filtering UMIs. E.g. if set to 0.9 we only retain reads of a UMI, if more \
+            than 90percent of them have the same UMI. All other reads are deleted.")
+
             ("help,h", "help message");
 
         variables_map vm;
@@ -223,6 +226,7 @@ int main(int argc, char** argv)
     std::string barcodeIndices;
     int thread;
     int umiMismatches;
+    double umiThreshold = -1;
 
     //data for protein(ab) and treatment information
     std::string abFile; 
@@ -238,7 +242,7 @@ int main(int argc, char** argv)
 
     if(!parse_arguments(argv, argc, inFile, outFile, thread, barcodeFile, barcodeIndices, 
                     umiMismatches, abFile, abIdx, treatmentFile, treatmentIdx,
-                    classSeqFile, classNameFile))
+                    classSeqFile, classNameFile, umiThreshold))
     {
         exit(EXIT_FAILURE);
     }
@@ -247,6 +251,7 @@ int main(int argc, char** argv)
     NBarcodeInformation barcodeIdData;
     generateBarcodeDicts(barcodeFile, barcodeIndices, barcodeIdData, abBarcodes, abIdx, &treatmentBarcodes, treatmentIdx);
     BarcodeProcessingHandler dataParser(barcodeIdData);
+    if(umiThreshold != -1){dataParser.setUmiFilterThreshold(umiThreshold);}
 
     //generate dictionaries to map sequences to the real names of Protein/ treatment/ etc...
     if(!abFile.empty())
