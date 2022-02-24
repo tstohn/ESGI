@@ -261,6 +261,10 @@ class BarcodeProcessingHandler
         {
             umiFilterThreshold = threshold;
         }
+        void setScClassConstaint(bool scMustHaveClass)
+        {
+            scMustHaveClass = scMustHaveClass;
+        }
 
     private:
 
@@ -332,4 +336,5 @@ class BarcodeProcessingHandler
         int umiLength = 0;
 
         double umiFilterThreshold = 0.0;
+        bool scMustHaveClass = true;
 };

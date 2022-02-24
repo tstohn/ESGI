@@ -390,12 +390,16 @@ void BarcodeProcessingHandler::markReadsWithNoUniqueUmi(const std::vector<umiDat
                     if(rawData.check_class())
                     {
                         className = rawData.get_sc_class_name(it->second->scID);
-                        if(className == nullptr)
+                        if(className == nullptr && scMustHaveClass)
                         {
                             //single cell has no class name
                             readsWithNoClass += umiCountMap.at(uniqueID);
                             if(umiFilterThreshold>0.5){break;}
                             else{continue;}
+                        }
+                        else if(className == nullptr && !scMustHaveClass)
+                        {
+                            className = "wildtype";
                         }
                     }
 
