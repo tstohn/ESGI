@@ -3,6 +3,7 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <set>
+#include <cstdlib>
 
 double calcualtePercentages(std::vector<unsigned long long> groups, int num, double perc)
 {
@@ -500,8 +501,13 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
 
             dataLinePtr lastAbSc = scAbCounts.back();
             int lastIdx = scAbCounts.size() - 1;
-            //check if we have to delete element anyways, since it is not a unique UMI
-            //in this case we simply delete this line and check the next one
+
+            //check if we have to delete element anyways, bcs umi is too long
+            if( std::abs(int( strlen(lastAbSc->umiSeq) - umiLength )) >  umiMismatches)
+            {
+                scAbCounts.pop_back();
+                continue;
+            }
 
             //if in last element
             if(scAbCounts.size() == 1)
@@ -683,7 +689,7 @@ void BarcodeProcessingHandler::writeAbCountsPerSc(const std::string& output)
     bool writeClassLabels = rawData.check_class();
     if(writeClassLabels)
     {
-        outputFile << "AB_BARCODE" << "\t" << "SingleCell_BARCODE" << "\t" << "AB_COUNT" << "\t" << "TREATMENT" << "\t" << "CLASS" << "\n"; 
+        outputFile << "AB_BARCODE" << "\t" << "SingleCell_BARCODE" << "\t" << "AB_COUNT" << "\t" << "TREATMENT" << "\t" << "CLASS" << "\t" << "CLASS_COUNT" <<"\n"; 
     }
     else
     {
@@ -694,7 +700,7 @@ void BarcodeProcessingHandler::writeAbCountsPerSc(const std::string& output)
     {
         if(writeClassLabels)
         {
-                outputFile << line.abName << "\t" << line.scID << "\t" << line.abCount << "\t" << line.treatment << "\t" << line.className << "\n"; 
+                outputFile << line.abName << "\t" << line.scID << "\t" << line.abCount << "\t" << line.treatment << "\t" << line.className << "\t" << guideCountPerSC.at(line.scID) << "\n"; 
         }
         else
         {

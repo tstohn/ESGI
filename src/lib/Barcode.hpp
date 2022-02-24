@@ -263,7 +263,6 @@ class VariableBarcode : public Barcode
             seq_end = 0;
             int endInPattern = 0; // store the number of missing bases in the pattern (in this case we might have to elongate the mapped sequence)
             int startInPattern = 0;
-
             if(levenshtein(subSequence, usedPattern, mismatches, seq_start, seq_end, score, endInPattern, startInPattern))
             {
                 if(offsetShiftBool)
@@ -308,7 +307,6 @@ class VariableBarcode : public Barcode
 
             }
         }
-
         //compare all results for different patterns
         if(match_count == 0)
         {
@@ -321,12 +319,6 @@ class VariableBarcode : public Barcode
             seq_end = best_end;
             score = best_score;
 
-            if(offsetShiftBool)
-            {
-                seq_start = seq_start-mismatches;
-                seq_end = seq_end-mismatches;
-            }
-
             ++numberOfSameScoreResults;
             return false;
         }
@@ -336,13 +328,7 @@ class VariableBarcode : public Barcode
             seq_end = best_end;
             score = best_score;
 
-            if(offsetShiftBool)
-            {
-                seq_start = seq_start-mismatches;
-                seq_end = seq_end-mismatches;
-            }
             numberOfSameScoreResults = 0;
-
             return true;
         }
     }

@@ -98,8 +98,10 @@ class UnprocessedDemultiplexedData
         //this fucntion stores the guide reads in a map, mapping scIds to the occurence of the different class labels
         void add_tmp_class_line(std::string& className, std::string& scId,
                     std::unordered_map< const char*, std::unordered_map< const char*, UnorderedSetCharPtr>>& scClasseCountDict,
-                    const char* umi)
+                    const char* tmpUmi)
         {
+            const char* uniqueUmi = uniqueChars->getUniqueChar(tmpUmi); //adding the temporary char* of the parsed line into our unique char dict
+
             const char* scCharPtr = uniqueChars->getUniqueChar(scId.c_str());
             const char* nameCharPtr = uniqueChars->getUniqueChar(className.c_str());
 
@@ -108,7 +110,7 @@ class UnprocessedDemultiplexedData
             {
                 std::unordered_map<const char*, UnorderedSetCharPtr> map;
                 UnorderedSetCharPtr set;
-                set.insert(umi);
+                set.insert(uniqueUmi);
                 map.insert(std::make_pair(nameCharPtr, set));
                 scClasseCountDict.insert(std::make_pair(scCharPtr, map));
             }
@@ -120,12 +122,12 @@ class UnprocessedDemultiplexedData
                 {
                     std::unordered_map<const char*, UnorderedSetCharPtr> map;
                     UnorderedSetCharPtr set;
-                    set.insert(umi);
+                    set.insert(uniqueUmi);
                     scClasseCountDict.at(scCharPtr).insert(std::make_pair(nameCharPtr, set));
                 }
                 else
                 {
-                    (scClasseCountDict.at(scCharPtr).at(nameCharPtr)).insert(umi);
+                    (scClasseCountDict.at(scCharPtr).at(nameCharPtr)).insert(uniqueUmi);
                 }
             }
         }
