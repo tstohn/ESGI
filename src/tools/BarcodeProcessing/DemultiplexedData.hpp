@@ -97,7 +97,8 @@ class UnprocessedDemultiplexedData
         }
         //this fucntion stores the guide reads in a map, mapping scIds to the occurence of the different class labels
         void add_tmp_class_line(std::string& className, std::string& scId,
-                    std::unordered_map< const char*, std::unordered_map< const char*, unsigned long long>>& scClasseCountDict)
+                    std::unordered_map< const char*, std::unordered_map< const char*, UnorderedSetCharPtr>>& scClasseCountDict,
+                    const char* umi)
         {
             const char* scCharPtr = uniqueChars->getUniqueChar(scId.c_str());
             const char* nameCharPtr = uniqueChars->getUniqueChar(className.c_str());
@@ -105,21 +106,26 @@ class UnprocessedDemultiplexedData
             //increase the count of this class for the specific cell
             if(scClasseCountDict.find(scCharPtr) == scClasseCountDict.end())
             {
-                std::unordered_map<const char*, unsigned long long> map;
-                map.insert(std::make_pair(nameCharPtr, 1));
+                std::unordered_map<const char*, UnorderedSetCharPtr> map;
+                UnorderedSetCharPtr set;
+                set.insert(umi);
+                map.insert(std::make_pair(nameCharPtr, set));
                 scClasseCountDict.insert(std::make_pair(scCharPtr, map));
             }
             //if not add this new umi with this actual position to map
             else
             {
-                std::unordered_map<const char*, unsigned long long> innerMap = scClasseCountDict.at(scCharPtr);
+                std::unordered_map<const char*, UnorderedSetCharPtr> innerMap = scClasseCountDict.at(scCharPtr);
                 if(innerMap.find(nameCharPtr) == innerMap.end())
                 {
-                    scClasseCountDict.at(scCharPtr).insert(std::make_pair(nameCharPtr, 1));
+                    std::unordered_map<const char*, UnorderedSetCharPtr> map;
+                    UnorderedSetCharPtr set;
+                    set.insert(umi);
+                    scClasseCountDict.at(scCharPtr).insert(std::make_pair(nameCharPtr, set));
                 }
                 else
                 {
-                    ++(scClasseCountDict.at(scCharPtr).at(nameCharPtr));
+                    (scClasseCountDict.at(scCharPtr).at(nameCharPtr)).insert(umi);
                 }
             }
         }

@@ -267,10 +267,10 @@ class BarcodeProcessingHandler
         //parse the file, store each line in UnprocessedDemultiplexedData structure (ABs, treatment is already stored as a name,
         // single cells are defined by a dot seperated list of indices)
         void add_line_to_temporary_data(const std::string& line, const int& elements,
-                                        std::unordered_map< const char*, std::unordered_map< const char*, unsigned long long>>& scClasseCountDict,
+                                        std::unordered_map< const char*, std::unordered_map< const char*, UnorderedSetCharPtr>>& scClasseCountDict,
                                         unsigned long long& abReadCount, unsigned long long& guideReadCount);
         void parseBarcodeLines(std::istream* instream, const unsigned long long& totalReads, unsigned long long& currentReads,
-                               std::unordered_map< const char*, std::unordered_map< const char*, unsigned long long>>& scClasseCountDict);
+                               std::unordered_map< const char*, std::unordered_map< const char*, UnorderedSetCharPtr>>& scClasseCountDict);
         
         //check if a read is in 'dataLinesToDelete' (not-unique UMI for this read)
         bool checkIfLineIsDeleted(const dataLinePtr& line, const std::vector<dataLinePtr>& dataLinesToDelete);
@@ -305,7 +305,7 @@ class BarcodeProcessingHandler
 
         //functions processing the class labels for single cells (obtained by guide reads)
         void generate_unique_sc_to_class_dict(const std::unordered_map< const char*, 
-                                              std::unordered_map< const char*, unsigned long long>>& scClasseCountDict);
+                                              std::unordered_map< const char*, UnorderedSetCharPtr>>& scClasseCountDict);
 
         void combine_ab_and_guide_data(std::vector<dataLine>& abDataLines,
                                        const std::unordered_map< const char*, const char*>& scClassMap);
@@ -315,6 +315,7 @@ class BarcodeProcessingHandler
         UnprocessedDemultiplexedData rawData;
         // the final data: ABCounts, UMICounts, and a processingLog containing basic values (removed reads, etc.)
         Results result;
+        std::unordered_map< const char*, unsigned long long> guideCountPerSC;
 
         std::mutex statusUpdateLock;  
         std::mutex writeToRawDataLock; //while processing reads of same UMI, we write UMI collapsed reads into the dict

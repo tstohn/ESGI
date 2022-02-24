@@ -110,29 +110,31 @@ void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, N
 }
 
 void BarcodeProcessingHandler::generate_unique_sc_to_class_dict(const std::unordered_map< const char*, 
-                                                                std::unordered_map< const char*, unsigned long long>>& scClasseCountDict)
+                                                                std::unordered_map< const char*, UnorderedSetCharPtr>>& scClasseCountDict)
 {
     std::unordered_map< const char*, const char*> scClassDict;
 
     //calculate real class for each single cell
-    std::unordered_map< const char*, std::unordered_map< const char*, unsigned long long>>::const_iterator it;
+    std::unordered_map< const char*, std::unordered_map< const char*, UnorderedSetCharPtr>>::const_iterator it;
     for (it = scClasseCountDict.begin(); it != scClasseCountDict.end(); it++)
     {
         //count the read for each class for the single cell
-        std::unordered_map< const char*, unsigned long long>::const_iterator it2;
+        std::unordered_map< const char*, UnorderedSetCharPtr>::const_iterator it2;
         unsigned long long totalReads = 0;
+        unsigned long long realReads = 0;
         for(it2 = it->second.begin(); it2 != it->second.end(); it2++)
         {
-            totalReads += it2->second;
+            totalReads += it2->second.size();
         }
         //check if any class represents more than 90% of reads
         const char* realClass = nullptr;
         bool foundUniqueClass = false;
         for(it2 = it->second.begin(); it2 != it->second.end(); it2++)
         {
-            if( (it2->second/totalReads) >= 0.9 )
+            if( (it2->second.size()/totalReads) >= 0.9 )
             {
                 realClass = it2->first;
+                realReads = it2->second.size();
                 foundUniqueClass = true;
             }
         }
@@ -141,6 +143,7 @@ void BarcodeProcessingHandler::generate_unique_sc_to_class_dict(const std::unord
         if(foundUniqueClass)
         {
             scClassDict.insert(std::pair<const char*, const char*>(it->first, realClass));
+            guideCountPerSC.insert(std::make_pair(it->first, realReads));
         }
         else
         {
@@ -168,7 +171,7 @@ void BarcodeProcessingHandler::parseFile(const std::string fileName, const int& 
     inbuf.push(file);
     std::istream instream(&inbuf);
     
-    std::unordered_map< const char*, std::unordered_map< const char*, unsigned long long>> scClasseCountDict;
+    std::unordered_map< const char*, std::unordered_map< const char*, UnorderedSetCharPtr>> scClasseCountDict;
     parseBarcodeLines(&instream, totalReads, currentReads, scClasseCountDict);
 
     //finally add the class of each single cell
@@ -181,7 +184,7 @@ void BarcodeProcessingHandler::parseFile(const std::string fileName, const int& 
 }
 
 void BarcodeProcessingHandler::parseBarcodeLines(std::istream* instream, const unsigned long long& totalReads, unsigned long long& currentReads, 
-                                                    std::unordered_map< const char*, std::unordered_map< const char*, unsigned long long>>& scClasseCountDict)
+                                                    std::unordered_map< const char*, std::unordered_map< const char*, UnorderedSetCharPtr>>& scClasseCountDict)
 {
     std::string line;
     std::cout << "STEP[1/3]\t(READING ALL LINES INTO MEMORY)\n";
@@ -213,7 +216,7 @@ void BarcodeProcessingHandler::parseBarcodeLines(std::istream* instream, const u
 }
 
 void BarcodeProcessingHandler::add_line_to_temporary_data(const std::string& line, const int& elements,
-   std::unordered_map< const char*, std::unordered_map< const char*, unsigned long long>>& scClasseCountDict,
+   std::unordered_map< const char*, std::unordered_map< const char*, UnorderedSetCharPtr>>& scClasseCountDict,
    unsigned long long& abReadCount, unsigned long long& guideReadCount)
 {
     //split the line into barcodes
@@ -248,7 +251,7 @@ void BarcodeProcessingHandler::add_line_to_temporary_data(const std::string& lin
         if(classLine)
         {
             ++guideReadCount;
-            rawData.add_tmp_class_line(name, singleCellIdx, scClasseCountDict);
+            rawData.add_tmp_class_line(name, singleCellIdx, scClasseCountDict, result.at(umiIdx).c_str());
             return;
         }
         else

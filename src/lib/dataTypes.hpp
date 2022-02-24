@@ -81,3 +81,21 @@ class UniqueCharSet
 
       std::unordered_set<const char*, CharHash, CharPtrComparator> charPtrSet;
 };
+
+struct UnorderedSetComparator
+{
+    bool operator()(const char* s1, const char* s2) const
+    {
+        return strcmp(s1, s2) == 0;
+    }
+};
+ 
+struct UnorderedSetHash
+{
+    size_t operator()(const char* p) const
+    {
+        return std::hash<std::string>()(p);
+    }
+};
+ 
+typedef std::unordered_set<const char*, UnorderedSetHash, UnorderedSetComparator> UnorderedSetCharPtr;
