@@ -59,6 +59,7 @@ $shortopts .= "x:"; //index for AB (within barcodefile)
 $shortopts .= "d:"; //list of treatment names (e.g. treatments: can be a CI-round, gRNA), in order of the barcodes in barcode file
 $shortopts .= "y:"; //index for treatment (within barcodefile)
 $shortopts .= "n:"; //list of name to map guide barcodes to a name (e.g. cell line name)
+$shortopts .= "f:"; //threshold to use when filtering umis (default is zero). Keep a read of UMI only, if more than Xperc (as double) are from same single cell and AB
 
 $longopts = array("help");
 
@@ -101,6 +102,7 @@ if(array_key_exists("help", $options))
     #NON MANDATORY PARAMTERS
     -m mismatches per patter (default = 1)
     -t threads (default = 1)
+    -f threshold to use when filtering umis (default is zero). Keep a read of UMI only, if more than X-perc (as double) are from same single cell and AB
 
     \n");
     exit();
@@ -254,7 +256,7 @@ if($mapRNA)
 ######################################
 
 $command = "./bin/processing ";
-$parameters = ['b', 'c', 'u', 't', 'a', 'x', 'd', 'y', 'g', 'n'];
+$parameters = ['b', 'c', 'u', 't', 'a', 'x', 'd', 'y', 'g', 'n', 'f'];
 foreach($parameters as $element)
 {
     if($options[$element]!=NULL)

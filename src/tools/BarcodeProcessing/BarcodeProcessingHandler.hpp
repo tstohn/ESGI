@@ -331,5 +331,5 @@ class BarcodeProcessingHandler
         int treatmentIdx = INT_MAX;
         int umiLength = 0;
 
-        double umiFilterThreshold = 0.9;
+        double umiFilterThreshold = 0.0;
 };
