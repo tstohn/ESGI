@@ -51,6 +51,11 @@ testDemultiplexing:
 	./bin/demultiplexing -i ./src/test/test_data/smallTestPair_R1.fastq.gz -r ./src/test/test_data/smallTestPair_R2.fastq.gz -o ./bin/PairedEndTest -p [NNNNNNNN][CTTGTGGAAAGGACGAAACACCG][XXXXXXXXXXXXXXX][NNNNNNNNNN][GTTTTAGAGCTAGAAATAGCAA][NNNNNNNN][CGAATGCTCTGGCCTACGC][NNNNNNNN][CGAAGTCGTACGCCGATG][NNNNNNNN] -m 1,0,0,1,0,1,0,1,0,1 -t 1 -b ./src/test/test_data/processingBarcodeFile.txt
 	diff ./bin/Demultiplexed_PairedEndTest ./src/test/test_data/result_pairedEnd
 
+	#test the offset for a next sequence after deletions at end of previous barcode
+	./bin/demultiplexing -i ./src/test/test_data/inFastqTest_4.fastq -o ./bin/output.tsv -p [NNNN][XXXX][ATATCAGTCGAAA][NNNN][AAAGCTCGATCAT] -m 1,1,2,1,2 -t 1 -b ./src/test/test_data/barcodeFile.txt -q true
+	(head -n 1 ./bin/Demultiplexed_output.tsv && tail -n +2 ./bin/Demultiplexed_output.tsv | sort)  > ./bin/DemultiplexedSorted_output.tsv
+	diff ./src/test/test_data/DemultiplexedSortedElongationTest_output.tsv ./bin/DemultiplexedSorted_output.tsv
+
 #test processing of the barcodes, includes several UMIs with mismatches, test the mapping of barcodes to unique CellIDs, ABids, treatments
 testProcessing:
 #origional first test with several basic examples

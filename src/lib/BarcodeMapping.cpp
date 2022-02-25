@@ -262,11 +262,7 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(std::pai
             ++stats.noMatches;
             return false;
         }
-        //set the length difference after barcode mapping
-        //for the case of insertions inside the barcode sequence set the difference explicitely to zero 
-        //(we only focus on deletions that we can not distinguish from substitutions)
-        differenceInBarcodeLength = barcode.length() - (end-start);
-        if(differenceInBarcodeLength<0){differenceInBarcodeLength=0;}
+        
         std::string sequence = seq.first.substr(offset + start, end-start);
         offset += end;
         score_sum += score;
