@@ -109,34 +109,34 @@ if(array_key_exists("help", $options))
 }
 
 //Basic Parameter Error Handling: more detailled errors are hadnled in the tools itself
-if(!$options['p'])
+if(empty($options['p']))
 {
     fwrite(STDERR, "No parameter for the barcode mapping pattern given: -p!\n");
     exit(1);
 }
-if(!$options['b'])
+if(empty($options['b']))
 {
     fwrite(STDERR, "No barcode file with the possible barcodes are given: -b!\n");
     exit(1);
 }
-if($options['g']!=NULL && $options['x']==NULL)
+if(isset($options['g']) && empty($options['x']))
 {
     fwrite(STDERR, "If (also) guide barcodes ar mapped, provide also the index in the pattern, where the guide barcodes can occur. -x is missing!\n");
     exit(1);
 }
-if($options['a']!=NULL && $options['x']==NULL)
+if(isset($options['a']) && empty($options['x']))
 {
     fwrite(STDERR, "If you want to map AB barcodes to AB names, provide also the idnex of the AB: -x missing!\n");
     exit(1);
 }
-if($options['d']!=NULL && $options['y']==NULL)
+if(isset($options['d']) && empty($options['y']))
 {
     fwrite(STDERR, "If you want to map a certain barcoding round to treatments, provide also the index of the CI round, where treatment was performed: -y missing!\n");
     exit(1);
 }
 
 //parse the mismatch option to get the allowed UMI mismatches
-if($options['m']!=NULL)
+if(isset($options['m']))
 {
     $patternString = $options['p'];
     //check if we have a UMI barcode
