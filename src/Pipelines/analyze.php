@@ -193,6 +193,7 @@ $logfileHandle = fopen($logfile, "a+") or die("Unable to open file!");
 $tmpFolder = $options['o'] . "/tmp";
 mkdir($tmpFolder, 0777, true);
 
+$executionPath = realpath(dirname(__FILE__));
 ######################################
 //execute demultiplexing
 ######################################
@@ -225,7 +226,7 @@ else
     $guideBarcodeFile = $options['b'];
 }
 
-$command = "./bin/demultiplexing";
+$command = $executionPath . "/../../bin/demultiplexing";
 $parameters = ['i', 'r', 'p', 'm', 't'];
 foreach($parameters as $element)
 {
@@ -259,7 +260,7 @@ if($mapRNA)
 //execute processing of the mapped barcodes (UMI collapsing, assigning single cells, etc.)
 ######################################
 
-$command = "./bin/processing ";
+$command = $executionPath . "/../../bin/processing ";
 $parameters = ['b', 'c', 'u', 't', 'a', 'x', 'd', 'y', 'g', 'n', 'f'];
 foreach($parameters as $element)
 {
