@@ -220,6 +220,10 @@ if($options['g']!=NULL)
     file_put_contents($guideBarcodeFile, implode('', $lines));
     fwrite($logfileHandle, "-> DONE\n");
 }
+else
+{
+    $guideBarcodeFile = $options['b'];
+}
 
 $command = "./bin/demultiplexing";
 $parameters = ['i', 'r', 'p', 'm', 't'];
