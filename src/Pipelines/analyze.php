@@ -129,7 +129,7 @@ if($options['a']!=NULL && $options['x']==NULL)
     fwrite(STDERR, "If you want to map AB barcodes to AB names, provide also the idnex of the AB: -x missing!\n");
     exit(1);
 }
-if($options['d']!=NULL && !$options['y']==NULL)
+if($options['d']!=NULL && $options['y']==NULL)
 {
     fwrite(STDERR, "If you want to map a certain barcoding round to treatments, provide also the index of the CI round, where treatment was performed: -y missing!\n");
     exit(1);
