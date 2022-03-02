@@ -290,10 +290,7 @@ void BarcodeProcessingHandler::add_line_to_temporary_data(const std::string& lin
     }
     else
     {
-        umiDataLinePtr dataLine;
-        unsigned long long umiCount = 1;
-        const char* className = nullptr;
-        rawData.add_to_scAbDict(dataLine, umiCount, className);
+        rawData.add_to_scAbDict("", proteinName, singleCellIdx, treatment);
     }
 }
 
@@ -501,15 +498,12 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
 {
    //correct for UMI mismatches and fill the AbCountvector
     //iterate through same AbScIdx, calculate levenshtein dist for all UMIs and match those with a certain number of mismatches
-
+        std::cout << "Counting ScAB\n";
         //all dataLines for this AB SC combination
         std::vector<dataLinePtr> scAbCounts = uniqueAbSc;
+ std::cout << __LINE__ << "\n";
 
-        //sort vector by distance to origional UMI length: 
-        //reads get a value for dsitance to UMi length (one Base plus minus gets same value)
-        //and are then sorted in decreasing fashion (when comparing UMIs a UMI of length umilength is chosen first)
-        //to minimize erros bcs e.g. three reads are within 2MM but we choose one UMI out the outer end regarding MM
-        sort(scAbCounts.rbegin(), scAbCounts.rend(), less_than_umi(umiLength, umiMap));
+ std::cout << __LINE__ << "\n";
 
         //data structures to be filled for the UMI and AB count
         scAbCount abLineTmp; // we fill only this one AB SC count
@@ -521,15 +515,28 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
         abLineTmp.className = uniqueAbSc.at(0)->cellClassname;
 
         //if we have no umis erase whole vector and count every element
-        if(scAbCounts.back()->umiSeq == nullptr)
+        std::cout << "Adding directly |" << scAbCounts.back()->umiSeq<< "| \n";
+
+        if(std::string(scAbCounts.back()->umiSeq) == "" )
         {
+                            std::cout << "should on ly be in here directly\n";
+
             abLineTmp.abCount = scAbCounts.size();
             scAbCounts.clear();
+        }
+        else
+        {
+            //sort vector by distance to origional UMI length: 
+            //reads get a value for dsitance to UMi length (one Base plus minus gets same value)
+            //and are then sorted in decreasing fashion (when comparing UMIs a UMI of length umilength is chosen first)
+            //to minimize erros bcs e.g. three reads are within 2MM but we choose one UMI out the outer end regarding MM
+            sort(scAbCounts.rbegin(), scAbCounts.rend(), less_than_umi(umiLength, umiMap));
         }
         //we take always last element in vector of read of same AB and SC ID
         //then store all reads wwhere UMIs are within distance, and delete those line, and sum up the AB count by one
         while(!scAbCounts.empty())
         {
+        std::cout << "should never be here \n";
 
             dataLinePtr lastAbSc = scAbCounts.back();
             int lastIdx = scAbCounts.size() - 1;
@@ -582,6 +589,8 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
         //add the data to AB counts if it exists
         if(abLineTmp.abCount>0)
         {
+                    std::cout << "adding up the count " << abLineTmp.abCount<<"\n";
+
             result.add_ab_count(abLineTmp);
         }
 
