@@ -252,7 +252,18 @@ void BarcodeProcessingHandler::add_line_to_temporary_data(const std::string& lin
         if(classLine)
         {
             ++guideReadCount;
-            rawData.add_tmp_class_line(name, singleCellIdx, scClasseCountDict, result.at(umiIdx).c_str());
+
+            const char* umiSeq;
+            if(umiIdx!=INT_MAX)
+            {
+                umiSeq = result.at(umiIdx).c_str();
+            }
+            else
+            {
+                umiSeq = nullptr;
+            }
+
+            rawData.add_tmp_class_line(name, singleCellIdx, scClasseCountDict, umiSeq);
             return;
         }
         else
@@ -272,7 +283,18 @@ void BarcodeProcessingHandler::add_line_to_temporary_data(const std::string& lin
     }
 
     ++abReadCount;
-    rawData.add_to_umiDict(result.at(umiIdx), proteinName, singleCellIdx, treatment);
+    const char* umiSeq;
+    if(umiIdx!=INT_MAX)
+    {
+        rawData.add_to_umiDict(result.at(umiIdx).c_str(), proteinName, singleCellIdx, treatment);
+    }
+    else
+    {
+        umiDataLinePtr dataLine;
+        unsigned long long umiCount = 1;
+        const char* className = nullptr;
+        rawData.add_to_scAbDict(dataLine, umiCount, className);
+    }
 }
 
 std::string BarcodeProcessingHandler::generateSingleCellIndexFromBarcodes(std::vector<std::string> ciBarcodes)
@@ -333,7 +355,7 @@ void BarcodeProcessingHandler::getBarcodePositions(const std::string& line, int&
     }
     barcodeElements = count;
     assert(fastqReadBarcodeIdx.size() == varyingBarcodesPos.NBarcodeIndices.size());
-    assert(umiIdx != INT_MAX);
+    //assert(umiIdx != INT_MAX);
     assert(abIdx != INT_MAX);
 }
 
@@ -498,6 +520,12 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
         abLineTmp.treatment = umiLineTmp.treatment = uniqueAbSc.at(0)->treatmentName;
         abLineTmp.className = uniqueAbSc.at(0)->cellClassname;
 
+        //if we have no umis erase whole vector and count every element
+        if(scAbCounts.back()->umiSeq == nullptr)
+        {
+            abLineTmp.abCount = scAbCounts.size();
+            scAbCounts.clear();
+        }
         //we take always last element in vector of read of same AB and SC ID
         //then store all reads wwhere UMIs are within distance, and delete those line, and sum up the AB count by one
         while(!scAbCounts.empty())
@@ -577,20 +605,25 @@ void BarcodeProcessingHandler::processBarcodeMapping(const int& umiMismatches, c
     //also collapse UMIs, and assign the className to each new dataLine, dataLines are now stored as const lines and can no longer be changed
     std::atomic<unsigned long long> umiCount = 0; //using atomic<int> as thread safe read count
     unsigned long long totalCount = rawData.getUniqueUmis()->size();
+
     boost::asio::thread_pool pool_1(thread); //create thread pool
     std::cout << "STEP[2/3]\t(Remove all reads for a UMI with <90% coming from same AB/SC combination)\n";
     const std::shared_ptr< std::unordered_map<const char*, std::vector<umiDataLinePtr>, CharHash, CharPtrComparator>> umiMap = rawData.getUniqueUmis();
-    for(std::unordered_map<const char*, std::vector<umiDataLinePtr>, CharHash, CharPtrComparator>::const_iterator it = umiMap->begin(); 
+    if(!umiMap->empty())
+    {
+        for(std::unordered_map<const char*, std::vector<umiDataLinePtr>, CharHash, CharPtrComparator>::const_iterator it = umiMap->begin(); 
         it != umiMap->end(); 
-        it++)    {
-        //careful: uniqueUmi goe sout of scope after enqueuing, therefore just copied...
-        boost::asio::post(pool_1, std::bind(&BarcodeProcessingHandler::markReadsWithNoUniqueUmi, this, 
-                                          std::cref(it->second), 
-                                          std::ref(umiCount), std::cref(totalCount)));
+        it++)    
+        {
+            //careful: uniqueUmi goe sout of scope after enqueuing, therefore just copied...
+            boost::asio::post(pool_1, std::bind(&BarcodeProcessingHandler::markReadsWithNoUniqueUmi, this, 
+                                            std::cref(it->second), 
+                                            std::ref(umiCount), std::cref(totalCount)));
+        }
+        pool_1.join();
+        printProgress(1);
+        std::cout << "\n";
     }
-    pool_1.join();
-    printProgress(1);
-    std::cout << "\n";
 
     //generate ABcounts per single cell:
     umiCount = 0; //using atomic<int> as thread safe read count

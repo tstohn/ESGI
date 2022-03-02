@@ -133,11 +133,11 @@ class UnprocessedDemultiplexedData
         }
 
         // add a dataLines to the vector
-        void add_to_umiDict(std::string& umiStr, std::string& abStr, std::string& singleCellStr, std::string& treatment)
+        void add_to_umiDict(const char* umiChar, std::string& abStr, std::string& singleCellStr, std::string& treatment)
         {
             //get unique pointer for all three strings
             dataLine line;
-            line.umiSeq = uniqueChars->getUniqueChar(umiStr.c_str());
+            line.umiSeq = uniqueChars->getUniqueChar(umiChar);
             line.abName = uniqueChars->getUniqueChar(abStr.c_str());
             line.scID = uniqueChars->getUniqueChar(singleCellStr.c_str());
             line.treatmentName = uniqueChars->getUniqueChar(treatment.c_str());
