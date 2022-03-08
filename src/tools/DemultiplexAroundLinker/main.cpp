@@ -11,28 +11,25 @@
 
 #include "BarcodeProcessingHandler.hpp"
 #include "BarcodeMapping.hpp"
+#include "MappingAroundLinker.hpp"
+
+/**
+ * @brief A Tool to use for quality control of the Combinatorial Indexing run:
+ * We map sequentially the linker sequences to a substring which is subread = read[last constant match ... end of read].
+ * If the same sequence appear several times in the read, we map ONLY the first occurence (bcs ideally if the same sequence occurs several times, it should
+ * also be a repretitive pattern in the ideal sequence.) This means wrongly repetitive sequences are NOT detected.
+ * After each mapping of a constant sequence we map sequentially all vairable barcodes which are before this constant barcode. If we do not find 
+ * one barcode we continue with the next until we tried all barcodes before the last mapped linker. Those variable barcodes are mapped to a 
+ * subsequence = read[end of 2nd last linker match...beginning of last linker match]. After each mapped variable barcode which lies in this sequence, we remove the mapped 
+ * bases from the beginning of the substring.
+ * 
+ */
 
 using namespace boost::program_options;
 
-/*
-    1.) UMI check
-         if same UMI and NOT same AB-SC: check if same AB, check if same BC 4 1 2 3
-
-    2.) Barcode Pattern Check
-
-
-
-*/
-
-struct umiRead
-{
-    const char* sc;
-    const char* ab;
-};
-
-bool parse_arguments(char** argv, int argc, std::string& inputFails, std::string& inputBarcodeMapping, std::string& output, 
-                     int& abIdx, int& treatmentIdx, int& threads, std::string& barcodeFile, std::string& barcodeIndices,
-                     std::string& seqpattern, std::string& mismatches,std::string& correctredUmiFile)
+bool parse_arguments(char** argv, int argc, std::string& inputFile, std::string& output, 
+                     int& threads, std::string& barcodeFile,
+                     std::string& seqpattern, std::string& mismatches)
 {
     try
     {
@@ -44,21 +41,12 @@ bool parse_arguments(char** argv, int argc, std::string& inputFails, std::string
             AGCTTCGAG,ACGTTCAGG\nACGTCTAGACT,ATCGGCATACG,ATCGCGATC,ATCGCGCATAC. This can be the same list as it was for FastqParser.")
 
             //parameters for failed lines
-            ("inputFails,f", value<std::string>(&inputFails), "lines of nucleotide sequences that failed the analysis")
+            ("inputFile,i", value<std::string>(&inputFile), "input text file, to analyze barcode pattern.")
             ("sequencePattern,p", value<std::string>(&seqpattern), "pattern for the sequence to match, \
             every substring that should be matched is enclosed with square brackets. N is a wild card match, a substring \
             should not be a combination of wild card chars and constant chars : [AGCTATCACGTAGC][NNNNNN][AGAGCATGCCTTCAG][NNNNNN]")
             ("mismatches,m", value<std::string>(&(mismatches)), "list of mismatches allowed for each bracket enclosed sequence substring. \
             This should be a comma seperated list of numbers for each substring of the sequence enclosed in squared brackets. E.g.: 2,1,2,1,2")
-
-            //parameters for UMI CHECK
-            ("inputBarcodes,i", value<std::string>(&inputBarcodeMapping), "lines of tab seperated barcode mappings")
-            ("antibodyIndex,x", value<int>(&abIdx), "Index used for antibody distinction.")
-            ("CombinatorialIndexingBarcodeIndices,c", value<std::string>(&(barcodeIndices)), "comma seperated list of indexes, that are used during \
-            combinatorial indexing and should distinguish a unique cell. Be aware that this is the index of the line inside the barcodeList file (see above). \
-            This file ONLY includes lines for the varying sequences (except UMI). Therefore the index is not the same as the position in the whole sequence \
-            if constant or UMI-seq are present. Index starts with zero.")
-            ("correctredUmiFile,u", value<std::string>(&correctredUmiFile), "output file of barcode mapping with the corrected UMI reads (+ AB and SC ids)")
 
             ("thread,t", value<int>(&threads)->default_value(1), "number of threads")
 
@@ -91,168 +79,50 @@ bool parse_arguments(char** argv, int argc, std::string& inputFails, std::string
     return true;
 }
 
-void analyse_same_umis(std::string& inputBarcodeMapping, std::string& output, int& abIdx, const int& threads,
-                    const std::string& barcodeFile, const std::string& barcodeIndices)
-{
-    //data for protein(ab) and treatment information
-    std::string abFile; 
-    std::string treatmentFile;
-    std::vector<std::string> abBarcodes;
-
-    //generate the dictionary of barcode alternatives to idx
-    NBarcodeInformation barcodeIdData;
-
-    generateBarcodeDicts(barcodeFile, barcodeIndices, barcodeIdData, abBarcodes, abIdx);
-
-    BarcodeProcessingHandler dataParser(barcodeIdData);
-    //parse the information
-
-    dataParser.parseFile(inputBarcodeMapping, threads);
-
-    //analyse all UMIS
-    dataParser.extended_umi_quality_check(threads, output);
-}
-
-void analyse_corrected_umis(const std::string& correctredUmiFile, const std::string& output)
-{
-    //remove previous file and open for reading as append later
-    std::ifstream barcodeFileStream(correctredUmiFile);
-    std::ofstream outputFile;
-    std::size_t found = output.find_last_of("/");
-    std::string umiOutput = output;
-    if(found == std::string::npos)
-    {
-        umiOutput = "QC_CorrectedUmiDist_" + output;
-    }
-    else
-    {
-        umiOutput = output.substr(0,found) + "/" + "QC_CorrectedUmiDist_" + output.substr(found+1);
-    }
-    std::remove(umiOutput.c_str());
-    outputFile.open (umiOutput, std::ofstream::app);
-    outputFile << "UMI\tREAD_COUNT\tPERCENTAGES\n";
-    outputFile.close();
-
-    //dict storing for each Umi all reads
-    std::unordered_map<const char*, std::vector<umiRead>, CharHash, CharPtrComparator> umiToDatalines;
-    UniqueCharSet uniqueChars;
-    int currentLineCount = 0;
-    int totalDataSize = totalNumberOfLines(correctredUmiFile);
-
-    std::cout << "Reading Data into Memory\n";
-    for(std::string line; std::getline(barcodeFileStream, line);)
-    {
-        std::string delimiter = "\t";
-        std::vector<std::string> splitLine = splitByDelimiter(line, delimiter);
-        if(strcmp(splitLine.at(0).c_str(),"UMI") == 0){continue;}
-        //order in vector: UMI AB_BARCODE SC_BCID_COMBINATION
-        umiRead newRead;
-        newRead.ab = uniqueChars.getUniqueChar(splitLine.at(1).c_str());
-        newRead.sc = uniqueChars.getUniqueChar(splitLine.at(2).c_str());
-
-        if(umiToDatalines.find(uniqueChars.getUniqueChar(splitLine.at(0).c_str())) == umiToDatalines.end())
-        {
-            std::vector<umiRead> vec;
-            vec.push_back(newRead);
-            umiToDatalines.insert(std::make_pair(uniqueChars.getUniqueChar(splitLine.at(0).c_str()), vec));
-        }
-        //if not add this new umi with this actual position to map
-        else
-        {
-            umiToDatalines[uniqueChars.getUniqueChar(splitLine.at(0).c_str())].push_back(newRead);
-        }
-
-        ++currentLineCount;
-        if( (totalDataSize >= 100) && (currentLineCount % (totalDataSize / 100) == 0) )
-        {
-            double perc = currentLineCount/ (double) totalDataSize;
-            printProgress(perc);
-        }
-    }
-
-    //for each umi calculate a vector of percentages
-    std::cout << "\nCalculate read distributions for UMI\n";
-    currentLineCount = 0;
-    totalDataSize = umiToDatalines.size();
-    for (std::unordered_map<const char*, std::vector<umiRead>, CharHash, CharPtrComparator>::iterator umiIt = umiToDatalines.begin(); 
-         umiIt != umiToDatalines.end(); ++umiIt)
-    {
-        const char* umiSeq = umiIt->first;
-        std::vector<umiRead> reads = umiIt->second;
-        unsigned long totalCount = reads.size();
-        std::vector<double> percReads;
-        while(!reads.empty())
-        {
-            std::vector<umiRead> newReads;
-            umiRead read = reads.at(0);
-            unsigned long readCount = 1;
-            for(int i =1; i < reads.size(); ++i)
-            {
-
-                if( read.ab == reads.at(i).ab && read.sc == reads.at(i).sc)
-                {
-                    ++readCount;
-                }
-                else
-                {
-                    newReads.push_back(reads.at(i));
-                }
-            }
-            reads = newReads;
-            percReads.push_back(double(readCount)/totalCount);
-        }
-
-        // write UMI, numer of reads and percentages to file
-        outputFile.open (umiOutput, std::ofstream::app);
-        for(int i = 0; i < percReads.size(); ++i)
-        {
-                outputFile << umiSeq << "\t" << totalCount << "\t" << percReads.at(i) <<  "\n"; 
-        }
-        outputFile.close();
-
-        ++currentLineCount;
-        if( (totalDataSize >= 100) && (currentLineCount % (totalDataSize / 100) == 0) )
-        {
-            double perc = currentLineCount/ (double) totalDataSize;
-            printProgress(perc);
-        }
-    }
-}
-
 int main(int argc, char** argv)
 {
-    std::string inputFails;
-    std::string inputBarcodeMapping;
+    std::string inputFile;
     std::string output;
-
     std::string barcodeFile;
-    std::string barcodeIndices;
     std::string seqpattern;
-    std::string correctredUmiFile;
 
-    int abIdx;
-    int treatmentIdx;
     int threads;
     std::string mismatches;
-    if(parse_arguments(argv, argc, inputFails, inputBarcodeMapping, output, abIdx, treatmentIdx, threads, 
-                       barcodeFile, barcodeIndices, seqpattern, mismatches, correctredUmiFile))
+    if(parse_arguments(argv, argc, inputFile, output, threads, 
+                       barcodeFile, seqpattern, mismatches))
     {
-        //analyse the read number per UMI, distribution of BC combinations, etc
-    //  analyse_same_umis(inputBarcodeMapping, output, abIdx, threads, barcodeFile, barcodeIndices);
-        //after BarcodeProcessing (UMI MisMatch correction) analyze the occurence of UMIs: number of reads, BC combination percentages
-    //  analyse_corrected_umis(correctredUmiFile, output);
 
         //analze lines that could not be mapped
         input input;
         input.barcodeFile = barcodeFile;
-        input.inFile = inputFails;
+        input.inFile = inputFile;
         input.outFile = output;
         input.patternLine = seqpattern;
         input.mismatchLine = mismatches;
         input.threads = threads;
 
-        Mapping<MapAroundConstantBarcodesAsAnchorPolicy, ExtractLinesFromTxtFilesPolicy> mapping;
-        mapping.run(input);
+        // run demultiplexing
+        if(!( endWith(input.inFile, "fastq") || endWith(input.inFile, "fastq.gz") ||  endWith(input.inFile, "txt") ))
+        {
+            std::cout << "Wrong file format for input file <-i>!\n";
+            exit(EXIT_FAILURE);
+        }
+        
+        if(endWith(input.inFile, "fastq") || endWith(input.inFile, "fastq.gz"))
+        {
+            MappingAroundLinker<MapAroundConstantBarcodesAsAnchorPolicy, ExtractLinesFromFastqFilePolicy> mapping;
+            mapping.run(input);
+        }
+        else if(endWith(input.inFile, "txt"))
+        {
+            MappingAroundLinker<MapAroundConstantBarcodesAsAnchorPolicy, ExtractLinesFromTxtFilesPolicy> mapping;
+            mapping.run(input);
+        }
+        else
+        {
+            fprintf(stderr,"Input file must be of format: <.fastq> | <.fastq.gz> | <.txt>!!!\nFail to open file: %s\n", input.inFile.c_str());
+            exit(EXIT_FAILURE);
+        }
 
     }
  

@@ -627,6 +627,36 @@ bool Mapping<MappingPolicy, FilePolicy>::demultiplex_read(std::pair<const std::s
     return(result);
 }
 
+void MapAroundConstantBarcodesAsAnchorPolicy::map_pattern_between_linker(const std::string& seq, const int& oldEnd, 
+                                                                         const int& start,
+                                                                         BarcodePatternVectorPtr barcodePatterns,
+                                                                         std::vector<std::string>& barcodeList,
+                                                                         int& barcodePosition, int& skippedBarcodes)
+{
+    //we have to map all barcodes that we missed
+    int skipend=oldEnd;
+    std::string skippedBarcodeString = seq.substr(skipend, start-skipend);
+    int skipStringNewOffset = 0;
+    for(int i = barcodePosition-skippedBarcodes; i < barcodePosition ; ++i)
+    {
+        BarcodePatternVector::iterator skippedPatternItr = barcodePatterns->begin() + i;
+        std::string skippedBarcode = ""; //the actual real barcode that we find (mismatch corrected)
+        int skipstart=0, skipscore = 0, skipdifferenceInBarcodeLength = 0;
+
+        if(!(*skippedPatternItr)->match_pattern(skippedBarcodeString, 0, skipstart, skipend, skipscore, skippedBarcode, skipdifferenceInBarcodeLength, false, false, true))
+        {
+            barcodeList.push_back("");
+        }
+        else
+        {
+            skipStringNewOffset = skipend;
+            skippedBarcodeString.erase(0,skipStringNewOffset);
+
+            barcodeList.push_back(skippedBarcode);
+        }
+    }
+}
+
 bool MapAroundConstantBarcodesAsAnchorPolicy::split_line_into_barcode_patterns(std::pair<const std::string&, const std::string&> seq, const input& input, 
                                         DemultiplexedReads& barcodeMap, 
                                         BarcodePatternVectorPtr barcodePatterns,
@@ -637,52 +667,70 @@ bool MapAroundConstantBarcodesAsAnchorPolicy::split_line_into_barcode_patterns(s
 
     std::vector<std::string> barcodeList;
 
-    //map each constant barcode
+    //firstly map each constant barcode
     int barcodePosition = 0;
+    int skippedBarcodes = 0;
     for(BarcodePatternVector::iterator patternItr = barcodePatterns->begin(); 
         patternItr < barcodePatterns->end(); 
         ++patternItr)
     {
+
         //exclude non constant
-        if(!(*patternItr)->is_constant()){++barcodePosition;continue;}
+        if(!(*patternItr)->is_constant())
+        {
+            ++barcodePosition;
+            ++skippedBarcodes;
+            continue;
+        }
         
         //map next constant region
         int start=0, end=0, score = 0, differenceInBarcodeLength = 0;
         std::string barcode = ""; //the actual real barcode that we find (mismatch corrected)
-        if(!(*patternItr)->match_pattern(seq.first, offset, start, end, score, barcode, differenceInBarcodeLength, false, false, true))
+            
+        std::string subStringToSearchBarcodes = seq.first.substr(oldEnd, seq.first.length() - oldEnd);
+
+        if(!(*patternItr)->match_pattern(subStringToSearchBarcodes, offset, start, end, score, barcode, differenceInBarcodeLength, false, false, true))
         {
             ++barcodePosition;
+            ++skippedBarcodes;
             continue;
         }
 
-        if(start < oldEnd){return false;} //we have in this case barcodes that are non sequential
+        //if(start < oldEnd)
+        //{
+         //   ++stats.noMatches;
+          //  return false;
+        //} //we have in this case barcodes that are non sequential
 
-        int currentPosition = barcodeList.size();
-        for(int i = currentPosition; i <= barcodePosition; ++i)
+
+        //write out all found barcodes
+        //1.) write the skipped barcodes so far
+        if(skippedBarcodes > 0)
         {
-            std::string skippedBarcodes = seq.first.substr(oldEnd, start-oldEnd);
-            //the first barcode which is not the constant barcode
-            if(i ==  currentPosition)
-            {
-                barcodeList.push_back(skippedBarcodes);
-            }
-            //if it is the constant barcode
-            else if(i == barcodePosition)
-            {
-                barcodeList.push_back(barcode);
-            }
-            //every other barcode
-            else
-            {
-                barcodeList.push_back("");
-            }
-
+            map_pattern_between_linker(seq.first,oldEnd, start, barcodePatterns, barcodeList, barcodePosition, skippedBarcodes);
+            //std::string skippedBarcodeString = seq.first.substr(oldEnd, start-oldEnd);
+            //barcodeList.push_back(skippedBarcodeString);
         }
-        oldEnd = end;
+
+        //2.) write the newly mapped constant barcode
+        barcodeList.push_back(barcode);
+
+        //set paramters after constant mapping
+        oldEnd += end;
         ++barcodePosition;
+        skippedBarcodes = 0;
+    }
+
+    if(skippedBarcodes > 0)
+    {
+        int start = seq.first.length();
+        map_pattern_between_linker(seq.first,oldEnd, start, barcodePatterns, barcodeList, barcodePosition, skippedBarcodes);
+        //std::string skippedBarcodeString = seq.first.substr(oldEnd, start-oldEnd);
+        //barcodeList.push_back(skippedBarcodeString);
     }
 
     barcodeMap.addVector(barcodeList);
+    ++stats.perfectMatches;
 
     return true;
 }
@@ -710,9 +758,9 @@ void Mapping<MappingPolicy, FilePolicy>::run_mapping(const input& input)
     printProgress(1); std::cout << "\n"; // end the progress bar
     if(totalReadCount != ULLONG_MAX)
     {
-        std::cout << "=>\tPERFECT MATCHES: " << std::to_string((unsigned long long)(100*(stats.perfectMatches)/(double)totalReadCount)) 
+        std::cout << "=>\t READS WITH A MATCHED BARCODE: " << std::to_string((unsigned long long)(100*(stats.perfectMatches)/(double)totalReadCount)) 
                 << "% | MODERATE MATCHES: " << std::to_string((unsigned long long)(100*(stats.moderateMatches)/(double)totalReadCount))
-                << "% | MISMATCHES: " << std::to_string((unsigned long long)(100*(stats.noMatches)/(double)totalReadCount)) << "%\n";
+                << "% | Linker sequences mapped non sequentially (e.g. same linker sequences): " << std::to_string((unsigned long long)(100*(stats.noMatches)/(double)totalReadCount)) << "%\n";
     }
     FilePolicy::close_file();
 }
@@ -738,3 +786,4 @@ template class Mapping<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromFastqFi
 template class Mapping<MapEachBarcodeSequentiallyPolicyPairwise, ExtractLinesFromFastqFilePolicyPairedEnd>;
 template class Mapping<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromTxtFilesPolicy>;
 template class Mapping<MapAroundConstantBarcodesAsAnchorPolicy, ExtractLinesFromTxtFilesPolicy>;
+template class Mapping<MapAroundConstantBarcodesAsAnchorPolicy, ExtractLinesFromFastqFilePolicy>;
