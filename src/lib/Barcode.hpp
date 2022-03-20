@@ -19,9 +19,32 @@ class Barcode
     public:
     Barcode(int inMismatches) : mismatches(inMismatches) {}
     int mismatches;
+    //
+    std::string generate_reverse_complement(std::string seq)
+    {
+        auto lambda = [](const char c) 
+        {
+            switch (c) 
+            {
+                case 'A':
+                    return 'T';
+                case 'G':
+                    return 'C';
+                case 'C':
+                    return 'G';
+                case 'T':
+                    return 'A';
+                default:
+                    throw std::domain_error("Invalid nucleotide.");
+            }
+        };
+        std::string newSeq = seq;
+        std::transform(seq.crbegin(), seq.crend(), newSeq.begin(), lambda);
+        return newSeq;
+    }
     //overwritten function to match sequence pattern(s)
     virtual bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, std::string& realBarcode, 
-                               const int& differenceInBarcodeLength, fastqStats& stats, bool startCorrection = false, bool fullLengthMapping = false) = 0;
+                               int& differenceInBarcodeLength, bool startCorrection = false, bool reverse = false, bool fullLengthMapping = false) = 0;
     virtual std::vector<std::string> get_patterns() = 0;
     virtual bool is_wildcard() = 0;
     virtual bool is_constant() = 0;
@@ -31,9 +54,12 @@ class ConstantBarcode : public Barcode
 {
 
     public:
-    ConstantBarcode(std::string inPattern, int inMismatches) : pattern(inPattern),Barcode(inMismatches) {}
+    ConstantBarcode(std::string inPattern, int inMismatches) : pattern(inPattern),Barcode(inMismatches) 
+    {
+        revCompPattern = generate_reverse_complement(pattern);
+    }
     bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, std::string& realBarcode, 
-                       const int& differenceInBarcodeLength, fastqStats& stats, bool startCorrection = false,
+                       int& differenceInBarcodeLength, bool startCorrection = false, bool reverse = false,
                        bool fullLengthMapping = false)
     {
 
@@ -46,7 +72,7 @@ class ConstantBarcode : public Barcode
         while(tries >= 0)
         {
             bool matchResult = private_match_pattern(sequence, tmpOffset, offsetShiftValue, seq_start, seq_end,score ,
-                                     realBarcode ,stats, offsetShiftBool, startCorrection, fullLengthMapping);
+                                     realBarcode, offsetShiftBool, differenceInBarcodeLength, startCorrection, reverse, fullLengthMapping);
             if(matchResult){return true;}
 
             //increment offset
@@ -71,9 +97,13 @@ class ConstantBarcode : public Barcode
 
     private:
     bool private_match_pattern(std::string sequence, const int& offset, const int& offsetShiftValue, int& seq_start, int& seq_end, 
-                               int& score, std::string& realBarcode, fastqStats& stats, const bool& offsetShiftBool, bool startCorrection = false,
-                               bool fullLengthMapping = false)
+                               int& score, std::string& realBarcode, const bool& offsetShiftBool, int& diffEnd,
+                               bool startCorrection = false, bool reverse = false, bool fullLengthMapping = false)
     {
+        //set the pattern to use for reverse or forward mapping
+        std::string usedPattern = pattern;
+        if(reverse){usedPattern = revCompPattern;}
+
         std::string subSequence;
         if(!fullLengthMapping)
         {
@@ -87,7 +117,7 @@ class ConstantBarcode : public Barcode
         int endInPattern = 0; // store the number of missing bases in the pattern (in this case we might have to elongate the mapped sequence)
         // e.g.: [AGTAGT]cccc: start=0 end=6 end is first not included idx
         int startInPattern = 0;
-        if(levenshtein(subSequence, pattern, mismatches, seq_start, seq_end, score, endInPattern, startInPattern))
+        if(levenshtein(subSequence, usedPattern, mismatches, seq_start, seq_end, score, endInPattern, startInPattern))
         {
             //start and end are filled within levenshtein: if subsequences has a new offset this needs to be added to them
             if(offsetShiftBool)
@@ -96,26 +126,27 @@ class ConstantBarcode : public Barcode
                 seq_end = seq_end+offsetShiftValue;
             }
             realBarcode = pattern;
-            int diffEnd = pattern.length()-endInPattern;
+            diffEnd = pattern.length()-endInPattern;
 
             //calculate possible mapping that we oversaw bcs our window has a fixed size
-            //possible extension to teh end
-            if(diffEnd != 0)
+            //if we have not mathced the whole pattern to subsequence and we can even still elongate to the end of the subsequence in the read
+            if( (diffEnd != 0) && (sequence.length() >= offset + pattern.length() + diffEnd) )
             {
                 std::string subSequenceElongated = sequence.substr(offset, pattern.length() + diffEnd);
                 if(subSequence.length() != subSequenceElongated.length() && seq_end < subSequenceElongated.length())
                 {
-                    int extension = backBarcodeMappingExtension(subSequenceElongated, pattern, seq_end, endInPattern);
+                    int extension = backBarcodeMappingExtension(subSequenceElongated, usedPattern, seq_end, endInPattern);
                     seq_end += extension;
+                    diffEnd -= extension;
                 }
             }
 
-            //possible extension at the beginning
-            if(startInPattern > 0 && startCorrection)
+            //possible extension at the beginning: is only possible if before we had a wildcard
+            if(startInPattern > 0 && startCorrection && (offset >= startInPattern) )
             {
                 //we have startInPattern additional bases to check before sequence
                 std::string subSequenceElongated = sequence.substr(offset-startInPattern, pattern.length());
-                int extension = frontBarcodeMappingExtension(subSequenceElongated, pattern, seq_start, startInPattern);
+                int extension = frontBarcodeMappingExtension(subSequenceElongated, usedPattern, seq_start, startInPattern);
                 seq_start -= extension;
             }
 
@@ -128,14 +159,22 @@ class ConstantBarcode : public Barcode
         }
     }
     std::string pattern;
+    std::string revCompPattern;
 };
 class VariableBarcode : public Barcode
 {
 
     public:
-    VariableBarcode(std::vector<std::string> inPatterns, int inMismatches) : patterns(inPatterns), Barcode(inMismatches) {}
+    VariableBarcode(std::vector<std::string> inPatterns, int inMismatches) : patterns(inPatterns), Barcode(inMismatches) 
+    {
+        for(std::string pattern : patterns)
+        {
+            std::string revCompPattern = generate_reverse_complement(pattern);
+            revCompPatterns.push_back(revCompPattern);
+        }
+    }
     bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, std::string& realBarcode, 
-                       const int& differenceInBarcodeLength, fastqStats& stats, bool startCorrection = false, bool fullLengthMapping = false)
+                       int& differenceInBarcodeLength, bool startCorrection = false,  bool reverse = false, bool fullLengthMapping = false)
     {
         int tries = differenceInBarcodeLength;
         int tmpOffset = offset;
@@ -143,11 +182,12 @@ class VariableBarcode : public Barcode
         int offsetShiftValue = 0;
         int tmpScore = mismatches + 1;
         int numberOfSameScoreResults = 0;
+        std::string tmpRealBarcode;
         while(tries >= 0)
         {
             int tmpNumberOfSameScoreResults = 0;
             bool matchResult = private_match_pattern(sequence, tmpOffset, offsetShiftValue, seq_start, seq_end,score ,
-                                     realBarcode ,stats, offsetShiftBool, tmpNumberOfSameScoreResults, startCorrection);
+                                     realBarcode, offsetShiftBool, tmpNumberOfSameScoreResults, differenceInBarcodeLength, reverse, startCorrection);
 
             //if we already map sth to 100% don t bother and return true
             if(matchResult && score == 0){return true;}
@@ -162,7 +202,7 @@ class VariableBarcode : public Barcode
 
             //if we iterate through several windows, make sure we do not find multiple euqally good solutions
             //equally good solutions within ONE window are handled in private_match_pattern
-            if(tmpScore == score)
+            if( (tmpScore == score) && (tmpRealBarcode != realBarcode))
             {
                 ++numberOfSameScoreResults;
             }
@@ -170,6 +210,7 @@ class VariableBarcode : public Barcode
             {
                 tmpScore = score;
                 numberOfSameScoreResults = tmpNumberOfSameScoreResults;
+                tmpRealBarcode = realBarcode;
             }
 
             //if no try results in a better mapping than mismatches plus 1, report false
@@ -181,7 +222,7 @@ class VariableBarcode : public Barcode
         //if the best match has several times this score, report also false and a MultiBarcodeMatch
         if(numberOfSameScoreResults > 0)
         {            
-            ++stats.multiBarcodeMatch;
+            //we mapped several barcodes with the same score
             return false;
         }
         else if( (numberOfSameScoreResults == 0) && (tmpScore <= mismatches)){
@@ -204,46 +245,53 @@ class VariableBarcode : public Barcode
 
     // first only for number of skipped bases call a sequences window; if this leads to nothing add more windows until number mismatches in barcode is reached
     bool private_match_pattern(std::string sequence, const int& offset, const int& offsetShiftValue, int& seq_start, int& seq_end, int& score, 
-                               std::string& realBarcode, fastqStats& stats, const bool& offsetShiftBool, int& numberOfSameScoreResults, bool startCorrection = false)
+                               std::string& realBarcode, const bool& offsetShiftBool, int& numberOfSameScoreResults, int& diffEnd,
+                               bool reverse = false, bool startCorrection = false)
     {
         int match_count = 0;
         bool found_match = false;
-        int best_start = 0, best_end = 0, best_score = mismatches+1;
+        int best_start = 0, best_end = 0, best_score = mismatches+1, tmpDiff = 0, bestDiff = 0;
 
-        for(std::string pattern : patterns)
+        std::vector<std::string> patternsToMap = patterns;
+        if(reverse){patternsToMap = revCompPatterns;}
+
+        for(int patternIdx = 0; patternIdx!= patternsToMap.size(); ++patternIdx)
         {
+            std::string pattern = patterns.at(patternIdx);
+            std::string usedPattern = patternsToMap.at(patternIdx);
+
             std::string subSequence = sequence.substr(offset, pattern.length());
             score = 0;
             seq_start = 0;
             seq_end = 0;
             int endInPattern = 0; // store the number of missing bases in the pattern (in this case we might have to elongate the mapped sequence)
             int startInPattern = 0;
-
-            if(levenshtein(subSequence, pattern, mismatches, seq_start, seq_end, score, endInPattern, startInPattern))
+            if(levenshtein(subSequence, usedPattern, mismatches, seq_start, seq_end, score, endInPattern, startInPattern))
             {
                 if(offsetShiftBool)
                 {
                     seq_start = seq_start+offsetShiftValue;
                     seq_end = seq_end+offsetShiftValue;
                 }
-                int diffEnd = pattern.length()-endInPattern;
-
-                if(diffEnd != 0)
+                tmpDiff = pattern.length()-endInPattern;
+                //if we have not mathced the whole pattern to subsequence and we can even still elongate to the end of the subsequence in the read
+                if( (tmpDiff != 0) && (sequence.length() >= offset + pattern.length() + diffEnd) )
                 {
                     std::string subSequenceElongated = sequence.substr(offset, pattern.length() + diffEnd);
                     if(subSequence.length() != subSequenceElongated.length() && seq_end < subSequenceElongated.length())
                     {
-                        int extension = backBarcodeMappingExtension(subSequenceElongated, pattern, seq_end, endInPattern);
+                        int extension = backBarcodeMappingExtension(subSequenceElongated, usedPattern, seq_end, endInPattern);
                         seq_end += extension;
+                        tmpDiff -= extension;
                     }
                 }
 
-                if( (startInPattern > 0) && (offset >startInPattern) && startCorrection )
+                if( (startInPattern > 0) && (offset >=startInPattern) && startCorrection )
                 {
-                    //we have startInPattern additional bases to check before sequence
+                    //we have startInPattern additional bases to check before sequence: is only possible if before we had a wildcard
                     std::string subSequenceElongated = sequence.substr(offset-startInPattern, pattern.length());
 
-                    int extension = frontBarcodeMappingExtension(subSequenceElongated, pattern, seq_start, startInPattern);
+                    int extension = frontBarcodeMappingExtension(subSequenceElongated, usedPattern, seq_start, startInPattern);
                     seq_start -= extension;
                 }
                 //score comparison
@@ -255,6 +303,7 @@ class VariableBarcode : public Barcode
                     realBarcode = pattern;
                     match_count = 1;
                     found_match = true;
+                    bestDiff = tmpDiff;
                 }
                 else if( (score == best_score) & found_match)
                 {
@@ -263,11 +312,11 @@ class VariableBarcode : public Barcode
 
             }
         }
-
         //compare all results for different patterns
         if(match_count == 0)
         {
             numberOfSameScoreResults = 0;
+            diffEnd = 0;
             return false;
         }
         else if(match_count > 1)
@@ -275,12 +324,7 @@ class VariableBarcode : public Barcode
             seq_start = best_start;
             seq_end = best_end;
             score = best_score;
-
-            if(offsetShiftBool)
-            {
-                seq_start = seq_start-mismatches;
-                seq_end = seq_end-mismatches;
-            }
+            diffEnd = bestDiff;
 
             ++numberOfSameScoreResults;
             return false;
@@ -290,18 +334,14 @@ class VariableBarcode : public Barcode
             seq_start = best_start;
             seq_end = best_end;
             score = best_score;
+            diffEnd = bestDiff;
 
-            if(offsetShiftBool)
-            {
-                seq_start = seq_start-mismatches;
-                seq_end = seq_end-mismatches;
-            }
             numberOfSameScoreResults = 0;
-
             return true;
         }
     }
     std::vector<std::string> patterns;
+    std::vector<std::string> revCompPatterns;
 
 };
 
@@ -313,7 +353,7 @@ class WildcardBarcode : public Barcode
     public:
     WildcardBarcode(std::string inPattern, int inMismatches) : pattern(inPattern),Barcode(inMismatches) {}
     bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, std::string& realBarcode, 
-                       const int& differenceInBarcodeLength, fastqStats& stats, bool startCorrection = false, bool fullLengthMapping = false)
+                       int& differenceInBarcodeLength, bool startCorrection = false, bool reverse = false, bool fullLengthMapping = false)
     {
 
         sequence = sequence.substr(offset, pattern.length());
@@ -333,5 +373,5 @@ class WildcardBarcode : public Barcode
     bool is_constant(){return false;}
 
     private:
-    std::string pattern;
+    std::string pattern; //just a string of "XXXXX"
 };

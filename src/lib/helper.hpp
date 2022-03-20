@@ -7,6 +7,7 @@
 #include <cassert>
 #include <string_view>
 #include <cstring>
+#include <atomic>
 
 #define PBSTR "||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
 #define PBWIDTH 60
@@ -14,9 +15,21 @@
 #define MAX(X,Y) (X<Y ? Y : X)
 #define MIN(X,Y) (X<Y ? X : Y)
 
-inline int totalNumberOfLines(std::string fileName)
+inline bool endWith(std::string const &fullString, std::string const &ending) 
 {
-    int totalReads = 0;
+    if (fullString.length() >= ending.length()) 
+    {
+        return (0 == fullString.compare (fullString.length() - ending.length(), ending.length(), ending));
+    } 
+    else 
+    {
+        return false;
+    }
+}
+
+inline unsigned long long totalNumberOfLines(std::string fileName)
+{
+    unsigned long long totalReads = 0;
     unsigned char buffer[1000];
     gzFile fp = gzopen(fileName.c_str(),"r");
     if(NULL == fp){
@@ -29,6 +42,12 @@ inline int totalNumberOfLines(std::string fileName)
         {
             if ( c == '\n' )
             {
+                if(totalReads == ULLONG_MAX)
+                {
+                    std::cout << "WARNING: Analysing more than " << std::to_string(ULLONG_MAX) << " reads. There will be no status update\n";
+                    gzrewind(fp);
+                    return(ULLONG_MAX);
+                }
                 ++totalReads;
             }
         }
@@ -38,15 +57,27 @@ inline int totalNumberOfLines(std::string fileName)
     return totalReads;
 }
 
-inline bool endWith(std::string const &fullString, std::string const &ending) {
-    if (fullString.length() >= ending.length()) 
+inline unsigned long long numberOfReads(std::string fileName)
+{
+    unsigned long long totalReads = 0;
+    
+    if(endWith(fileName, "fastq") || endWith(fileName, "fastq.gz"))
     {
-        return (0 == fullString.compare (fullString.length() - ending.length(), ending.length(), ending));
-    } 
-    else 
-    {
-        return false;
+        unsigned long long totalLines = totalNumberOfLines(fileName);
+        if(totalLines==ULLONG_MAX){return(ULLONG_MAX);}
+        totalReads = (totalLines/4);
     }
+    else if(endWith(fileName, "txt"))
+    {
+        std::ifstream fileStream;
+        fileStream.open(fileName);
+        totalReads = std::count(std::istreambuf_iterator<char>(fileStream), std::istreambuf_iterator<char>(), '\n');
+        fileStream.clear();
+        fileStream.seekg(0);
+        fileStream.close();
+    }
+
+    return totalReads;
 }
 
 inline void printProgress(double percentage) {
@@ -61,29 +92,33 @@ struct input{
     std::string inFile;
     std::string outFile;
 
+    std::string reverseFile = "";
+
     std::string barcodeFile; //file of all barcode-vectors, each line sequentially representing a barcode 
     std::string mismatchLine; //coma seperated list of mismathces per barcode
     std::string patternLine; //list of patterns in abstract form
+    std::string guideFile = ""; // file with the guide barcodes, only necessary if alos guides r given
+    bool guideUMI = false;
+    int guidePos = -1;
 
     //additional informations
-    bool withStats = true;
-    bool storeRealSequences = false;
-    bool analyseUnmappedPatterns = false; 
-    int fastqReadBucketSize = 10000000;
+    bool writeStats = false; 
+    bool writeFailedLines = false;
+    long long int fastqReadBucketSize = 10000000;
     int threads = 5;
 };
 
 struct fastqStats{
     //parameters that are evaluated over the whole fastq line
     //e.g. perfect match occurs only if ALL barcodes match perfectly in a fastq line
-    int perfectMatches = 0;
-    int noMatches = 0;
-    int moderateMatches = 0;
+    std::atomic<unsigned long long> perfectMatches = 0;
+    std::atomic<unsigned long long> noMatches = 0;
+    std::atomic<unsigned long long> moderateMatches = 0;
     //parameter stating how often a barcode sequence could be matched to several sequences, can occure more than once per line
     //can only happen for vairable sequences
-    int multiBarcodeMatch =0;
     //a dictionary of the number of mismatches in a barcode, in the case of a match
     std::map<std::string, std::vector<int> > mapping_dict;
+    std::unique_ptr<std::mutex> statsLock;
 };
 
 struct levenshtein_value{
