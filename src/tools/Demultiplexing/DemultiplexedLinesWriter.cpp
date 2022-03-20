@@ -1,31 +1,37 @@
 #include "DemultiplexedLinesWriter.hpp"
 
 /// creates new files for failed lines, mapped barcodes (and writes header), statistics
-void initialize_output(std::string output, const std::vector<std::pair<std::string, char> > patterns)
+void initialize_output(std::string output, const std::vector<std::pair<std::string, char> > patterns, 
+                       std::string& guideNameTage, bool initializeGuideFile = false, bool guideFileHasUmi = false)
 {
     //remove output
     std::string outputStats;
     std::string outputMapped;
     std::string outputFailed;
+    std::string outputGuide;
+
     std::size_t found = output.find_last_of("/");
     if(found == std::string::npos)
     {
         outputMapped = "Demultiplexed_" + output;
         outputStats = "StatsMismatches_" + output;
         outputFailed = "FailedLines_" + output;
+        outputGuide = "Demultiplexed_" + guideNameTage + output;
     }
     else
     {
         outputMapped = output.substr(0,found) + "/" + "Demultiplexed_" + output.substr(found+1);
         outputStats = output.substr(0,found) + "/" + "StatsMismatches_" + output.substr(found+1);
         outputFailed = output.substr(0,found) + "/" + "FailedLines_" + output.substr(found+1);
+        outputGuide = output.substr(0,found) + "/" + "Demultiplexed_" + guideNameTage + output.substr(found+1);
     }
     // remove outputfile if it exists
     std::remove(outputMapped.c_str());
     std::remove(outputStats.c_str());
     std::remove(outputFailed.c_str());
+    std::remove(outputGuide.c_str());
 
-    //write header line
+    //write header line for AB file
     std::ofstream outputFile;   
     outputFile.open (outputMapped, std::ofstream::app);
     for(int i =0; i < patterns.size(); ++i)
@@ -38,6 +44,26 @@ void initialize_output(std::string output, const std::vector<std::pair<std::stri
     }
     outputFile << "\n";
     outputFile.close();
+
+    //write header line for guide file
+    if(initializeGuideFile)
+    {
+        std::ofstream outputFile;   
+        outputFile.open (outputGuide, std::ofstream::app);
+        for(int i =0; i < patterns.size(); ++i)
+        {
+            if( (patterns.at(i).second != 'w') || (guideFileHasUmi))
+            {
+                outputFile << patterns.at(i).first;
+                if( i!=(patterns.size() - 1) )
+                {
+                    outputFile << "\t";
+                }
+            }
+        }
+        outputFile << "\n";
+        outputFile.close();
+    }
 }
 
 /// write mismatches per barcode to file
@@ -139,7 +165,7 @@ void write_failed_line(const input& input, std::pair<const std::string&, const s
 }
 
 /// write mapped barcodes to a tab separated file
-void write_file(const input& input, BarcodeMappingVector barcodes)
+void write_file(const input& input, BarcodeMappingVector barcodes, std::string nameTag = "")
 {
     std::string output = input.outFile;
     std::ofstream outputFile;
@@ -148,11 +174,11 @@ void write_file(const input& input, BarcodeMappingVector barcodes)
     //write the barcodes we mapped
     if(found == std::string::npos)
     {
-        output = "Demultiplexed_" + output;
+        output = "Demultiplexed_" + nameTag + output;
     }
     else
     {
-        output = output.substr(0,found) + "/" + "Demultiplexed_" + output.substr(found+1);
+        output = output.substr(0,found) + "/" + "Demultiplexed_" + nameTag + output.substr(found+1);
     }
     outputFile.open (output, std::ofstream::app);
     for(int i = 0; i < barcodes.size(); ++i)
@@ -169,11 +195,17 @@ void write_file(const input& input, BarcodeMappingVector barcodes)
 
 /// calls output initializer functions and gets the barcode mapping structure from Mapping object, since this will the header of the output file
 template <typename MappingPolicy, typename FilePolicy>
-void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::initialize_output_files(const input& input, const std::vector<std::pair<std::string, char> >& patterns)
+void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::initialize_output_files(const input& input, 
+                                                                                  const std::vector<std::pair<std::string, char> >& patterns,
+                                                                                  std::string& guideNameTage)
 {
     BarcodePatternVectorPtr barcodePatterns = this->get_barcode_pattern_vector();
     //initialize all output files: write header, delete old files etc.
-    initialize_output(input.outFile, patterns);
+    bool initializeGuideFile = false, guideFileHasUmi = false;
+    if(input.guideFile != ""){initializeGuideFile = true;}
+    if(input.guideUMI){guideFileHasUmi = true;}
+
+    initialize_output(input.outFile, patterns, guideNameTage, initializeGuideFile, guideFileHasUmi);
 }
 
 
@@ -188,7 +220,13 @@ void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::demultiplex_wrapper(st
                                                             const unsigned long long& totalReadCount,
                                                             std::atomic<long long int>& elementsInQueue)
 {
-    bool result = this->demultiplex_read(line, input, lineCount, totalReadCount);
+    //firstly try mapping an AB read
+    bool result = this->demultiplex_read(line, input, lineCount, totalReadCount, false);
+    if(!result && input.guideFile != "")
+    {
+        //run again this time mapping guide reads
+        result = this->demultiplex_read(line, input, lineCount, totalReadCount, true);
+    }
     if(!result && input.writeFailedLines)
     {
         //write failed line to file
@@ -248,7 +286,8 @@ void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::run(const input& input
     std::vector<std::pair<std::string, char> > pattern = this->generate_barcode_patterns(input);
 
     //create output files and write headers for demultiplexed barcodes
-    initialize_output_files(input, pattern);
+    std::string guideNameTage = "guideReads";
+    initialize_output_files(input, pattern, guideNameTage);
 
     //create empty dict for mismatches per barcode
     if(input.writeStats)
@@ -260,7 +299,8 @@ void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::run(const input& input
     this->run_mapping(input);
 
     //write the barcodes, failed lines, statistics (mismatches per barcode)
-    write_file(input, this->get_demultiplexed_reads());
+    write_file(input, this->get_demultiplexed_ab_reads());
+    write_file(input, this->get_demultiplexed_guide_reads(), guideNameTage);
     write_stats(input, this->get_mismatch_dict());
 }
 

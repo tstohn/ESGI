@@ -291,6 +291,7 @@ class Mapping : protected MappingPolicy, protected FilePolicy
         Mapping()
         {
             barcodeMap = DemultiplexedReads();
+            guideBarcodeMap = DemultiplexedReads();
             printProgressLock = std::make_unique<std::mutex>();
             stats.statsLock = std::make_unique<std::mutex>();
         }
@@ -298,9 +299,13 @@ class Mapping : protected MappingPolicy, protected FilePolicy
         /** @brief returns our mapped reads, its a vector (for all raeds) of a vector (for all barcodes sequentially)
          * of const char*, only valid as long as Mapping object - handle with care!!!!
          **/
-        const BarcodeMappingVector get_demultiplexed_reads()
+        const BarcodeMappingVector get_demultiplexed_ab_reads()
         {
             return(barcodeMap.get_all_reads());
+        }
+        const BarcodeMappingVector get_demultiplexed_guide_reads()
+        {
+            return(guideBarcodeMap.get_all_reads());
         }
         ///number of perfect matches
         const unsigned long long get_perfect_matches()
@@ -336,10 +341,19 @@ class Mapping : protected MappingPolicy, protected FilePolicy
         *basically a vector of a vector of mapped barcodes, we can get this data after 'run' by calling 'get_demultiplexed_reads'
         **/
         DemultiplexedReads barcodeMap;
+        DemultiplexedReads guideBarcodeMap;
 
         //representation of the barcode pattern we want to map to all reads
         //basically a vector of Barcode objects (stores all possible barcodes, mismatches that are allowed, etc.)
         BarcodePatternVectorPtr barcodePatterns;
+        BarcodePatternVectorPtr guideBarcodePatterns;
+
+        //this is only filled if we map sequences that contain AB reads as well as guide reads
+        //those guides can exist instead of ABs, if AB-barcodes do not map we try the guides
+        //(be default skipping the UMI, if guide reads also contain a UMI the guideUMI flag must be set)
+        std::shared_ptr<std::vector<std::string>> guideList;
+        bool guideUMI = false;
+
         //statistics of the mapping
         fastqStats stats;
         //lock for update bar
@@ -365,7 +379,9 @@ class Mapping : protected MappingPolicy, protected FilePolicy
         //pairs that hold <barcode-regex, char determining the kind of barcode> with kind of barcode beeing e.g. a variable, constant, etc.
         std::vector<std::pair<std::string, char> > generate_barcode_patterns(const input& input);
         //wrapper to call the actual mapping function on one read and updates the status bar
-        bool demultiplex_read(std::pair<const std::string&, const std::string&>  seq, const input& input, std::atomic<unsigned long long>& count, const unsigned long long& totalReadCount);
+        bool demultiplex_read(std::pair<const std::string&, const std::string&>  seq, const input& input, 
+                              std::atomic<unsigned long long>& count, const unsigned long long& totalReadCount,
+                              bool guideMapping);
         //run the actual mapping
         void run_mapping(const input& input);
 };

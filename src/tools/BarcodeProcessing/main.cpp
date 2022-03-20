@@ -10,6 +10,9 @@ using namespace boost::program_options;
  * the corresponding barcode sequences and their names (e.g. cell types) should be present. In this
  * case the barcodeList should still ONLY contain the AB barcodes.
  * 
+ * If additional guide reads r present, the AB and guide reads can be in ONE file, or they can be in two seperate files, one for the AB
+ * and one for the guide reads.
+ * 
  * Output is a file with AB counts for all found single cells.
  * The UmiProcessing file contains the counts for each UMI that is in the end considered for the AB counts.
  * This is so to speak the number of PCR duplicates that we have for each single count of an AB within a single cell
@@ -25,7 +28,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
                      std::string& barcodeFile, std::string& barcodeIndices, int& umiMismatches,
                      std::string& abFile, int& abIdx, std::string& treatmentFile, int& treatmentIdx,
                      std::string& classSeqFile, std::string& classNameFile, double& umiThreshold,
-                     bool scClassConstraint)
+                     bool scClassConstraint, std::string& guideReadsFile)
 {
     try
     {
@@ -46,6 +49,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
 
             ("classSeq,g", value<std::string>(&(classSeqFile)), "file with the sequences that define origin of cells (e.g. sgRNA sequences along the experiment)")
             ("className,n", value<std::string>(&(classNameFile)), "file with names to replace the sequence of origin")
+            ("guideFile,j", value<std::string>(&guideReadsFile)->default_value(""), "file with all the demultiplexed guide reads.")
 
             ("CombinatorialIndexingBarcodeIndices,c", value<std::string>(&(barcodeIndices))->required(), "comma seperated list of indexes, that are used during \
             combinatorial indexing and should distinguish a unique cell. Be aware that this is the index of the line inside the barcodeList file (see above). \
@@ -57,7 +61,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             ("thread,t", value<int>(&threats)->default_value(5), "number of threads")
             ("umiThreshold,f", value<double>(&umiThreshold)->default_value(0.0), "threshold for filtering UMIs. E.g. if set to 0.9 we only retain reads of a UMI, if more \
             than 90percent of them have the same UMI. All other reads are deleted.")
-            ("scClassConstraint", value<bool>(&scClassConstraint)->default_value(true), "Boolean to store whether sc reads should be removed if we find no guide read for them. \
+            ("scClassConstraint,k", value<bool>(&scClassConstraint)->default_value(true), "Boolean to store whether sc reads should be removed if we find no guide read for them. \
             If set to false reads for no guide are given the class wildtype.")
 
             ("help,h", "help message");
@@ -243,10 +247,12 @@ int main(int argc, char** argv)
     //data for class information (given e.g. by guide RNA)
     std::string classSeqFile;
     std::string classNameFile;
+    std::string guideReadsFile;
 
     if(!parse_arguments(argv, argc, inFile, outFile, thread, barcodeFile, barcodeIndices, 
-                    umiMismatches, abFile, abIdx, treatmentFile, treatmentIdx,
-                    classSeqFile, classNameFile, umiThreshold, scClassConstraint))
+                        umiMismatches, abFile, abIdx, treatmentFile, treatmentIdx,
+                        classSeqFile, classNameFile, umiThreshold, scClassConstraint, 
+                        guideReadsFile))
     {
         exit(EXIT_FAILURE);
     }
@@ -279,7 +285,14 @@ int main(int argc, char** argv)
     //add all the data to the Unprocessed Demultiplexed Data (stored in rawData)
     // (AB, treatment already are mapped to their real names, scID is a concatenation of numbers for each barcode in
     //each abrcoding round, seperated by a dot)
-    dataParser.parseFile(inFile, thread);
+    if(guideReadsFile != "")
+    {
+        dataParser.parse_ab_and_guide_file(inFile, guideReadsFile, thread);
+    }
+    else
+    {
+        dataParser.parse_combined_file(inFile, thread);
+    }
     //further process the data (correct UMIs, collapse same UMIs, etc.)
     dataParser.processBarcodeMapping(umiMismatches, thread);
     dataParser.writeLog(outFile);

@@ -212,7 +212,10 @@ class BarcodeProcessingHandler
 
         BarcodeProcessingHandler(NBarcodeInformation barcodeIdData) : varyingBarcodesPos(barcodeIdData){}
 
-        void parseFile(const std::string fileName, const int& thread);
+        void parse_combined_file(const std::string fileName, const int& thread);
+        void parse_ab_and_guide_file(const std::string abFileName, 
+                                 const std::string guideFileName, 
+                                 const int& thread);
 
         //counts AB and UMIs per single cell, data is stored in result (also saves basic information about processing
         //like removed reads, mismatched UMIs, etc.)
@@ -276,6 +279,16 @@ class BarcodeProcessingHandler
         void parseBarcodeLines(std::istream* instream, const unsigned long long& totalReads, unsigned long long& currentReads,
                                std::unordered_map< const char*, std::unordered_map< const char*, UnorderedSetCharPtr>>& scClasseCountDict);
         
+        //a couple of overloaded frunctions to read AB and guide demultiplexed lines seperately (ToDo: delete old function taking also ONE file with both data)
+        void add_line_to_temporary_data(const std::string& line, const int& elements,
+                                   std::unordered_map< const char*, std::unordered_map< const char*, UnorderedSetCharPtr>>* scClasseCountDict,
+                                   unsigned long long& abReadCount, unsigned long long& guideReadCount);
+        void parse_barcode_lines_seperately(std::istream* instream, const unsigned long long& totalReads, unsigned long long& currentReads, 
+                          std::unordered_map< const char*, std::unordered_map< const char*, UnorderedSetCharPtr>>* scClasseCountDict);
+        void parse_file_seperately(const std::string fileName, const int& thread, 
+                  std::unordered_map< const char*, std::unordered_map< const char*, 
+                  UnorderedSetCharPtr>>* scClasseCountDict);
+
         //check if a read is in 'dataLinesToDelete' (not-unique UMI for this read)
         bool checkIfLineIsDeleted(const dataLinePtr& line, const std::vector<dataLinePtr>& dataLinesToDelete);
         //stores a real unique read in a dict for the corresponding AB-SC (only read with UMI presence > 90 considered)

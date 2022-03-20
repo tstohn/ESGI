@@ -110,12 +110,12 @@ void umiQualityStat::add_value(const std::unordered_map<std::string, std::vector
 }
 
 
-void UmiQuality::checkUniquenessOfUmis(const std::vector<dataLinePtr>& uniqueUmiLines)
+void UmiQuality::checkUniquenessOfUmis(const std::vector<umiDataLinePtr>& uniqueUmiLines)
 {
     std::unordered_map<std::string, std::vector<std::string> > uniqueBarcodes; //maps string for Bc type (AB,BC1,...) => vector of all the possible barcode that we encounter
 
     //analyze each dataLine and store unique occurences of each barcode
-    for(const dataLinePtr& line : uniqueUmiLines)
+    for(const umiDataLinePtr& line : uniqueUmiLines)
     {
         //for all CI barcodes
         std::vector<std::string> ciVec = splitByDelimiter(line->scID, ".");
@@ -144,7 +144,7 @@ void UmiQuality::runUmiQualityCheck(const int& thread, const std::string& output
 {
     boost::asio::thread_pool pool(thread); //create thread pool
     //Map of UMIs with duplicate Sc-Ab-treatments
-    for(std::pair<const char *, std::vector<dataLinePtr>> dataLinesOfUmi : *rawData.getUniqueUmis())
+    for(std::pair<const char *const, std::vector<umiDataLinePtr>> dataLinesOfUmi : *rawData.getUniqueUmis())
     {
         //handing over only lineCount as reference, everything else will be copied (Mapping object as handed overr as this-pointer)
         boost::asio::post(pool, std::bind(&UmiQuality::checkUniquenessOfUmis, this, dataLinesOfUmi.second));

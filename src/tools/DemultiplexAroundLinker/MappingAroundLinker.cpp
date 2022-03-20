@@ -82,7 +82,7 @@ void MappingAroundLinker<MappingPolicy, FilePolicy>::demultiplex_wrapper(std::pa
                                                             const unsigned long long& totalReadCount,
                                                             std::atomic<long long int>& elementsInQueue)
 {
-    this->demultiplex_read(line, input, lineCount, totalReadCount);
+    this->demultiplex_read(line, input, lineCount, totalReadCount, false);
     --elementsInQueue;
 }
 
@@ -143,7 +143,7 @@ void MappingAroundLinker<MappingPolicy, FilePolicy>::run(const input& input)
     this->run_mapping(input);
 
     //write the barcodes, failed lines, statistics (mismatches per barcode)
-    write_file(input, this->get_demultiplexed_reads());
+    write_file(input, this->get_demultiplexed_ab_reads());
 }
 
 template class MappingAroundLinker<MapAroundConstantBarcodesAsAnchorPolicy, ExtractLinesFromFastqFilePolicy>;

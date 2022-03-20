@@ -48,6 +48,7 @@ $shortopts .= "m:"; //mismatch string: e.g.=1,2,3 (Mismatches for each pattern, 
 $shortopts .= "p:"; //mapping pattern: e.g.=[GAGCTCTGCGACG][XXXXXXXXXXXX][GATGACTCA]
 $shortopts .= "b:"; //barcode file
 $shortopts .= "g:"; //guide file: one line of comma seperated guide barcodes (must be at same position as AB barcodes)
+$shortopts .= "h:"; //guide UMI boolean: if set to true the guide reads also contain UMIs, default is false
 
 //script parameters
 $shortopts .= "t:"; //number of threads maximally used for tools
@@ -85,6 +86,7 @@ if(array_key_exists("help", $options))
 
     -g guide barcode file: file containing only one lines of comma seperated barcodes. Those barcodes are the guide-barcodes, that have to be at the same position 
        as the AB barcode and are additional reads of the experiment to know from which cell line the cell origionates from.
+    -h boolean to indicate whether the guide reads have UMIs as well, default is false!
 
     #MANDATORY TO MAP BARCODES TO SINGLE CELLS/ ABS/ TREATMENT
     -c list of indices: the indices of the mapping pattern (starting at 0) used as CI-barcodes to define a single cell,
@@ -200,7 +202,7 @@ $executionPath = realpath(dirname(__FILE__));
 
 //add guide barcodes to barcodeFile
 $guideBarcodeFile = $tmpFolder . "/barcodeFile.tsv";
-if($options['g']!=NULL)
+/*if($options['g']!=NULL)
 {    
     fwrite($logfileHandle, "Adding the guide barcodes to the barcode file (attach barcodes to the line of AB barcodes).\n");
     //get the guides that have to be added
@@ -222,9 +224,9 @@ if($options['g']!=NULL)
     fwrite($logfileHandle, "-> DONE\n");
 }
 else
-{
+{*/
     $guideBarcodeFile = $options['b'];
-}
+#}
 
 $command = $executionPath . "/../../bin/demultiplexing";
 $parameters = ['i', 'r', 'p', 'm', 't'];
@@ -239,6 +241,17 @@ foreach($parameters as $element)
 $command = $command . " -b " . $guideBarcodeFile;
 //add output folder
 $command = $command . " -o " . $options['o'] . "/Demultiplexing.tsv";
+if($options['h']==true)
+{
+    $command = $command . " -d true";
+}
+if($options['g']!=NULL)
+{
+    $command = $command . " -c " . $options['g'];
+    $command = $command . " -e " . $options['x'];
+}
+
+
 fwrite($logfileHandle, "#RUNNING COMMAND: ".$command."\n");
 run_updates($command);
 fwrite($logfileHandle, "-> DONE\n");
@@ -246,7 +259,13 @@ fwrite($logfileHandle, "-> DONE\n");
 //gzip the output
 $outputDemultiplexing = $options['o'] . "/Demultiplexed_Demultiplexing.tsv";
 shell_exec("gzip -f " . $outputDemultiplexing);
-
+$outputGuideDemultiplexing = "";
+if($options['g']!=NULL)
+{
+    //gzip output for guide reads
+    $outputGuideDemultiplexing = $options['o'] . "/Demultiplexed_guideReadsDemultiplexing.tsv";
+    shell_exec("gzip -f " . $outputGuideDemultiplexing);
+}
 ######################################
 //execute mapping of RNA if necessary (if mapping pattern contains RNA region)
 ######################################
@@ -272,6 +291,10 @@ foreach($parameters as $element)
 //set new input file = output of Demultiplexing and output file
 $command = $command . " -i " . $outputDemultiplexing . ".gz";
 $command = $command . " -o " . $options['o'] . "/Processing.tsv";
+if($options['g']!=NULL)
+{
+    $command = $command . " -j " . $outputGuideDemultiplexing . ".gz";
+}
 
 //TODO: add output file manually
 fwrite($logfileHandle, "#RUNNING COMMAND: ".$command."\n");

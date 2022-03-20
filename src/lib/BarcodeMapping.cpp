@@ -33,7 +33,8 @@ void Mapping<MappingPolicy, FilePolicy>::initializeStats()
 }
 
 template <typename MappingPolicy, typename FilePolicy>
-void Mapping<MappingPolicy, FilePolicy>::parse_barcode_data(const input& input, std::vector<std::pair<std::string, char> >& patterns, std::vector<int>& mismatches, std::vector<std::vector<std::string> >& varyingBarcodes)
+void Mapping<MappingPolicy, FilePolicy>::parse_barcode_data(const input& input, std::vector<std::pair<std::string, char> >& patterns, 
+                                                            std::vector<int>& mismatches, std::vector<std::vector<std::string> >& varyingBarcodes)
 {
     try{
         // parse the pattern, mismatches, and barcode file (perform quality check as well)
@@ -132,7 +133,7 @@ void Mapping<MappingPolicy, FilePolicy>::parse_barcode_data(const input& input, 
                         std::cerr << "PARAMETER ERROR: a barcode sequence in barcode file is not a base (A,T,G,C)\n";
                         if(c==' ' || c=='\t' || c=='\n')
                         {
-                            std::cerr << "PARAMETER ERROR: Detected a whitespace in sequence; remove it to continue!\n";
+                            std::cerr << "PARAMETER ERROR: Detected a whitespace in sequence of barcode file; remove it to continue!\n";
                         }
                         exit(1);
                         }
@@ -147,7 +148,60 @@ void Mapping<MappingPolicy, FilePolicy>::parse_barcode_data(const input& input, 
             std::cerr << "PARAMETER ERROR: Number of barcode patterns for non-constant sequences [N*] and lines in barcode file are not equal\n";
             exit(1);
         }
-        
+        //PARSE guide file (only if we map AB and guide reads simultaneously)
+        if(input.guideFile!="")
+        {
+            std::ifstream guideFile(input.guideFile);
+            int lineCount = 0;
+            std::vector<std::string> seqVector;
+            for(std::string line; std::getline(guideFile, line);)
+            {
+                delimiter = ",";
+                pos = 0;
+                while ((pos = line.find(delimiter)) != std::string::npos) {
+                    //if we find delimiters in more than one line, the file is not correct
+                    if(lineCount > 0)
+                    {
+                        std::cerr << "PARAMETER ERROR: The input guide file contains too many lines. It should contain a single line with comma seperated guide sequences.\n";
+                        exit(1);
+                    }
+                    seq = line.substr(0, pos);
+                    line.erase(0, pos + 1);
+                    for (char const &c: seq) {
+                        if(!(c=='A' | c=='T' | c=='G' |c=='C' |
+                            c=='a' | c=='t' | c=='g' | c=='c'))
+                            {
+                                std::cerr << "PARAMETER ERROR: a barcode sequence in guide file is not a base (A,T,G,C)\n";
+                                if(c==' ' | c=='\t' | c=='\n')
+                                {
+                                    std::cerr << "PARAMETER ERROR: Detected a whitespace in sequence of guide file; remove it to continue!\n";
+                                }
+                                exit(1);
+                            }
+                    }
+                    seqVector.push_back(seq);
+                }
+                seq = line;
+                for (char const &c: seq) {
+                    if(!(c=='A' || c=='T' || c=='G' || c=='C' ||
+                            c=='a' || c=='t' || c=='g' || c=='c'))
+                            {
+                            std::cerr << "PARAMETER ERROR: a barcode sequence in guide file is not a base (A,T,G,C)\n";
+                            if(c==' ' || c=='\t' || c=='\n')
+                            {
+                                std::cerr << "PARAMETER ERROR: Detected a whitespace in sequence of guide file; remove it to continue!\n";
+                            }
+                            exit(1);
+                            }
+                }
+                seqVector.push_back(seq);
+                ++lineCount;
+            }
+            guideList = std::make_shared<std::vector<std::string>>(seqVector);
+            guideFile.close();
+            //also set the bool storing weather guide reads contain a UMI or not
+            guideUMI = input.guideUMI;
+        }
     }
     catch(std::exception& e)
     {
@@ -172,6 +226,7 @@ std::vector<std::pair<std::string, char> > Mapping<MappingPolicy, FilePolicy>::g
 
     //iterate over patterns and fill BarcodePatternVector instance
     BarcodePatternVector barcodeVector;
+    BarcodePatternVector guideBarcodeVector;
     int variableBarcodeIdx = 0; // index for variable barcode sequences is shorter than the vector of patterns in total
     for(int i=0; i < patterns.size(); ++i)
     {
@@ -179,20 +234,39 @@ std::vector<std::pair<std::string, char> > Mapping<MappingPolicy, FilePolicy>::g
         {
             VariableBarcode barcode(varyingBarcodes.at(variableBarcodeIdx), mismatches.at(i));
             std::shared_ptr<VariableBarcode> barcodePtr(std::make_shared<VariableBarcode>(barcode));
-            barcodeVector.emplace_back(barcodePtr);
+            barcodeVector.push_back(barcodePtr);
+            
+            //if we are at the AB/GUIDE barcode position, we need to hear insert the guide sequences
+            if(variableBarcodeIdx == input.guidePos)
+            {
+                VariableBarcode barcode(*guideList, mismatches.at(i));
+                std::shared_ptr<VariableBarcode> barcodePtr(std::make_shared<VariableBarcode>(barcode));
+                guideBarcodeVector.push_back(barcodePtr);
+            }
+            else
+            {
+                guideBarcodeVector.push_back(barcodePtr);
+            }
             ++variableBarcodeIdx;
         }
         else if(patterns.at(i).second=='c')
         {
             ConstantBarcode barcode(patterns.at(i).first, mismatches.at(i));
             std::shared_ptr<ConstantBarcode> barcodePtr(std::make_shared<ConstantBarcode>(barcode));
-            barcodeVector.emplace_back(barcodePtr);
+            barcodeVector.push_back(barcodePtr);
+            guideBarcodeVector.push_back(barcodePtr);
         }
         else if(patterns.at(i).second=='w')
         {
             WildcardBarcode barcode(patterns.at(i).first, mismatches.at(i));
             std::shared_ptr<WildcardBarcode> barcodePtr(std::make_shared<WildcardBarcode>(barcode));
-            barcodeVector.emplace_back(barcodePtr);
+            barcodeVector.push_back(barcodePtr);
+            //only add the wildcard to guidebarcodePattern if guide has a UMI 
+            //(assuming the wildcard is only the UMI in this scenario)
+            if(guideUMI)
+            {
+                guideBarcodeVector.push_back(barcodePtr);
+            }
         }
         else if(patterns.at(i).second=='d')
         {
@@ -214,6 +288,7 @@ std::vector<std::pair<std::string, char> > Mapping<MappingPolicy, FilePolicy>::g
 
     //set the vector of barcode patterns
     barcodePatterns = barcodePatternVector;
+    guideBarcodePatterns = std::make_shared<BarcodePatternVector>(guideBarcodeVector);
     return patterns;
 }
 
@@ -237,6 +312,7 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(std::pai
         patternItr < barcodePatterns->end(); 
         ++patternItr)
     {
+
         //if we have a wildcard skip this matching, we match again the next sequence
         if((*patternItr)->is_wildcard())
         {
@@ -609,11 +685,21 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::split_line_into_barcode_patterns(
 
 template <typename MappingPolicy, typename FilePolicy>
 bool Mapping<MappingPolicy, FilePolicy>::demultiplex_read(std::pair<const std::string&, const std::string&> seq, const input& input, 
-                                                          std::atomic<unsigned long long>& count, const unsigned long long& totalReadCount)
+                                                          std::atomic<unsigned long long>& count, const unsigned long long& totalReadCount,
+                                                          bool guideMapping)
 {
     //split line into patterns (barcodeMap, barcodePatters, stats are passed as reference or ptr)
     //and can be read by each thread, "addValue" method for barcodeMap is thread safe also for concurrent writing
-    bool result = this->split_line_into_barcode_patterns(seq, input, barcodeMap, barcodePatterns, stats);
+    bool result;
+    if(!guideMapping)
+    {
+        result = this->split_line_into_barcode_patterns(seq, input, barcodeMap, barcodePatterns, stats);
+    }
+    else
+    {
+        result = this->split_line_into_barcode_patterns(seq, input, guideBarcodeMap, guideBarcodePatterns, stats);
+        --stats.noMatches;
+    }
 
     //update status bar
     ++count;
@@ -752,7 +838,8 @@ void Mapping<MappingPolicy, FilePolicy>::run_mapping(const input& input)
     while(FilePolicy::get_next_line(line))
     {
         //handing over only lineCount as reference, everything else will be copied (Mapping object as handed overr as this-pointer)
-        boost::asio::post(pool, std::bind(&Mapping::demultiplex_read, this, line, input, std::ref(lineCount), totalReadCount));
+        //be aware: in default function do not handle guide reads, this is part of the overwritten function in Demultiplexing tool
+        boost::asio::post(pool, std::bind(&Mapping::demultiplex_read, this, line, input, std::ref(lineCount), totalReadCount, false));
     }
     pool.join();
     printProgress(1); std::cout << "\n"; // end the progress bar

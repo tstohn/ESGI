@@ -56,7 +56,7 @@ class UmiQuality
 
     private:
     //private functions called in runUmiQualityCheck
-        void checkUniquenessOfUmis(const std::vector<dataLinePtr>& uniqueUmis);
+        void checkUniquenessOfUmis(const std::vector<umiDataLinePtr>& uniqueUmis);
         void writeUmiQualityData(std::string output);
 
         //Statistic about the UMI quality

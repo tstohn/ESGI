@@ -46,7 +46,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             combinatorial indexing and should distinguish a unique cell. Be aware that this is the index of the line inside the barcodeList file (see above). \
             This file ONLY includes lines for the varying sequences (except UMI). Therefore the index is not the same as the position in the whole sequence \
             if constant or UMI-seq are present. Index starts with zero.")
-
+            
             ("mismatches,u", value<int>(&umiMismatches)->default_value(2), "number of allowed mismatches in a UMI. The nucleotides in the beginning and end do NOT count.\
             Since the UMI is defined as the sequence between the last and first match of neighboring sequences, bases of mismatches could be in the beginning/ end.")
             ("thread,t", value<int>(&threats)->default_value(5), "number of threads")
@@ -165,6 +165,9 @@ int main(int argc, char** argv)
     NBarcodeInformation barcodeIdData;
     generateBarcodeDicts(barcodeFile, barcodeIndices, barcodeIdData, abBarcodes, abIdx, &treatmentBarcodes, treatmentIdx);
     BarcodeProcessingHandler dataParser(barcodeIdData);
+    //hack to prevent that the demultiplexed reads are written directly into the ScAb-matrix (which happens if the threshold to retains UMIs is set to 0)
+    dataParser.setUmiFilterThreshold(-1.0);
+
     if(!abFile.empty())
     {
         std::unordered_map<std::string, std::string > map = generateProteinDict(abFile, abIdx, abBarcodes);
@@ -179,11 +182,10 @@ int main(int argc, char** argv)
     //add all the data to the Unprocessed Demultiplexed Data (stored in rawData)
     // (AB, treatment already are mapped to their real names, scID is a concatenation of numbers for each barcode in
     //each abrcoding round, seperated by a dot)
-    dataParser.parseFile(inFile, thread);
+    dataParser.parse_combined_file(inFile, thread);
 
     UmiQuality umiCheck(dataParser);
     umiCheck.runUmiQualityCheck(thread, outFile);
-
 
     return(EXIT_SUCCESS);
 }
