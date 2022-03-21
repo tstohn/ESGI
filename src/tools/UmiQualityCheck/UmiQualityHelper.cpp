@@ -1,5 +1,6 @@
 #include "UmiQualityHelper.hpp"
 
+bool compareFunction (std::string a, std::string b) {return a<b;}
 
 void UmiQuality::writeUmiQualityData(std::string output)
 {
@@ -91,6 +92,7 @@ void umiQualityStat::add_value(const std::unordered_map<std::string, std::vector
         {
             barcodeOrder.push_back(elem.first);
         }
+        std::sort(barcodeOrder.begin(),barcodeOrder.end(),compareFunction);//sort the vector
     }
 
     std::vector<int> barcodeCountVector;
