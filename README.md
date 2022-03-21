@@ -15,7 +15,7 @@ Finally a UMI correction step can be performed to count UMIs within close proxim
 (A version for counting RNA instead of Epitopes is in development).
 
 A short overview of the Pipeline:
-![Pipeline](https://github.com/tstohn/CombinatorialIndexingPipeline/blob/CITool/docs/media/PipelineReview.png)
+![Pipeline](https://github.com/tstohn/CombinatorialIndexingPipeline/blob/master/docs/media/PipelineReview.png)
 
 The repository contains a few cpp tools that can be used for demultiplexing/ protein number counting seperately.
 Otherwise you can also run the whole pipeline as a php script, which will perform demultiplexing & subsequent read counting.
