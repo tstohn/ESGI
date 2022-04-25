@@ -531,9 +531,9 @@ void BarcodeProcessingHandler::getBarcodePositions(const std::string& line, int&
         {
             umiIdx.push_back(count);
             umiLength = strlen(substr.c_str());
-            ++count;
         }
         result.push_back( substr );
+        ++count;
     }
     barcodeElements = count;
     assert(fastqReadBarcodeIdx.size() == varyingBarcodesPos.NBarcodeIndices.size());
