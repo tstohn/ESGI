@@ -284,9 +284,15 @@ void BarcodeProcessingHandler::add_line_to_temporary_data(const std::string& lin
 
         ++guideReadCount;
         const char* umiSeq;
-        if(umiIdx!=INT_MAX)
+        std::string umiSeqString;
+        if(!umiIdx.empty())
         {
-            umiSeq = result.at(umiIdx).c_str();
+            for(int idx : umiIdx)
+            {
+                std::string tmpUmi = result.at(idx).c_str();
+                umiSeqString = umiSeqString + tmpUmi;
+            }
+            umiSeq = umiSeqString.c_str();
         }
         else
         {
@@ -309,9 +315,17 @@ void BarcodeProcessingHandler::add_line_to_temporary_data(const std::string& lin
     //the also create a UMI-SCAB Dict for filtering
     //(this is only useful if we expected the data to be extremely noisy or so shallow that there no
     //UMI-clashes: e.g. for debugging of CI experiments with many barcode recombinations to reduce erroneous reads)
-    if(umiIdx!=INT_MAX && umiFilterThreshold!=0.0)
+    if(!umiIdx.empty() && umiFilterThreshold!=0.0)
     {
-        rawData.add_to_umiDict(result.at(umiIdx).c_str(), proteinName, singleCellIdx, treatment);
+        std::string umiSeqString;
+        for(int idx : umiIdx)
+        {
+            std::string tmpUmi = result.at(idx).c_str();
+            umiSeqString = umiSeqString + tmpUmi;
+        }
+        umiSeq = umiSeqString.c_str();
+
+        rawData.add_to_umiDict(umiSeq, proteinName, singleCellIdx, treatment);
     }
     //otherwise add reads directly to dict of ScAb to reads
     else
@@ -407,9 +421,15 @@ void BarcodeProcessingHandler::add_line_to_temporary_data(const std::string& lin
             ++guideReadCount;
 
             const char* umiSeq;
-            if(umiIdx!=INT_MAX)
+            if(!umiIdx.empty())
             {
-                umiSeq = result.at(umiIdx).c_str();
+                std::string umiSeqString;
+                for(int idx : umiIdx)
+                {
+                    std::string tmpUmi = result.at(idx).c_str();
+                    umiSeqString = umiSeqString + tmpUmi;
+                }
+                umiSeq = umiSeqString.c_str();
             }
             else
             {
@@ -441,9 +461,16 @@ void BarcodeProcessingHandler::add_line_to_temporary_data(const std::string& lin
     //the also create a UMI-SCAB Dict for filtering
     //(this is only useful if we expected the data to be extremely noisy or so shallow that there no
     //UMI-clashes: e.g. for debugging of CI experiments with many barcode recombinations to reduce erroneous reads)
-    if(umiIdx!=INT_MAX && umiFilterThreshold!=0.0)
+    if(!umiIdx.empty() && umiFilterThreshold!=0.0)
     {
-        rawData.add_to_umiDict(result.at(umiIdx).c_str(), proteinName, singleCellIdx, treatment);
+        std::string umiSeqString;
+        for(int idx : umiIdx)
+        {
+            std::string tmpUmi = result.at(idx).c_str();
+            umiSeqString = umiSeqString + tmpUmi;
+        }
+        umiSeq = umiSeqString.c_str();
+        rawData.add_to_umiDict(umiSeq, proteinName, singleCellIdx, treatment);
     }
     //otherwise add reads directly to dict of ScAb to reads
     else
@@ -502,7 +529,7 @@ void BarcodeProcessingHandler::getBarcodePositions(const std::string& line, int&
         }
         else if(substr.find_first_not_of('X') == std::string::npos)
         {
-            umiIdx = count;
+            umiIdx.push_back(count);
             umiLength = strlen(substr.c_str());
         }
         result.push_back( substr );
@@ -510,7 +537,7 @@ void BarcodeProcessingHandler::getBarcodePositions(const std::string& line, int&
     }
     barcodeElements = count;
     assert(fastqReadBarcodeIdx.size() == varyingBarcodesPos.NBarcodeIndices.size());
-    //assert(umiIdx != INT_MAX);
+    //assert(!umiIdx.empty());  we now allow also analyses without UMI
     assert(abIdx != INT_MAX);
 }
 

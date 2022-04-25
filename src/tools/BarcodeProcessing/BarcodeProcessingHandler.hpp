@@ -252,7 +252,7 @@ class BarcodeProcessingHandler
         {
             return(abIdx);
         }
-        const int getUmiIdx() const
+        const std::vector<int> getUmiIdx() const
         {
             return(umiIdx);
         }
@@ -344,7 +344,7 @@ class BarcodeProcessingHandler
         // variables to read the data from each fastq line
         std::vector<int> fastqReadBarcodeIdx; // ids of the CI barcode within the whole pattern of all barcodes
         int abIdx = INT_MAX;
-        int umiIdx = INT_MAX;
+        std::vector<int> umiIdx;
         int treatmentIdx = INT_MAX;
         int umiLength = 0;
 
