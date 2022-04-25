@@ -261,8 +261,8 @@ void BarcodeProcessingHandler::add_line_to_temporary_data(const std::string& lin
     }
     if(result.size() != elements)
     {
-        std::cerr << "Error in barcode file, following row has not the correct number of sequences: " << line << "\n";
-        exit(EXIT_FAILURE);
+        std::cout << "Warning in barcode file, following row has not the correct number of sequences: " << line << "\n";
+        return;
     }
 
     //hand over the UMI string, ab string, singleCellstring (concatenation of CIbarcodes)
@@ -399,8 +399,8 @@ void BarcodeProcessingHandler::add_line_to_temporary_data(const std::string& lin
     }
     if(result.size() != elements)
     {
-        std::cerr << "Error in barcode file, following row has not the correct number of sequences: " << line << "\n";
-        exit(EXIT_FAILURE);
+        std::cout << "WARNING in barcode file, following row has not the correct number of sequences: " << line << "\n";
+        return;
     }
 
     //hand over the UMI string, ab string, singleCellstring (concatenation of CIbarcodes)
