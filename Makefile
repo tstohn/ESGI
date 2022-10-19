@@ -1,4 +1,7 @@
 #DEPENDANCIES: zlib, input is a ONE READ fastq file, therefore convert forward/ reverse fastqs into one e.g. with fastq-join
+
+CXXFLAGS = -g -Wall -I include/boost/boost
+
 install:
 	#download and compile kseq
 	mkdir include; cd ./include; git clone https://github.com/lh3/seqtk --branch v1.3; cd ./seqtk; make
@@ -6,16 +9,16 @@ install:
 
 #parse fastq lines and map abrcodes to each sequence
 demultiplexing:
-	g++ -c src/lib/BarcodeMapping.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing -I include/boost/boost --std=c++17
-	g++ -c src/tools/Demultiplexing/DemultiplexedLinesWriter.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17
-	g++ -c src/tools/Demultiplexing/main.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17
+	g++ -c src/lib/BarcodeMapping.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
+	g++ -c src/tools/Demultiplexing/DemultiplexedLinesWriter.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
+	g++ -c src/tools/Demultiplexing/main.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
 	g++ main.o DemultiplexedLinesWriter.o BarcodeMapping.o -o ./bin/demultiplexing -lpthread -lz -lboost_program_options -lboost_iostreams
 
 #a quality control tool: Mapping first Linker to whole sequence
 demultiplexAroundLinker:
-	g++ -c src/lib/BarcodeMapping.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17
-	g++ -c src/tools/DemultiplexAroundLinker/MappingAroundLinker.cpp -I ./include/ -I ./src/lib -I src/tools/DemultiplexAroundLinker --std=c++17
-	g++ -c src/tools/DemultiplexAroundLinker/main.cpp -I ./include/ -I ./src/tools/DemultiplexAroundLinker -I ./src/tools/BarcodeProcessing -I ./src/lib --std=c++17
+	g++ -c src/lib/BarcodeMapping.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
+	g++ -c src/tools/DemultiplexAroundLinker/MappingAroundLinker.cpp -I ./include/ -I ./src/lib -I src/tools/DemultiplexAroundLinker --std=c++17 $(CXXFLAGS)
+	g++ -c src/tools/DemultiplexAroundLinker/main.cpp -I ./include/ -I ./src/tools/DemultiplexAroundLinker -I ./src/tools/BarcodeProcessing -I ./src/lib --std=c++17 $(CXXFLAGS)
 	g++ main.o MappingAroundLinker.o BarcodeMapping.o -o ./bin/demultiplexAroundLinker -lpthread -lz -lboost_program_options -lboost_iostreams
 
 testDemultiplexAroundLinker:
@@ -31,16 +34,16 @@ testDemultiplexAroundLinker:
 
 #process the mapped sequences: correct for UMI-mismatches, then map barcodes to Protein, treatment, SinglecellIDs
 processing:
-	g++ -c src/tools/BarcodeProcessing/BarcodeProcessingHandler.cpp -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing --std=c++17
-	g++ -c src/tools/BarcodeProcessing/main.cpp -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing --std=c++17
+	g++ -c src/tools/BarcodeProcessing/BarcodeProcessingHandler.cpp -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
+	g++ -c src/tools/BarcodeProcessing/main.cpp -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
 	g++ main.o BarcodeProcessingHandler.o -o ./bin/processing -lpthread -lz -lboost_program_options -lboost_iostreams
 
 #Umiqual is a toll to analuze the quality of the CI reads based on the UMI. Imagine we have an explosion of barocode combinations
 # we can use this tool to see in which BC round those combinations occure (based on the UMI)
 umiqual:
-	g++ -c src/tools/BarcodeProcessing/BarcodeProcessingHandler.cpp -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing --std=c++17
-	g++ -c src/tools/UmiQualityCheck/UmiQualityHelper.cpp -I ./include/ -I ./src/lib -I ./src/tools/BarcodeProcessing --std=c++17
-	g++ -c src/tools/UmiQualityCheck/main.cpp -I ./include/ -I ./src/lib -I ./src/tools/BarcodeProcessing --std=c++17
+	g++ -c src/tools/BarcodeProcessing/BarcodeProcessingHandler.cpp -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
+	g++ -c src/tools/UmiQualityCheck/UmiQualityHelper.cpp -I ./include/ -I ./src/lib -I ./src/tools/BarcodeProcessing --std=c++17 $(CXXFLAGS)
+	g++ -c src/tools/UmiQualityCheck/main.cpp -I ./include/ -I ./src/lib -I ./src/tools/BarcodeProcessing --std=c++17 $(CXXFLAGS)
 	g++ main.o UmiQualityHelper.o BarcodeProcessingHandler.o -o ./bin/umiqual -lpthread -lz -lboost_program_options -lboost_iostreams
 
 test:
