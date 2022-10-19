@@ -33,6 +33,13 @@ jobs:
           toolset: gcc
           # OPTIONAL: Specify an architecture
           arch: x86
+          
+    - name: Configure G++
+      run:  g++ . -DCMAKE_BUILD_TYPE=$BUILD_TYPE -B build\
+            -DBoost_INCLUDE_DIR=${{steps.install-boost.outputs.BOOST_ROOT}}/include\
+            -DBoost_LIBRARY_DIRS=${{steps.install-boost.outputs.BOOST_ROOT}}/lib
+      env:
+          BOOST_ROOT: ${{ steps.install-boost.outputs.BOOST_ROOT }}
       
     - name: Run check
       run: make CXXFLAGS='-I ./include/boost/boost -I ${{steps.install-boost.outputs.BOOST_ROOT}} -L ${{steps.install-boost.outputs.BOOST_ROOT}}/lib' test
