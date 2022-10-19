@@ -8,6 +8,7 @@
 #include <string_view>
 #include <cstring>
 #include <atomic>
+#include <mutex>
 
 #define PBSTR "||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
 #define PBWIDTH 60
