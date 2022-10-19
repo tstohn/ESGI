@@ -44,6 +44,7 @@
  *          real barcode file: like barcode file with uncorrected sequences, starts with RealBarcodeSequence
  **/
 
+#include <boost/program_options/program_options.hpp>
 #include <boost/program_options/options_description.hpp>
 
 using namespace boost::program_options;
