@@ -19,8 +19,6 @@
 #include <boost/program_options/value_semantic.hpp>
 #include <boost/program_options/version.hpp>
 
-#include <boost/program_options/options_description.hpp>
-
 /** 
  * @brief A tool to map fastq lines (stitched to one read, use e.g. fastq-join) to a certain barcode pattern,
  * this pattern must be given as an input parameter plus additional files for patterns with multiple
