@@ -2,6 +2,7 @@
 
 [![LINUX BUILD](https://github.com/tstohn/CombinatorialIndexingPipeline/actions/workflows/makefile.yml/badge.svg)](https://github.com/tstohn/CombinatorialIndexingPipeline/actions/workflows/makefile.yml)
 
+
 Pipeline for demultiplexing Combinatorial Indexing data of single cell Epitope measurements and generating a CELL * PROTEIN matrix.
 Any arbitrary barcode pattern can be mapped to the reads, where the pattern can include: 
   - CI-barcodes
