@@ -9,7 +9,6 @@
 #include "Barcode.hpp"
 #include "DemultiplexedLinesWriter.hpp"
 
-//#include <boost/program_options.hpp>
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/positional_options.hpp>
 #include <boost/program_options/parsers.hpp>
