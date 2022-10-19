@@ -1,6 +1,6 @@
 #DEPENDANCIES: zlib, input is a ONE READ fastq file, therefore convert forward/ reverse fastqs into one e.g. with fastq-join
 
-CXXFLAGS = -g -Wall -I include/boost/boost
+CXXFLAGS = -g -Wall
 
 install:
 	#download and compile kseq
