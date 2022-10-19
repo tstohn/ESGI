@@ -1,4 +1,4 @@
-name: Makefile CI
+name: LINUX BUILD
 
 on:
   push:
