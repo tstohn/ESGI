@@ -35,5 +35,6 @@ jobs:
           arch: x86
       
     - name: Run check
-      run: CXXFLAGS += -I include/boost/boost; make test
+      run: override CXXFLAGS := -I include/boost/boost $(CXXFLAGS)
+           make test
       
