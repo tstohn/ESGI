@@ -17,29 +17,31 @@ jobs:
     - name: Install dependencies
       run: make install
       
-    - name: Install boost
-      uses: MarkusJx/install-boost@v2.4.0
-      id: install-boost
-      with:
+  #  - name: Install boost
+  #    uses: MarkusJx/install-boost@v2.4.0
+  #    id: install-boost
+  #    with:
           # REQUIRED: Specify the required boost version
           # A list of supported versions can be found here:
           # https://github.com/actions/boost-versions/blob/main/versions-manifest.json
-          boost_version: 1.79.0
+  #        boost_version: 1.79.0
           # OPTIONAL: Specify a platform version
-          platform_version: 22.04
+  #        platform_version: 22.04
           # OPTIONAL: Specify a custom install location
-          boost_install_dir: ./include
+  #        boost_install_dir: ./include
           # OPTIONAL: Specify a toolset
-          toolset: gcc
+  #        toolset: gcc
           # OPTIONAL: Specify an architecture
-          arch: x86
+  #        arch: x86
           
-    - name: Configure Make
-      run: make .
-      env:
-          BOOST_ROOT: /home/runner/work/CombinatorialIndexingPipeline/CombinatorialIndexingPipeline/${{ steps.install-boost.outputs.BOOST_ROOT }}
-          Boost_LIBRARY_DIRS: /home/runner/work/CombinatorialIndexingPipeline/CombinatorialIndexingPipeline/${{steps.install-boost.outputs.BOOST_ROOT}}/lib
+  #  - name: Configure Make
+  #    run: make .
+  #    env:
+  #        BOOST_ROOT: /home/runner/work/CombinatorialIndexingPipeline/CombinatorialIndexingPipeline/${{ steps.install-boost.outputs.BOOST_ROOT }}
+  #        Boost_LIBRARY_DIRS: /home/runner/work/CombinatorialIndexingPipeline/CombinatorialIndexingPipeline/${{steps.install-boost.outputs.BOOST_ROOT}}/lib
       
     - name: Run check
-      run: make CXXFLAGS='-g -Wall -I ${{steps.install-boost.outputs.BOOST_ROOT}}' LDFLAGS='-L /home/runner/work/CombinatorialIndexingPipeline/CombinatorialIndexingPipeline/${{steps.install-boost.outputs.BOOST_ROOT}}/lib' test
+      run: make test
+
+#      run: make CXXFLAGS='-g -Wall -I ${{steps.install-boost.outputs.BOOST_ROOT}}' LDFLAGS='-L /home/runner/work/CombinatorialIndexingPipeline/CombinatorialIndexingPipeline/${{steps.install-boost.outputs.BOOST_ROOT}}/lib' test
       
