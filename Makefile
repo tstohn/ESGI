@@ -7,6 +7,7 @@ install:
 	#download and compile kseq
 	mkdir include; cd ./include; git clone https://github.com/lh3/seqtk --branch v1.3; cd ./seqtk; make
 	mkdir bin
+	sudo apt-get install libboost-all-dev
 
 #parse fastq lines and map abrcodes to each sequence
 demultiplexing:
