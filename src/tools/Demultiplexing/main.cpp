@@ -9,6 +9,9 @@
 #include "Barcode.hpp"
 #include "DemultiplexedLinesWriter.hpp"
 
+#include <boost/program_options/program_options.hpp>
+#include <boost/program_options/options_description.hpp>
+
 /** 
  * @brief A tool to map fastq lines (stitched to one read, use e.g. fastq-join) to a certain barcode pattern,
  * this pattern must be given as an input parameter plus additional files for patterns with multiple
@@ -43,9 +46,6 @@
  *          to the maximum number of mismtaches declared in mismatches parameter plus one, this last columns sums up all cases of more than max-num mismatches.
  *          real barcode file: like barcode file with uncorrected sequences, starts with RealBarcodeSequence
  **/
-
-#include <boost/program_options/program_options.hpp>
-#include <boost/program_options/options_description.hpp>
 
 using namespace boost::program_options;
 
