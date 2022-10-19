@@ -24,7 +24,7 @@ jobs:
           # REQUIRED: Specify the required boost version
           # A list of supported versions can be found here:
           # https://github.com/actions/boost-versions/blob/main/versions-manifest.json
-          boost_version: 1.80.0
+          boost_version: 1.79.0
           # OPTIONAL: Specify a platform version
           platform_version: 20.04
           # OPTIONAL: Specify a custom install location
@@ -35,5 +35,5 @@ jobs:
           arch: x86
       
     - name: Run check
-      run: make test
+      run: CXXFLAGS += -I include/boost/boost; make test
       
