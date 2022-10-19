@@ -35,7 +35,7 @@ jobs:
           arch: x86
           
     - name: Configure Make
-      run: make . -DCMAKE_BUILD_TYPE=$BUILD_TYPE -B build
+      run: make .
       env:
           BOOST_ROOT: ${{ steps.install-boost.outputs.BOOST_ROOT }}
       
