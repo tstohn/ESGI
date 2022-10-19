@@ -35,5 +35,5 @@ jobs:
           arch: x86
       
     - name: Run check
-      run: make Boost_USE_STATIC_RUNTIME=OFF BOOST_ROOT=${{ steps.install-boost.outputs.BOOST_ROOT }} CXXFLAGS='-g -Wall -I ${{steps.install-boost.outputs.BOOST_ROOT}}' LDFLAGS='-L /home/runner/work/CombinatorialIndexingPipeline/CombinatorialIndexingPipeline/${{steps.install-boost.outputs.BOOST_ROOT}}/lib' test
+      run: make Boost_LIBRARY_DIRS=${{steps.install-boost.outputs.BOOST_ROOT}}/lib Boost_USE_STATIC_RUNTIME=OFF BOOST_ROOT=${{ steps.install-boost.outputs.BOOST_ROOT }} CXXFLAGS='-g -Wall -I ${{steps.install-boost.outputs.BOOST_ROOT}}' LDFLAGS='-L /home/runner/work/CombinatorialIndexingPipeline/CombinatorialIndexingPipeline/${{steps.install-boost.outputs.BOOST_ROOT}}/lib' test
       
