@@ -18,7 +18,7 @@ jobs:
       run: make install
       
     - name: Install boost
-      uses: MarkusJx/install-boost@v2.3.1
+      uses: MarkusJx/install-boost@v2.4.0
       id: install-boost
       with:
           # REQUIRED: Specify the required boost version
@@ -35,5 +35,5 @@ jobs:
           arch: x86
       
     - name: Run check
-      run: make CXXFLAGS='-I ./include/boost/boost -I ./include/boost/program_options -I ./include/boost/boost/program_options' test
+      run: make CXXFLAGS='-I ./include/boost/boost -I ./include/boost -I ./include/boost/boost-1.79.0-ubuntu-20.04-gcc-static+shared-x86' test
       
