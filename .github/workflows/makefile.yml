@@ -35,5 +35,5 @@ jobs:
           arch: x86
       
     - name: Run check
-      run: make CXXFLAGS='-I ./include/boost/boost -I ./include/boost -I ./include/boost/boost-1.79.0-ubuntu-20.04-gcc-static+shared-x86 -I /home/runner/work/CombinatorialIndexingPipeline/CombinatorialIndexingPipeline/include/boost -I /home/runner/work/CombinatorialIndexingPipeline/CombinatorialIndexingPipeline/include/boost/boost' test
+      run: make CXXFLAGS='-I ./include/boost/boost -L ./include/boost/boost' test
       
