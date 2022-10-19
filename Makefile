@@ -10,10 +10,10 @@ install:
 
 #parse fastq lines and map abrcodes to each sequence
 demultiplexing:
-	g++ -c src/lib/BarcodeMapping.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
-	g++ -c src/tools/Demultiplexing/DemultiplexedLinesWriter.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
-	g++ -c src/tools/Demultiplexing/main.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
-	g++ $(LDFLAGS) main.o DemultiplexedLinesWriter.o BarcodeMapping.o -o ./bin/demultiplexing -lpthread -lz -lboost_iostreams -lboost_program_options
+	gcc -c src/lib/BarcodeMapping.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
+	gcc -c src/tools/Demultiplexing/DemultiplexedLinesWriter.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
+	gcc -c src/tools/Demultiplexing/main.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
+	gcc $(LDFLAGS) main.o DemultiplexedLinesWriter.o BarcodeMapping.o -o ./bin/demultiplexing -lpthread -lz -lboost_iostreams -lboost_program_options
 
 #a quality control tool: Mapping first Linker to whole sequence
 demultiplexAroundLinker:
