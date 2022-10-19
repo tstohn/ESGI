@@ -14,7 +14,7 @@ demultiplexing:
 	g++ -c src/lib/BarcodeMapping.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
 	g++ -c src/tools/Demultiplexing/DemultiplexedLinesWriter.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
 	g++ -c src/tools/Demultiplexing/main.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
-	g++ $(LDFLAGS) main.o DemultiplexedLinesWriter.o BarcodeMapping.o -o ./bin/demultiplexing -libboost_iostreams-mt-d-x64 -libboost_program_options-mt-d-x64 -lpthread -lz
+	g++ main.o DemultiplexedLinesWriter.o BarcodeMapping.o -o ./bin/demultiplexing $(LDFLAGS) -lboost_iostreams-mt -libboost_program_options-mt -lpthread -lz
 
 #a quality control tool: Mapping first Linker to whole sequence
 demultiplexAroundLinker:
