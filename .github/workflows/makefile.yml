@@ -35,5 +35,5 @@ jobs:
           arch: x86
       
     - name: Run check
-      run: make CXXFLAGS='-I ./include/boost/boost -I ${{steps.install-boost.outputs.BOOST_ROOT}}' test
+      run: make CXXFLAGS='-I ./include/boost/boost -I ${{steps.install-boost.outputs.BOOST_ROOT}} -L ${{steps.[INSTALL-BOOST-ID].outputs.BOOST_ROOT}}/lib' test
       
