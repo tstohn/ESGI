@@ -1,4 +1,6 @@
-#DEPENDANCIES: zlib, input is a ONE READ fastq file, therefore convert forward/ reverse fastqs into one e.g. with fastq-join
+#DEPENDANCIES: 
+#	zlib /(input is a ONE READ fastq file, therefore convert forward/ reverse fastqs into one e.g. with fastq-join/)
+#	boost
 
 CXXFLAGS = -g -Wall
 LDFLAGS = 
