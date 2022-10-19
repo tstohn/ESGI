@@ -1,4 +1,4 @@
-name: LINUX BUILD
+name: LINUX BUILD (22.04)
 
 on:
   push:
