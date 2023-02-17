@@ -146,6 +146,7 @@ void Mapping<MappingPolicy, FilePolicy>::parse_barcode_data(const input& input, 
         if(numberOfNonConstantBarcodes != varyingBarcodes.size())
         {
             std::cerr << "PARAMETER ERROR: Number of barcode patterns for non-constant sequences [N*] and lines in barcode file are not equal\n";
+            std::cerr << std::to_string(numberOfNonConstantBarcodes) << " and " << std::to_string(varyingBarcodes.size()) << " respectively\n";
             exit(1);
         }
         //PARSE guide file (only if we map AB and guide reads simultaneously)
