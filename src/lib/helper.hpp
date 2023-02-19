@@ -312,9 +312,9 @@ inline bool levenshtein(const std::string sequence, std::string pattern, const i
             subst.i = i-1;
             subst.j = j-1;
 
-            //if equal score, prefer: del > ins > subst (deletions are prefereed for end, at the end we want only deletions intead of first deletions and then
+            //if equal score, prefer: del  > subst > ins (deletions are prefereed for end, at the end we want only deletions intead of first deletions and then
             //subst which might go into the next barcode)
-            levenshtein_value tmp1 = min(seq_ins, subst);
+            levenshtein_value tmp1 = min(subst, seq_ins);
             levenshtein_value tmp2 = min(seq_del, tmp1);
 
             if(upperBoundCheck && (tmp2.val > mismatches) && (j > upperBoundCol) )
