@@ -35,7 +35,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
                      std::string& barcodeFile, std::string& barcodeIndices, int& umiMismatches,
                      std::string& abFile, int& abIdx, std::string& treatmentFile, int& treatmentIdx,
                      std::string& classSeqFile, std::string& classNameFile, double& umiThreshold,
-                     bool scClassConstraint, std::string& guideReadsFile)
+                     bool& scClassConstraint, std::string& guideReadsFile, bool& umiRemoval)
 {
     try
     {
@@ -67,7 +67,8 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             Since the UMI is defined as the sequence between the last and first match of neighboring sequences, bases of mismatches could be in the beginning/ end.")
             ("thread,t", value<int>(&threats)->default_value(5), "number of threads")
             ("umiThreshold,f", value<double>(&umiThreshold)->default_value(0.0), "threshold for filtering UMIs. E.g. if set to 0.9 we only retain reads of a UMI, if more \
-            than 90percent of them have the same UMI. All other reads are deleted.")
+            than 90percent of them have the same SC-AB combination. All other reads are deleted. Set to -1 if UMIs should not be removed.")
+            ("umiRemoval,z", value<bool>(&umiRemoval)->default_value(true), "Set to false if UMIs should NOT be collapsed.")
             ("scClassConstraint,k", value<bool>(&scClassConstraint)->default_value(true), "Boolean to store whether sc reads should be removed if we find no guide read for them. \
             If set to false reads for no guide are given the class wildtype.")
 
@@ -242,6 +243,7 @@ int main(int argc, char** argv)
     int umiMismatches;
     double umiThreshold = -1;
     bool scClassConstraint = true;
+    bool umiRemoval = true;
 
     //data for protein(ab) and treatment information
     std::string abFile; 
@@ -259,7 +261,7 @@ int main(int argc, char** argv)
     if(!parse_arguments(argv, argc, inFile, outFile, thread, barcodeFile, barcodeIndices, 
                         umiMismatches, abFile, abIdx, treatmentFile, treatmentIdx,
                         classSeqFile, classNameFile, umiThreshold, scClassConstraint, 
-                        guideReadsFile))
+                        guideReadsFile, umiRemoval))
     {
         exit(EXIT_FAILURE);
     }
@@ -270,6 +272,7 @@ int main(int argc, char** argv)
     BarcodeProcessingHandler dataParser(barcodeIdData);
     if(umiThreshold != -1){dataParser.setUmiFilterThreshold(umiThreshold);}
     dataParser.setScClassConstaint(scClassConstraint);
+    dataParser.setumiRemoval(umiRemoval);
 
     //generate dictionaries to map sequences to the real names of Protein/ treatment/ etc...
     if(!abFile.empty())

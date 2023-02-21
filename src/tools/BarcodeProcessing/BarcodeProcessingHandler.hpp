@@ -268,6 +268,10 @@ class BarcodeProcessingHandler
         {
             scMustHaveClass = scMustHaveClass;
         }
+        void setumiRemoval(bool umiRemovalTmp)
+        {
+            umiRemoval = umiRemovalTmp;
+        }
 
     private:
 
@@ -350,4 +354,5 @@ class BarcodeProcessingHandler
 
         double umiFilterThreshold = 0.0;
         bool scMustHaveClass = true;
+        bool umiRemoval = true;
 };

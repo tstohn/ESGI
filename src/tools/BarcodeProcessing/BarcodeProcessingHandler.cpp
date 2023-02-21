@@ -315,7 +315,7 @@ void BarcodeProcessingHandler::add_line_to_temporary_data(const std::string& lin
     //the also create a UMI-SCAB Dict for filtering
     //(this is only useful if we expected the data to be extremely noisy or so shallow that there no
     //UMI-clashes: e.g. for debugging of CI experiments with many barcode recombinations to reduce erroneous reads)
-    if(!umiIdx.empty() && umiFilterThreshold!=0.0)
+    if(!umiIdx.empty() && umiRemoval)
     {
         std::string umiSeqString;
         for(int idx : umiIdx)
@@ -461,7 +461,7 @@ void BarcodeProcessingHandler::add_line_to_temporary_data(const std::string& lin
     //the also create a UMI-SCAB Dict for filtering
     //(this is only useful if we expected the data to be extremely noisy or so shallow that there no
     //UMI-clashes: e.g. for debugging of CI experiments with many barcode recombinations to reduce erroneous reads)
-    if(!umiIdx.empty() && umiFilterThreshold!=0.0)
+    if(!umiIdx.empty() && umiRemoval)
     {
         std::string umiSeqString;
         for(int idx : umiIdx)
