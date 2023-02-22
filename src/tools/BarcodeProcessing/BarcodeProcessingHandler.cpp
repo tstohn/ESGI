@@ -739,8 +739,14 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
             //otherwise conmpare all and mark the ones to delete
             std::vector<int> deletePositions;
             umiLineTmp.abCount += lastAbSc->umiCount; //count the first occurence
-            //count all occurences of the last UMI for this AB-SC
-            count_umi_occurence(deletePositions, umiLineTmp, scAbCounts, umiMismatches, lastIdx);
+
+            //count all occurences of the last UMI for this AB-SC:
+            // store the positions of other UMIs within umiMismatches to delete and not count
+            //those to final sc AB count
+            if(umiMismatches > 0)
+            {
+                count_umi_occurence(deletePositions, umiLineTmp, scAbCounts, umiMismatches, lastIdx);
+            }
             deletePositions.push_back(lastIdx);
 
             //ADD UMI if exists
