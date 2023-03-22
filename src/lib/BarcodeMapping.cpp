@@ -440,7 +440,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const std::string& se
         //set the length difference after barcode mapping
         //for the case of insertions inside the barcode sequence set the difference explicitely to zero 
         //(we only focus on deletions that we can not distinguish from substitutions)
-        differenceInBarcodeLength = barcode.length() - (end-start);
+        //differenceInBarcodeLength = barcode.length() - (end);
         if(differenceInBarcodeLength<0){differenceInBarcodeLength=0;}
         std::string sequence = seq.substr(offset + start, end-start);
         offset += end;
@@ -534,7 +534,8 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const std::string& se
         //set the length difference after barcode mapping
         //for the case of insertions inside the barcode sequence set the difference explicitely to zero 
         //(we only focus on deletions that we can not distinguish from substitutions)
-        differenceInBarcodeLength = barcode.length() - (end-start);
+        //we only substract the end, bcs we only consider barcode length differences at the end of the barcode
+        //differenceInBarcodeLength = barcode.length() - (end);
         if(differenceInBarcodeLength<0){differenceInBarcodeLength=0;}
         std::string sequence = seq.substr(offset + start, end-start);
         offset += end;
@@ -557,7 +558,11 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const std::string& se
             startCorrection = false;
             std::string oldWildcardMappedBarcode = seq.substr(old_offset, (offset+start-end) - old_offset);
             //barcodeMap.emplace_back(uniqueChars.  (oldWildcardMappedBarcode));
-            barcodeList.push_back(oldWildcardMappedBarcode);
+
+            //in reverse mapping we have to make reverse complement of wildcard sequence
+            std::string reverseComplimentbarcode = Barcode::generate_reverse_complement(oldWildcardMappedBarcode);
+
+            barcodeList.push_back(reverseComplimentbarcode);
             ++barcodePosition; //increase the count of found positions
         }
         //add this match to the BarcodeMapping
@@ -585,7 +590,8 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(DemultiplexedRead
                                                                const std::vector<std::string>& barcodeListRv,
                                                                const uint& barcodePositionRv,
                                                                fastqStats& stats,
-                                                               int& score_sum)
+                                                               int& score_sum,
+                                                               std::pair<const std::string&, const std::string&> seq)
 {
     //check that we span the whole sequence (except constant regions)
     int patternNum = barcodePatterns->size();
@@ -679,7 +685,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::split_line_into_barcode_patterns(
     uint barcodePositionRv = 0;
     bool rvBool = map_reverse(seq.second, input, barcodePatterns, stats, barcodeListRv, barcodePositionRv, score_sum);
 
-    combine_mapping(barcodeMap, barcodePatterns, barcodeListFw, barcodePositionFw, barcodeListRv, barcodePositionRv, stats, score_sum);
+    combine_mapping(barcodeMap, barcodePatterns, barcodeListFw, barcodePositionFw, barcodeListRv, barcodePositionRv, stats, score_sum, seq);
 
     return true;
 }

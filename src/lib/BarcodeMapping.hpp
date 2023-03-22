@@ -110,7 +110,8 @@ class MapEachBarcodeSequentiallyPolicyPairwise
                              const std::vector<std::string>& barcodeListRv,
                              const uint& barcodePositionRv,
                              fastqStats& stats,
-                             int& score_sum);
+                             int& score_sum,
+                             std::pair<const std::string&, const std::string&> seq);
     public:
         bool split_line_into_barcode_patterns(std::pair<const std::string&, const std::string&> seq,  const input& input, DemultiplexedReads& barcodeMap,
                                       BarcodePatternVectorPtr barcodePatterns, fastqStats& stats);
