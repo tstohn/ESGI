@@ -42,6 +42,8 @@ class Barcode
                     return 'G';
                 case 'T':
                     return 'A';
+                case 'N':
+                    return 'N';
                 default:
                     throw std::domain_error("Invalid nucleotide.");
             }
@@ -221,7 +223,6 @@ class VariableBarcode : public Barcode
         int offsetShiftValue = 0;
         int numberOfSameScoreResults = 0;
         mappingSolution tmpSolution;
-
         //iterate over tries, and keep first found solution
         while(tries >= 0)
         {
