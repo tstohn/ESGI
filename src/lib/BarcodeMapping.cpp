@@ -307,7 +307,7 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(std::pai
     int score_sum = 0;
 
     int old_offset = offset;
-    bool wildCardToFill = false;
+    unsigned int wildCardToFill = 0;
     int wildCardLength = 0, differenceInBarcodeLength = 0;
     for(BarcodePatternVector::iterator patternItr = barcodePatterns->begin(); 
         patternItr < barcodePatterns->end(); 
@@ -317,10 +317,13 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(std::pai
         //if we have a wildcard skip this matching, we match again the next sequence
         if((*patternItr)->is_wildcard())
         {
-            old_offset = offset;
+            if(!wildCardToFill)
+            {
+                old_offset = offset;
+            }
             wildCardLength = (*patternItr)->get_patterns().at(0).length();
             offset += wildCardLength;
-            wildCardToFill = true;
+            wildCardToFill += 1;
             continue;
         }
         //for every barcodeMapping element find a match
@@ -355,22 +358,45 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(std::pai
         
         //squeeze in the last wildcard match if there was one 
         //(we needed both matches of neighboring barcodes to define wildcard boundaries)
-        if(wildCardToFill == true)
+        if(wildCardToFill)
         {
-            wildCardToFill = false;
             startCorrection = false;
             std::string oldWildcardMappedBarcode = seq.first.substr(old_offset, (offset+start-end) - old_offset);
             //barcodeMap.emplace_back(uniqueChars.  (oldWildcardMappedBarcode));
-            barcodeList.push_back(oldWildcardMappedBarcode);
+            unsigned int lastWildcardEnd = 0; //in case we have several wildcards and need to know old offset
+            // to subset new string
+            while(wildCardToFill != 0)
+            {
+                BarcodePatternVector::iterator wildCardIt = patternItr;
+                int pos = -1 * wildCardToFill;
+                std::advance(wildCardIt, pos);
+                int currentWildcardLength = (*wildCardIt)->get_patterns().at(0).length();
+                //in case of deletions in UMI, we remove nucleotides from the last wildcard sequence
+                //for the last UMI sequence, we take the whole sequence (in case of insertions)
+
+                if( (lastWildcardEnd + currentWildcardLength) > oldWildcardMappedBarcode.length() || wildCardToFill == 1) 
+                {
+                    currentWildcardLength = oldWildcardMappedBarcode.length() - lastWildcardEnd;
+                }
+
+                std::string wildCardString = oldWildcardMappedBarcode.substr(lastWildcardEnd, currentWildcardLength);
+
+                barcodeList.push_back(wildCardString);
+                wildCardToFill -= 1;
+
+                lastWildcardEnd += currentWildcardLength; // add the lengths of barcodes to the next offset position
+            }
         }
         //add this match to the BarcodeMapping
         //barcodeMap.emplace_back(std::make_shared<std::string>(mappedBarcode));
         barcodeList.push_back(barcode);
     }
-    //if the last barcode was a WIldcard that still has to be added
-    if(wildCardToFill == true)
+    //if the last barcode was a WIldcard that still has to be added:
+    //BE CAREFUL: for now this means there can be ONLY ONE UMI at the end of a sequence
+    if(wildCardToFill)
     {
-        wildCardToFill = false; // unnecessary, still left to explicitely set to false
+        assert(wildCardToFill <= 1);
+        wildCardToFill = 0; // unnecessary, still left to explicitely set to false
         std::string oldWildcardMappedBarcode = seq.first.substr(old_offset, seq.first.length() - old_offset);
         //barcodeMap.emplace_back(std::make_shared<std::string>(oldWildcardMappedBarcode));
         barcodeList.push_back(oldWildcardMappedBarcode);
@@ -402,7 +428,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const std::string& se
     int offset = 0;
 
     int old_offset = offset;
-    bool wildCardToFill = false;
+    unsigned int wildCardToFill = 0;
     int wildCardLength = 0, differenceInBarcodeLength = 0;
     for(BarcodePatternVector::iterator patternItr = barcodePatterns->begin(); 
         patternItr < barcodePatterns->end(); 
@@ -411,10 +437,13 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const std::string& se
         //if we have a wildcard skip this matching, we match again the next sequence
         if((*patternItr)->is_wildcard())
         {
-            old_offset = offset;
+            if(!wildCardToFill)
+            {
+                old_offset = offset;
+            }
             wildCardLength = (*patternItr)->get_patterns().at(0).length();
             offset += wildCardLength;
-            wildCardToFill = true;
+            wildCardToFill += 1;
             continue;
         }
 
@@ -457,24 +486,44 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const std::string& se
         
         //squeeze in the last wildcard match if there was one 
         //(we needed both matches of neighboring barcodes to define wildcard boundaries)
-        if(wildCardToFill == true)
+        if(wildCardToFill)
         {
-            wildCardToFill = false;
             startCorrection = false;
             std::string oldWildcardMappedBarcode = seq.substr(old_offset, (offset+start-end) - old_offset);
             //barcodeMap.emplace_back(uniqueChars.  (oldWildcardMappedBarcode));
-            barcodeList.push_back(oldWildcardMappedBarcode);
-            ++barcodePosition; //increase the count of found positions
+            unsigned int lastWildcardEnd = 0; //in case we have several wildcards and need to know old offset
+            // to subset new string
+            while(wildCardToFill != 0)
+            {
+                BarcodePatternVector::iterator wildCardIt = patternItr;
+                int pos = -1 * wildCardToFill;
+                std::advance(wildCardIt, pos);
+                int currentWildcardLength = (*wildCardIt)->get_patterns().at(0).length();
+                //in case of deletions in UMI, we remove nucleotides from the last wildcard sequence
+                //for the last UMI sequence, we take the whole sequence (in case of insertions)
+                if( (lastWildcardEnd + currentWildcardLength) > oldWildcardMappedBarcode.length() || wildCardToFill == 1) 
+                {
+                    currentWildcardLength = oldWildcardMappedBarcode.length() - lastWildcardEnd;
+                }
+
+                std::string wildCardString = oldWildcardMappedBarcode.substr(lastWildcardEnd, currentWildcardLength);
+                barcodeList.push_back(wildCardString);
+                wildCardToFill -= 1;
+
+                lastWildcardEnd += currentWildcardLength; // add the lengths of barcodes to the next offset position
+                ++barcodePosition; //increase the count of found positions
+            }
         }
+
         //add this match to the BarcodeMapping
         //barcodeMap.emplace_back(std::make_shared<std::string>(mappedBarcode));
         barcodeList.push_back(barcode);
         ++barcodePosition; //increase the count of found positions
     }
     //if the last barcode was a WIldcard that still has to be added
-    if(wildCardToFill == true)
+    if(wildCardToFill)
     {
-        wildCardToFill = false; // unnecessary, still left to explicitely set to false
+        wildCardToFill = 0; // unnecessary, still left to explicitely set to false
         std::string oldWildcardMappedBarcode = seq.substr(old_offset, seq.length() - old_offset);
         //barcodeMap.emplace_back(std::make_shared<std::string>(oldWildcardMappedBarcode));
         barcodeList.push_back(oldWildcardMappedBarcode);
@@ -495,7 +544,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const std::string& se
     int offset = 0;
 
     int old_offset = offset;
-    bool wildCardToFill = false;
+    unsigned int wildCardToFill = 0;
     int wildCardLength = 0, differenceInBarcodeLength = 0;
     //iterate reverse through patterns
     for(BarcodePatternVector::reverse_iterator patternItr = barcodePatterns->rbegin(); 
@@ -505,10 +554,13 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const std::string& se
         //if we have a wildcard skip this matching, we match again the next sequence
         if((*patternItr)->is_wildcard())
         {
-            old_offset = offset;
+            if(!wildCardToFill)
+            {
+                old_offset = offset;
+            }
             wildCardLength = (*patternItr)->get_patterns().at(0).length();
             offset += wildCardLength;
-            wildCardToFill = true;
+            wildCardToFill += 1;
             continue;
         }
 
@@ -552,28 +604,51 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const std::string& se
         
         //squeeze in the last wildcard match if there was one 
         //(we needed both matches of neighboring barcodes to define wildcard boundaries)
-        if(wildCardToFill == true)
+        if(wildCardToFill)
         {
-            wildCardToFill = false;
             startCorrection = false;
             std::string oldWildcardMappedBarcode = seq.substr(old_offset, (offset+start-end) - old_offset);
+
             //barcodeMap.emplace_back(uniqueChars.  (oldWildcardMappedBarcode));
+            unsigned int lastWildcardEnd = 0; //in case we have several wildcards and need to know old offset
+            // to subset new string
+            while(wildCardToFill != 0)
+            {
+                BarcodePatternVector::reverse_iterator wildCardIt = patternItr;
+                int pos = -1 * wildCardToFill;
+                std::advance(wildCardIt, pos);
+                int currentWildcardLength = (*wildCardIt)->get_patterns().at(0).length();
+                //in case of deletions in UMI, we remove nucleotides from the last wildcard sequence
+                //for the last UMI sequence, we take the whole sequence (in case of insertions)
+                if( (lastWildcardEnd + currentWildcardLength) > oldWildcardMappedBarcode.length() || wildCardToFill == 1) 
+                {
+                    currentWildcardLength = oldWildcardMappedBarcode.length() - lastWildcardEnd;
+                }
 
-            //in reverse mapping we have to make reverse complement of wildcard sequence
-            std::string reverseComplimentbarcode = Barcode::generate_reverse_complement(oldWildcardMappedBarcode);
+                std::string wildCardString = oldWildcardMappedBarcode.substr(lastWildcardEnd, currentWildcardLength);
 
-            barcodeList.push_back(reverseComplimentbarcode);
-            ++barcodePosition; //increase the count of found positions
+                //in reverse mapping we have to make reverse complement of wildcard sequence
+                std::string reverseComplimentbarcode = Barcode::generate_reverse_complement(wildCardString);
+
+                barcodeList.push_back(reverseComplimentbarcode);
+                wildCardToFill -= 1;
+
+                lastWildcardEnd += currentWildcardLength; // add the lengths of barcodes to the next offset position
+                ++barcodePosition; //increase the count of found positions
+            }
         }
+
+
+
         //add this match to the BarcodeMapping
         //barcodeMap.emplace_back(std::make_shared<std::string>(mappedBarcode));
         barcodeList.push_back(barcode);
         ++barcodePosition; //increase the count of found positions
     }
     //if the last barcode was a WIldcard that still has to be added
-    if(wildCardToFill == true)
+    if(wildCardToFill)
     {
-        wildCardToFill = false; // unnecessary, still left to explicitely set to false
+        wildCardToFill = 0; // unnecessary, still left to explicitely set to false
         std::string oldWildcardMappedBarcode = seq.substr(old_offset, seq.length() - old_offset);
         //barcodeMap.emplace_back(std::make_shared<std::string>(oldWildcardMappedBarcode));
         barcodeList.push_back(oldWildcardMappedBarcode);

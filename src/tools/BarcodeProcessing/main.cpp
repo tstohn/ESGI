@@ -67,7 +67,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             Since the UMI is defined as the sequence between the last and first match of neighboring sequences, bases of mismatches could be in the beginning/ end.")
             ("thread,t", value<int>(&threats)->default_value(5), "number of threads")
             ("umiThreshold,f", value<double>(&umiThreshold)->default_value(0.0), "threshold for filtering UMIs. E.g. if set to 0.9 we only retain reads of a UMI, if more \
-            than 90percent of them have the same SC-AB combination. All other reads are deleted. Set to -1 if UMIs should not be removed.")
+            than 90percent of them have the same SC-AB combination. All other reads are deleted. Keep at 0 if UMIs should not be removed.")
             ("umiRemoval,z", value<bool>(&umiRemoval)->default_value(true), "Set to false if UMIs should NOT be collapsed.")
             ("scClassConstraint,k", value<bool>(&scClassConstraint)->default_value(true), "Boolean to store whether sc reads should be removed if we find no guide read for them. \
             If set to false reads for no guide are given the class wildtype.")
