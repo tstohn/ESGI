@@ -27,6 +27,7 @@ using namespace boost::program_options;
  *    1   | 2   | 1      | 1             => 100
  *   e.g. we have many UMIs (92236) where the Sc-AB-treatment is truly unique
  *   and 100 UMIs that have two different barcodes in BC-round 2
+ * The method assumes that we DO LOOK AT CI data, (therefore the variable umiSingleCellIdx is set to ""!!)
  **/
 
 bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& outFile, int& threats, 
@@ -170,7 +171,8 @@ int main(int argc, char** argv)
     
     //generate the dictionary of barcode alternatives to idx
     NBarcodeInformation barcodeIdData;
-    generateBarcodeDicts(barcodeFile, barcodeIndices, barcodeIdData, abBarcodes, abIdx, &treatmentBarcodes, treatmentIdx);
+    std::string umiSingleCellIdx = ""; // other than in barcodeProcessing tool, we assume here that a single cell MUST BE identified by several barcodes
+    generateBarcodeDicts(barcodeFile, barcodeIndices, barcodeIdData, abBarcodes, abIdx, umiSingleCellIdx, &treatmentBarcodes, treatmentIdx);
     BarcodeProcessingHandler dataParser(barcodeIdData);
     //hack to prevent that the demultiplexed reads are written directly into the ScAb-matrix (which happens if the threshold to retains UMIs is set to 0)
     dataParser.setUmiFilterThreshold(-1.0);

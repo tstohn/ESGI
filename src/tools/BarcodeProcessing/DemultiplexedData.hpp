@@ -144,7 +144,6 @@ class UnprocessedDemultiplexedData
 
             //make a dataLinePtr from those unique strings
             umiDataLinePtr linePtr(std::make_shared<dataLine>(line));
-
             //add it to our dataStructure (3 entries have to be set)
             add_dataLine_to_umiDict(linePtr);
         }

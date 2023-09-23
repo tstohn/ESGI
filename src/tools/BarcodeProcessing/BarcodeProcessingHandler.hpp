@@ -41,6 +41,11 @@ struct NBarcodeInformation
     std::vector<int> NBarcodeIndices; //CI barcode indices
     int NTreatmentIdx; // treatment index
     int NAbIdx; //AB index
+
+    bool umiSingleCellIdx = false; //in case we have no Combinatorial Indexing but ONE truely unique (UMI-like)
+    //single cell barcode (described with a UMI-sequence [X])
+    int UMIBarcodeIndex; //the single barcode Index used for the UMI-like single cell ID
+    //be careful: in this case NBarcodeIndices should not be set
 };
 
 //data type to represent final processed AB counts per single cell
@@ -64,6 +69,12 @@ struct umiCount
     const char* scID;
     int abCount = 0;
 }; 
+
+struct umiDist
+{
+    std::unordered_map<std::string, int> abs;
+    std::vector<std::unordered_map<int, unsigned long>> dist;
+};
 
 //some information about the read/ UMI quality (how many reads removed, how many Mismatches, etc.)
 struct ProcessingLog
@@ -110,6 +121,10 @@ class Results
         const ProcessingLog get_log_data() const
         {
             return(logData);
+        }
+        const umiDist get_umi_stats() const
+        {
+            return(umiStat);
         }
 
         //setter functions, all locked for manipulation by threads
@@ -167,6 +182,31 @@ class Results
             logData.totalAbReads = totalAbReadsTmp;
             logLock.unlock();
         }
+        void add_umi_stats(const umiCount& umiCount)
+        {
+            statLock.lock();
+            std::unordered_map<std::string, int>::iterator iter = umiStat.abs.find(umiCount.abName);
+            if(iter == umiStat.abs.end())
+            {
+                iter = umiStat.abs.insert(std::make_pair<std::string,int>(umiCount.abName, umiStat.abs.size())).first;
+                std::unordered_map<int, unsigned long> umap;
+                umiStat.dist.push_back(umap);
+            }
+
+            std::unordered_map<int, unsigned long>* AbDict = &umiStat.dist.at(iter->second);
+            std::unordered_map<int, unsigned long>::iterator iterStat = AbDict->find(umiCount.abCount);
+
+            if(iterStat == AbDict->end())
+            {
+                (*AbDict)[umiCount.abCount] = 1;
+            }
+            else
+            {
+                (*AbDict)[iterStat->first] += 1;
+            }
+
+            statLock.unlock();
+        }
 
     private:
         //holding the counts per unique UMI (just for quality checks)
@@ -176,9 +216,13 @@ class Results
         //statistics of the whole process
         ProcessingLog logData;
 
+        //statistics of UMIs. maps the amplifcation of a umi to the occurence in data
+        umiDist umiStat;
+
         std::mutex umiLock;
         std::mutex abLock;
         std::mutex logLock;
+        std::mutex statLock;
 };
 
 /**
@@ -189,6 +233,7 @@ class Results
 void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, 
                           NBarcodeInformation& barcodeIdData, 
                           std::vector<std::string>& proteinDict, const int& protIdx, 
+                          const std::string& umiSingleCellIdx,
                           std::vector<std::string>* treatmentDict = nullptr, const int& treatmentIdx = 0);
 
 /**

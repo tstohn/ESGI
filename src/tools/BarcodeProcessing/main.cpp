@@ -35,7 +35,8 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
                      std::string& barcodeFile, std::string& barcodeIndices, int& umiMismatches,
                      std::string& abFile, int& abIdx, std::string& treatmentFile, int& treatmentIdx,
                      std::string& classSeqFile, std::string& classNameFile, double& umiThreshold,
-                     bool& scClassConstraint, std::string& guideReadsFile, bool& umiRemoval)
+                     bool& scClassConstraint, std::string& guideReadsFile, bool& umiRemoval,
+                     std::string& umiSingleCellIdx)
 {
     try
     {
@@ -58,7 +59,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             ("className,n", value<std::string>(&(classNameFile)), "file with names to replace the sequence of origin")
             ("guideFile,j", value<std::string>(&guideReadsFile)->default_value(""), "file with all the demultiplexed guide reads.")
 
-            ("CombinatorialIndexingBarcodeIndices,c", value<std::string>(&(barcodeIndices))->required(), "comma seperated list of indexes, that are used during \
+            ("CombinatorialIndexingBarcodeIndices,c", value<std::string>(&(barcodeIndices))->default_value(""), "comma seperated list of indexes, that are used during \
             combinatorial indexing and should distinguish a unique cell. Be aware that this is the index of the line inside the barcodeList file (see above). \
             This file ONLY includes lines for the varying sequences (except UMI). Therefore the index is not the same as the position in the whole sequence \
             if constant or UMI-seq are present. Index starts with zero.")
@@ -71,6 +72,10 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             ("umiRemoval,z", value<bool>(&umiRemoval)->default_value(true), "Set to false if UMIs should NOT be collapsed.")
             ("scClassConstraint,k", value<bool>(&scClassConstraint)->default_value(true), "Boolean to store whether sc reads should be removed if we find no guide read for them. \
             If set to false reads for no guide are given the class wildtype.")
+            ("umiSingleCellIdx,s", value<std::string>(&umiSingleCellIdx)->default_value(""), "In case the Single-Cell barcode(s) are not given beforehand.\
+            In this case this Idx is the (0 indexed) position of the X-barcode, which should be used as single cell identifier.\
+            E.g. for 10X when we have single cell indices that can not be distiguished from a UMI when mapping. This position must be a \
+            sequence with the [X] pattern.")
 
             ("help,h", "help message");
 
@@ -258,17 +263,33 @@ int main(int argc, char** argv)
     std::string classNameFile;
     std::string guideReadsFile;
 
+    //only used in case we have no CombinatiorialIndexing
+    //but a single UMI-like SingleCell ID
+    std::string umiSingleCellIdx;
+
     if(!parse_arguments(argv, argc, inFile, outFile, thread, barcodeFile, barcodeIndices, 
                         umiMismatches, abFile, abIdx, treatmentFile, treatmentIdx,
                         classSeqFile, classNameFile, umiThreshold, scClassConstraint, 
-                        guideReadsFile, umiRemoval))
+                        guideReadsFile, umiRemoval, umiSingleCellIdx))
     {
         exit(EXIT_FAILURE);
+    }
+
+    //make sure we have ETHER a barcode list for CombinatorialIndexing (barcodeIndices)
+    // OR a single UMI-like single cell Idx
+    if(barcodeIndices == "")
+    {
+        assert( (umiSingleCellIdx != "") && "We can have ETHER the -c OR the -s flag for CI-barcodes OR a single UMI-like single cell sequence.");
+    }
+    else
+    {
+        assert( (umiSingleCellIdx == "") &&  "We can have ETHER the -c OR the -s flag for CI-barcodes OR a single UMI-like single cell sequence.");
     }
     
     //generate the dictionary of barcode alternatives to idx
     NBarcodeInformation barcodeIdData;
-    generateBarcodeDicts(barcodeFile, barcodeIndices, barcodeIdData, abBarcodes, abIdx, &treatmentBarcodes, treatmentIdx);
+    generateBarcodeDicts(barcodeFile, barcodeIndices, barcodeIdData, abBarcodes, abIdx, 
+                        umiSingleCellIdx, &treatmentBarcodes, treatmentIdx);
     BarcodeProcessingHandler dataParser(barcodeIdData);
     if(umiThreshold != -1){dataParser.setUmiFilterThreshold(umiThreshold);}
     dataParser.setScClassConstaint(scClassConstraint);
