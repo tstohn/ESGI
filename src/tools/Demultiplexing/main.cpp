@@ -40,7 +40,10 @@
  * @param <barcodeList> a file of discrete barcodes, that can be mapped to the [N...] sequences, each row is one pattern, they r in the order as in the sequence pattern and
  *                      barcodes must be comma seperated
  * @param <mismatches> comma seperated list of mismatches, one entry for each sequence pattern declared above: e.g.: 1,2,1,2,1. This also requires a parameter
-                       for the 'X'-sequence, although this parameter is at the moment unused, as we have no sequence to alig this one to
+                       for the 'X'-sequence, although this parameter is at the moment unused, as we have no sequence to alig this one to.
+                       Be aware that in paired-end mapping both strands are mapped, and only reads where all overlapping BCs are the same are kept.
+                       For the UMI this means the UMI must be 100% preserved, as we do no UMI-mapping step at this point, so the MM for the UMI-position is 
+                       completely unused
  *  
  * @return  writes a tab seperated file with barcodes, a file with statistical information, and if flag <-r> set, also a tab seperated file
  *          of corresponding reads with their real sequence, including mismatches.
@@ -80,7 +83,7 @@ bool parse_arguments(char** argv, int argc, input& input)
             instead of the AB barcode. By default guide reads have also no UMI. If guide reads also contain a UMI set the flag guideUMI.")
             ("mismatches,m", value<std::string>(&(input.mismatchLine))->default_value("1"), "list of mismatches allowed for each bracket enclosed sequence substring. \
             This should be a comma seperated list of numbers for each substring of the sequence enclosed in squared brackets. E.g.: 2,1,2,1,2. (Also add the UMI mismatch \
-            this number is not used however.)")
+            this number is not used however. Reads that do not match perfectly in the UMI sequence in FW & RV read are discarded.)")
             ("guideUMI,d", value<bool>(&(input.guideUMI))->default_value(false), "set this flag to true if the guide reads have a UMI as well - only for demultiplexing \
             guide and AB reads simultaniously.")
             ("guidePosition,e", value<int>(&(input.guidePos)), "position of all variable barcodes (in other words line in the barcodeFile), where the guide should be (0-indexed). This parameter needs\
