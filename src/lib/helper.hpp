@@ -377,6 +377,7 @@ inline bool levenshtein(const std::string sequence, std::string pattern, const i
     {
         score = (dist[ls][la]).val;
     }
+
     return false;
 }
 

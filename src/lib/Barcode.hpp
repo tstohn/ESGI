@@ -58,6 +58,7 @@ class Barcode
     virtual std::vector<std::string> get_patterns() = 0;
     virtual bool is_wildcard() = 0;
     virtual bool is_constant() = 0;
+    virtual bool is_stop() = 0;
 };
 
 class ConstantBarcode : public Barcode
@@ -126,6 +127,7 @@ class ConstantBarcode : public Barcode
     }
     bool is_wildcard(){return false;}
     bool is_constant(){return true;}
+    bool is_stop(){return false;}
 
     private:
     bool private_match_pattern(std::string sequence, const int& offset, const int& offsetShiftValue, int& seq_start, int& seq_end, 
@@ -286,6 +288,7 @@ class VariableBarcode : public Barcode
     }
     bool is_wildcard(){return false;}
     bool is_constant(){return false;}
+    bool is_stop(){return false;}
 
     private:
     // IMPROVE FUNCTION:
@@ -297,6 +300,7 @@ class VariableBarcode : public Barcode
                                std::string& realBarcode, const bool& offsetShiftBool, int& numberOfSameScoreResults, int& diffEnd,
                                bool reverse = false, bool startCorrection = false)
     {
+
         int match_count = 0;
         bool found_match = false;
         int best_start = 0, best_end = 0, best_score = mismatches+1, tmpDiff = 0, bestDiff = 0;
@@ -310,6 +314,7 @@ class VariableBarcode : public Barcode
             std::string usedPattern = patternsToMap.at(patternIdx);
 
             std::string subSequence = sequence.substr(offset, pattern.length());
+
             score = 0;
             seq_start = 0;
             seq_end = 0;
@@ -369,6 +374,7 @@ class VariableBarcode : public Barcode
                     ++match_count;
                 }
             }
+
         }
         //compare all results for different patterns
         if(match_count == 0)
@@ -429,6 +435,30 @@ class WildcardBarcode : public Barcode
     }
     bool is_wildcard(){return true;}
     bool is_constant(){return false;}
+    bool is_stop(){return false;}
+
+    private:
+    std::string pattern; //just a string of "XXXXX"
+};
+
+
+class StopBarcode : public Barcode
+{
+    public:
+    StopBarcode(std::string inPattern, int inMismatches) : pattern(inPattern),Barcode(inMismatches) {}
+    bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, std::string& realBarcode, 
+                       int& differenceInBarcodeLength, bool startCorrection = false, bool reverse = false, bool fullLengthMapping = false)
+    {
+        return false;
+    }
+    std::vector<std::string> get_patterns()
+    {
+        std::vector<std::string> patterns = {pattern};
+        return patterns;
+    }
+    bool is_wildcard(){return false;}
+    bool is_constant(){return false;}
+    bool is_stop(){return true;}
 
     private:
     std::string pattern; //just a string of "XXXXX"

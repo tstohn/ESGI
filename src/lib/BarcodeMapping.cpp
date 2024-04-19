@@ -61,7 +61,7 @@ void Mapping<MappingPolicy, FilePolicy>::parse_barcode_data(const input& input, 
             for (char const &c: seq) {
                 if(!(c=='A' || c=='T' || c=='G' || c=='C' ||
                     c=='a' || c=='t' || c=='g' || c=='c' ||
-                    c=='N' || c=='X'))
+                    c=='N' || c=='X' || c=='*'))
                 {
                     std::cerr << "PARAMETER ERROR: a barcode sequence in barcode file is not a base (A,T,G,C,N)\n";
                     if(c==' ' || c=='\t' || c=='\n')
@@ -80,7 +80,8 @@ void Mapping<MappingPolicy, FilePolicy>::parse_barcode_data(const input& input, 
                 }
                 if(c=='N'){patternType='v';}
                 else if(c=='X'){patternType='w';}
-                else if(c=='D'){patternType='d';}
+                else if(c=='*'){patternType='s';} //stop-pattern type: do not map further when encoutering this
+                else if(c=='D'){patternType='d';} // todo: pattern for RNAseq data
             }
             if(nonConstantSeq){++numberOfNonConstantBarcodes;}
             
@@ -90,12 +91,14 @@ void Mapping<MappingPolicy, FilePolicy>::parse_barcode_data(const input& input, 
         pattern = input.mismatchLine;
         delimiter = ",";
         pos = 0;
-        while ((pos = pattern.find(delimiter)) != std::string::npos) {
+        while ((pos = pattern.find(delimiter)) != std::string::npos) 
+        {
             seq = pattern.substr(0, pos);
             pattern.erase(0, pos + 1);
             mismatches.push_back(stoi(seq));
         }
         mismatches.push_back(stoi(pattern));
+
         if(patterns.size() != mismatches.size())
         {
             std::cerr << "PARAMETER ERROR: Number of barcode patterns and mismatches is not equal\n";
@@ -237,7 +240,7 @@ std::vector<std::pair<std::string, char> > Mapping<MappingPolicy, FilePolicy>::g
             std::shared_ptr<VariableBarcode> barcodePtr(std::make_shared<VariableBarcode>(barcode));
             barcodeVector.push_back(barcodePtr);
             
-            //if we are at the AB/GUIDE barcode position, we need to hear insert the guide sequences
+            //if we are at the AB/GUIDE barcode position, we need to here insert the guide sequences
             if(variableBarcodeIdx == input.guidePos)
             {
                 VariableBarcode barcode(*guideList, mismatches.at(i));
@@ -268,6 +271,13 @@ std::vector<std::pair<std::string, char> > Mapping<MappingPolicy, FilePolicy>::g
             {
                 guideBarcodeVector.push_back(barcodePtr);
             }
+        }
+        else if(patterns.at(i).second=='s')
+        {
+            StopBarcode barcode(patterns.at(i).first, mismatches.at(i));
+            std::shared_ptr<StopBarcode> barcodePtr(std::make_shared<StopBarcode>(barcode));
+            barcodeVector.push_back(barcodePtr);
+            guideBarcodeVector.push_back(barcodePtr);
         }
         else if(patterns.at(i).second=='d')
         {
@@ -326,6 +336,11 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(std::pai
             wildCardToFill += 1;
             continue;
         }
+        else if((*patternItr)->is_stop())
+        {
+            //stop here: we do not continue mapping after stop barcode [*]
+            return true;
+        }
         //for every barcodeMapping element find a match
         std::string barcode = ""; //the actual real barcode that we find (mismatch corrected)
         int start=0, end=0, score = 0;
@@ -337,6 +352,7 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(std::pai
         {
             return false;
         }
+
         if(!(*patternItr)->match_pattern(seq.first, offset, start, end, score, barcode, differenceInBarcodeLength, startCorrection, false))
         {
             ++stats.noMatches;
@@ -445,6 +461,13 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const std::string& se
             offset += wildCardLength;
             wildCardToFill += 1;
             continue;
+        }
+        else if((*patternItr)->is_stop())
+        {
+            //the stop positions is also a found position (count only for fw)
+            ++barcodePosition; //increase the count of found positions
+            //stop here: we do not continue mapping after stop barcode [*]
+            return true;
         }
 
         //for every barcodeMapping element find a match
@@ -563,6 +586,11 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const std::string& se
             wildCardToFill += 1;
             continue;
         }
+        else if((*patternItr)->is_stop())
+        {
+            //stop here: we do not continue mapping after stop barcode [*]
+            return true;
+        }
 
         //for every barcodeMapping element find a match
         std::string barcode = ""; //the actual real barcode that we find (mismatch corrected)
@@ -672,6 +700,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(DemultiplexedRead
     int patternNum = barcodePatterns->size();
 
     //if positions are next to each other just return
+    //in case of a stop pattern [*], we added +1 to the barcodePositionFw, so that barcodePositionFw+barcodePositionRv should be euqual to patternNum
     if(patternNum == (barcodePositionFw + barcodePositionRv))
     {
         for(std::vector<std::string>::const_reverse_iterator rvBarcodeIt = barcodeListRv.crbegin(); rvBarcodeIt != barcodeListRv.crend(); ++rvBarcodeIt)
@@ -760,9 +789,9 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::split_line_into_barcode_patterns(
     uint barcodePositionRv = 0;
     bool rvBool = map_reverse(seq.second, input, barcodePatterns, stats, barcodeListRv, barcodePositionRv, score_sum);
 
-    combine_mapping(barcodeMap, barcodePatterns, barcodeListFw, barcodePositionFw, barcodeListRv, barcodePositionRv, stats, score_sum, seq);
+    bool pairwiseMappingSuccess = combine_mapping(barcodeMap, barcodePatterns, barcodeListFw, barcodePositionFw, barcodeListRv, barcodePositionRv, stats, score_sum, seq);
 
-    return true;
+    return (pairwiseMappingSuccess);
 }
 
 template <typename MappingPolicy, typename FilePolicy>
