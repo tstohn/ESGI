@@ -1,6 +1,7 @@
 # Combinatorial Indexing Analysis Pipeline
 
 [![LINUX BUILD (22.04)](https://github.com/tstohn/CombinatorialIndexingPipeline/actions/workflows/makefile.yml/badge.svg)](https://github.com/tstohn/CombinatorialIndexingPipeline/actions/workflows/makefile.yml)
+![Logo](https://github.com/tstohn/CombinatorialIndexingPipeline/blob/master/docs/media/DemultiplexingLogo.pdf)
 
 Pipeline for demultiplexing Combinatorial Indexing data of single cell Epitope measurements and generating a CELL * PROTEIN matrix.
 Any arbitrary barcode pattern can be mapped to the reads, where the pattern can include: 
