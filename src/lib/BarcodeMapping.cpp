@@ -339,7 +339,7 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(std::pai
         else if((*patternItr)->is_stop())
         {
             //stop here: we do not continue mapping after stop barcode [*]
-            return true;
+            break;
         }
         //for every barcodeMapping element find a match
         std::string barcode = ""; //the actual real barcode that we find (mismatch corrected)
@@ -350,6 +350,7 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(std::pai
         bool seqToShort = check_if_seq_too_short(offset, seq.first);
         if(seqToShort)
         {
+            ++stats.noMatches;
             return false;
         }
 
