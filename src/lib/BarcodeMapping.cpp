@@ -815,7 +815,7 @@ bool Mapping<MappingPolicy, FilePolicy>::demultiplex_read(std::pair<const std::s
 
     //update status bar
     ++count;
-    if(count%1000==0 && totalReadCount!=ULLONG_MAX) //update at every 1,000th entry
+    if(count%1000==0 && totalReadCount!=ULLONG_MAX && count<totalReadCount) //update at every 1,000th entry
     {
         double perc = count/(double)totalReadCount;
         std::lock_guard<std::mutex> guard(*printProgressLock);

@@ -81,7 +81,8 @@ inline unsigned long long numberOfReads(std::string fileName)
     return totalReads;
 }
 
-inline void printProgress(double percentage) {
+inline void printProgress(double percentage) 
+{
     int val = (int) (percentage*100);
     int loadLength = (int) (percentage * PBWIDTH);
     int emptyLength = PBWIDTH - loadLength;
