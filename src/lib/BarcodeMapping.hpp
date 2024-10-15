@@ -138,9 +138,21 @@ class ExtractLinesFromTxtFilesPolicy
     void init_file(const std::string& fwFile, const std::string& rvFile)
     {       
         //no error handling for txt file right now
-        fileStream.open(fwFile);
+        fileStream.open(fwFile, std::ios::in);
 
-        totalReads = std::count(std::istreambuf_iterator<char>(fileStream), std::istreambuf_iterator<char>(), '\n');
+        //check if file can be opened & count lines
+        if (fileStream.is_open()) 
+        {
+            fileStream.seekg(0);
+            totalReads = std::count(std::istreambuf_iterator<char>(fileStream),
+                                    std::istreambuf_iterator<char>(), '\n');
+        } 
+        else 
+        {
+            std::cerr << "Error opening input txt-file!" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+
         fileStream.clear();
         fileStream.seekg(0);
     }

@@ -266,6 +266,7 @@ void DemultiplexedLinesWriter<MappingPolicy, FilePolicy>::run_mapping(const inpu
     printProgress(1); std::cout << "\n"; // end the progress bar
     if(totalReadCount != ULLONG_MAX)
     {
+
         std::cout << "=>\tPERFECT MATCHES: " << std::to_string((unsigned long long)(100*(this->get_perfect_matches())/(double)totalReadCount)) 
                 << "% | MODERATE MATCHES: " << std::to_string((unsigned long long)(100*(this->get_moderat_matches())/(double)totalReadCount))
                 << "% | MISMATCHES: " << std::to_string((unsigned long long)(100*(this->get_failed_matches())/(double)totalReadCount)) << "%\n";
