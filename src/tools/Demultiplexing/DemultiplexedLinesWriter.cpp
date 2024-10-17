@@ -36,10 +36,14 @@ void initialize_output(std::string output, const std::vector<std::pair<std::stri
     outputFile.open (outputMapped, std::ofstream::app);
     for(int i =0; i < patterns.size(); ++i)
     {
-        outputFile << patterns.at(i).first;
-        if( i!=(patterns.size() - 1) )
+        //stop pattern should not be written
+        if(patterns.at(i).second != 's')
         {
-           outputFile << "\t";
+            outputFile << patterns.at(i).first;
+            if( i!=(patterns.size() - 1))
+            {
+            outputFile << "\t";
+            }
         }
     }
     outputFile << "\n";

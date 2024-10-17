@@ -220,7 +220,7 @@ std::vector<std::pair<std::string, char> > Mapping<MappingPolicy, FilePolicy>::g
 {
     //temporary structure storing the order, length and type of each pattern
     std::vector<std::pair<std::string, char> > patterns; // vector of all string patterns, 
-                                                        //second entry is c=constant, v=varying, w=wildcard
+                                                        //second entry is c=constant, v=varying, w=wildcard, s=stop(only map until here)
 
     std::vector<int> mismatches; // vector of all string patterns
     std::vector<std::vector<std::string> > varyingBarcodes; // a vector storing for all non-constant barcode patterns in the order of occurence
