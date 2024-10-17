@@ -248,6 +248,15 @@ inline bool outputSense(const std::string& sequence, const std::string& pattern,
     return false;
 }
 
+inline void free_levenshtein(levenshtein_value** dist, int ls)
+{
+    for (int i = 0; i <= ls; ++i) 
+    {
+        delete[] dist[i];
+    }
+    delete[] dist;
+}
+
 //levenshtein distance, implemented with backtracking to get start and end of alingment, however slower than output sensitive algorithm:
 //used for parser so far: it has an additional flavor of unpunished deletions at the start and end of the alignment
 //start is 0 indexed, end are the first indices that arre not part of the match
@@ -258,7 +267,13 @@ inline bool levenshtein(const std::string sequence, std::string pattern, const i
     //stores the lenght of strings s1 and s2
     ls = sequence.length();
     la = pattern.length();
-    levenshtein_value dist[ls+1][la+1];
+    //levenshtein_value dist[ls+1][la+1];
+    //dynamic allcation of edit-matrix
+    levenshtein_value** dist = new levenshtein_value*[ls + 1];
+    for (int i = 0; i <= ls; ++i) 
+    {
+        dist[i] = new levenshtein_value[la + 1];
+    }
 
     //allow unlimited deletions in beginning; start is zero
     for(i=0;i<=ls;i++) {
@@ -330,7 +345,11 @@ inline bool levenshtein(const std::string sequence, std::string pattern, const i
         }
         //std::cout << "\n";
     }
-    if(upperBoundCheck && (dist[ls][la].val > mismatches)){return false;}
+    if(upperBoundCheck && (dist[ls][la].val > mismatches))
+    {
+        free_levenshtein(dist, ls);
+        return false;
+    }
     //backtracking to find match start and end
     // start and end are defined as first and last match of bases 
     //(deletion, insertion and substitution are not considered, since they could also be part of the adjacent sequences)
@@ -372,6 +391,7 @@ inline bool levenshtein(const std::string sequence, std::string pattern, const i
         match_start = start-1;
         startInPattern -= 1;
         match_end = end;
+        free_levenshtein(dist, ls);
         return true;
     }
     else
@@ -379,6 +399,7 @@ inline bool levenshtein(const std::string sequence, std::string pattern, const i
         score = (dist[ls][la]).val;
     }
 
+    free_levenshtein(dist, ls);
     return false;
 }
 
