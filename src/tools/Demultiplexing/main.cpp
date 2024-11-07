@@ -87,7 +87,7 @@ bool parse_arguments(char** argv, int argc, input& input)
             this number is not used however, UMIs are aligned in BarcodeProcessing.)")
             ("guideUMI,d", value<bool>(&(input.guideUMI))->default_value(false), "set this flag to true if the guide reads have a UMI as well - only for demultiplexing \
             guide and AB reads simultaniously.")
-            ("guidePosition,e", value<int>(&(input.guidePos)), "position of all variable barcodes (in other words line in the barcodeFile), where the guide should be (0-indexed). This parameter needs\
+            ("guidePosition,e", value<int>(&(input.guidePos))->default_value(-1), "position of all variable barcodes (in other words line in the barcodeFile), where the guide should be (0-indexed). This parameter needs\
             to be set if we also want to map guides.")
 
             ("threat,t", value<int>(&(input.threads))->default_value(5), "number of threads")
@@ -139,14 +139,11 @@ int main(int argc, char** argv)
             input.fastqReadBucketSize = input.threads * 10;
         }
         //check that we have the necessary parameters in case we also perform simultaniously guide mapping
-        if(input.guideFile != "")
-        {
-            if(input.guidePos == -1)
-            {
-                std::cerr << "Parameter Error: When performing simultanious guide mapping, the position where the guide sits needs to be given by\
-                <guidePosition> paramter -e!";
-                exit(1);
-            }
+        if( (input.guideFile != "" && input.guidePos == -1) || (input.guideFile == "" && input.guidePos != -1))
+        {            
+            std::cerr << "Parameter Error: When performing simultanious guide mapping, the position where the guide sits needs to be given by\
+            <guidePosition> paramter -e and the possible guide sequences need to be given by the <guideFile> parameter -c!";
+            exit(1);
         }
         if( input.writeStats && (input.guideFile != ""))
         {
