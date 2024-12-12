@@ -158,5 +158,8 @@ testAnalysis:
 bigTest:
 	./bin/demultiplexing -i ./src/test/test_data/test2000fastq.gz -o ./bin/output.tsv -p [NNNNNNNN][CTTGTGGAAAGGACGAAACACCG][XXXXXXXXXXXXXXX][NNNNNNNNNN][GTTTTAGAGCTAGAAATAGCAA][NNNNNNNN][CGAATGCTCTGGCCTACGC][NNNNNNNN][CGAAGTCGTACGCCGATG][NNNNNNNN] -m 7,13,0,8,13,6,13,4,13,4 -t 5 -b ./src/test/test_data/processingBarcodeFile.txt
 
-bigFailure:
-	/Users/t.stohn/Desktop/Normalization/PIPELINE/SingleCellGenomeTools/bin/parserQC -t 1 -f /Users/t.stohn/Desktop/Normalization/PIPELINE/SingleCellGenomeTools/bin/FailedLines_output.tsv  -o FAILURE.txt -b /Users/t.stohn/Desktop/Normalization/PIPELINE/SingleCellGenomeTools/src/test/test_data/processingBarcodeFile.txt -p [NNNNNNNN][CTTGTGGAAAGGACGAAACACCG][XXXXXXXXXXXXXXX][NNNNNNNNNN][GTTTTAGAGCTAGAAATAGCAA][NNNNNNNN][CGAATGCTCTGGCCTACGC][NNNNNNNN][CGAAGTCGTACGCCGATG][NNNNNNNN] -m 1,3,0,1,3,1,3,1,3,1
+
+testGuideMapping:
+	./bin/demultiplexing -i ./src/test/test_data/guideTestInput.txt -o ./bin/output.tsv -p [NNNNNNN][GTTTAAA][XXXXXXXXXX][NNNNNNNNNN] -m 1,1,1,1 -t 1 -b ./src/test/test_data/barcodesGuideTest.txt -c ./src/test/test_data/guidesGuideTest.txt -e 1
+	diff ./bin/Demultiplexed_guideReadsoutput.tsv ./src/test/test_data/guideTestGUIDEOutput.txt
+	diff ./bin/Demultiplexed_output.tsv ./src/test/test_data/guideTestABOutput.txt
