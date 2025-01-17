@@ -11,7 +11,20 @@
 class Barcode;
 typedef std::shared_ptr<Barcode> BarcodePatternPtr;
 typedef std::vector<BarcodePatternPtr> BarcodePatternVector; 
+//small class to iterate through the barcode pattern and 
+//quickly access if it contains, e.g. DNA barcodes (required for different mapping procedure)
+class BarcodePatternVector
+{
+    public:
+        bool containsDNA;
+        std::string patternName; //this is also the file this pattern will be written to
+        std::vector<BarcodePatternPtr> barcodePattern;
+
+    //write iterator to iterate through this class by iterating through barcodePattern
+
+};
 typedef std::shared_ptr<BarcodePatternVector> BarcodePatternVectorPtr; 
+typedef std::shared_ptr<std::vector<BarcodePatternVectorPtr>> MultipleBarcodePatternVectorPtr; 
 
 struct mappingSolution{             
     int seq_start;
@@ -25,8 +38,11 @@ struct mappingSolution{
 class Barcode
 {
     public:
-    Barcode(int inMismatches) : mismatches(inMismatches) {}
+    //per default the length of a barcode is set to 0 (unknown), only for UMIs it must be set
+    Barcode(int inMismatches, int inLength = 0) : mismatches(inMismatches), length(inLength) {}
     int mismatches;
+    unsigned int length; //length of zero means the length of this barcode is unknown
+
     //reverse complement is a Barcode function that should be available globally
     static std::string generate_reverse_complement(std::string seq)
     {
@@ -415,7 +431,7 @@ class WildcardBarcode : public Barcode
     //wildcardBarcode doe snot make use of mismatches yet, since anyways we do not know the sequence,
     //therefore its an unused parameter, just set for completeness as these classes derive from Barcode (initialized with mismatches, see up...)
     public:
-    WildcardBarcode(std::string inPattern, int inMismatches) : pattern(inPattern),Barcode(inMismatches) {}
+    WildcardBarcode(std::string inPattern, int inMismatches, int inLength) : pattern(inPattern),Barcode(inMismatches, inLength) {}
     bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, std::string& realBarcode, 
                        int& differenceInBarcodeLength, bool startCorrection = false, bool reverse = false, bool fullLengthMapping = false)
     {
@@ -462,4 +478,29 @@ class StopBarcode : public Barcode
 
     private:
     std::string pattern; //just a string of "XXXXX"
+};
+
+//barcode representing a genomic region. We can set the number of mismatches or when set to -1 simply run it with default
+//star settings
+//pattern is simply "DNA"
+class DNABarcode : public Barcode
+{
+    public:
+    DNABarcode(int inMismatches = -1) : Barcode(inMismatches) {pattern = "DNA"}
+    bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, std::string& realBarcode, 
+                       int& differenceInBarcodeLength, bool startCorrection = false, bool reverse = false, bool fullLengthMapping = false)
+    {
+        return false;
+    }
+    std::vector<std::string> get_patterns()
+    {
+        std::vector<std::string> patterns = {pattern};
+        return patterns;
+    }
+    bool is_wildcard(){return false;}
+    bool is_constant(){return false;}
+    bool is_stop(){return false;}
+
+    private:
+    std::string pattern; //just a string of "DNA"
 };

@@ -73,18 +73,25 @@ bool parse_arguments(char** argv, int argc, input& input)
 
             ("output,o", value<std::string>(&(input.outFile))->required(), "output file with all split barcodes")
             
-            ("sequencePattern,p", value<std::string>(&(input.patternLine))->required(), "pattern for the sequence to match, \
+            //("sequencePattern,p", value<std::string>(&(input.patternLine))->required(), "pattern for the sequence to match, \
             every substring that should be matched is enclosed with square brackets. N is a barcode match, X is a wild card match \
             and D is a transcriptome read (e.g. cDNA), * is a stop sign (must be enclosed in brackets [*] and then mapping stops at this position \
             on both sides from FW and RV read): [AGCTATCACGTAGC][XXXXXXXXXX][NNNNNN][AGAGCATGCCTTCAG][NNNNNN]")
+
+            ("barcodePatternsFile,p", value<std::string>(&(input.barcodePatternsFile))->required(), "patterns for the sequences to match, \
+            every substring that should be matched is enclosed with square brackets. N is a barcode match, X is a wild card match \
+            and D is a transcriptome read (e.g. cDNA), * is a stop sign/ random sequence part that will also not be mapped (must be enclosed in brackets [*] and then mapping stops at this position \
+            on both sides from FW and RV read, completely disregarding any sequence there. This sign can only be used ONCE in a pattern): [AGCTATCACGTAGC][XXXXXXXXXX][NNNNNN][AGAGCATGCCTTCAG][NNNNNN]. You can supply several rows \
+            with various patterns.")
+
             ("barcodeList,b", value<std::string>(&(input.barcodeFile)), "file with a list of all allowed well barcodes (comma seperated barcodes across several rows)\
             the row refers to the correponding bracket enclosed sequence substring. E.g. for two bracket enclosed substrings in out sequence a possible list could be:\
             AGCTTCGAG,ACGTTCAGG\nACGTCTAGACT,ATCGGCATACG,ATCGCGATC,ATCGCGCATAC")
             ("guideList,c", value<std::string>(&(input.guideFile))->default_value(""), "file with only one line with all guides - comma seperated. Those guides can be found in reads \
             instead of the AB barcode. By default guide reads have also no UMI. If guide reads also contain a UMI set the flag guideUMI.")
-            ("mismatches,m", value<std::string>(&(input.mismatchLine))->default_value("1"), "list of mismatches allowed for each bracket enclosed sequence substring. \
+            ("mismatchFile,m", value<std::string>(&(input.mismatchFile))->default_value(""), "File with lists of mismatches allowed for each bracket enclosed sequence substring. \
             This should be a comma seperated list of numbers for each substring of the sequence enclosed in squared brackets. E.g.: 2,1,2,1,2. (Also add the STOP, UMI mismatch -  \
-            this number is not used however, UMIs are aligned in BarcodeProcessing.)")
+            this number is not used however, UMIs are aligned in BarcodeProcessing.) We need one line for every line in the barcodePatternsFile.")
             ("guideUMI,d", value<bool>(&(input.guideUMI))->default_value(false), "set this flag to true if the guide reads have a UMI as well - only for demultiplexing \
             guide and AB reads simultaniously.")
             ("guidePosition,e", value<int>(&(input.guidePos))->default_value(-1), "position of all variable barcodes (in other words line in the barcodeFile), where the guide should be (0-indexed). This parameter needs\

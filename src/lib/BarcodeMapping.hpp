@@ -15,6 +15,8 @@
 #include <boost/asio/thread_pool.hpp>
 #include <boost/asio/post.hpp>
 #include <cmath>
+#include <unordered_map>
+#include <filesystem>
 
 #include "Barcode.hpp"
 #include "seqtk/kseq.h"
@@ -305,6 +307,8 @@ class Mapping : protected MappingPolicy, protected FilePolicy
         {
             barcodeMap = DemultiplexedReads();
             guideBarcodeMap = DemultiplexedReads();
+            RNABarcodeMap = DemultiplexedReads();
+
             printProgressLock = std::make_unique<std::mutex>();
             stats.statsLock = std::make_unique<std::mutex>();
         }
@@ -355,11 +359,14 @@ class Mapping : protected MappingPolicy, protected FilePolicy
         **/
         DemultiplexedReads barcodeMap;
         DemultiplexedReads guideBarcodeMap;
+        DemultiplexedReads RNABarcodeMap;
 
         //representation of the barcode pattern we want to map to all reads
         //basically a vector of Barcode objects (stores all possible barcodes, mismatches that are allowed, etc.)
         BarcodePatternVectorPtr barcodePatterns;
         BarcodePatternVectorPtr guideBarcodePatterns;
+        //list of all the possible barcode patterns (this is supposed to replace the above two)
+        MultipleBarcodePatternVectorPtr barcodePatternList;
 
         //this is only filled if we map sequences that contain AB reads as well as guide reads
         //those guides can exist instead of ABs, if AB-barcodes do not map we try the guides
@@ -396,5 +403,6 @@ class Mapping : protected MappingPolicy, protected FilePolicy
                               std::atomic<unsigned long long>& count, const unsigned long long& totalReadCount,
                               bool guideMapping);
         //run the actual mapping
+        // this function is overwritten in DemultiplexLinesWriter
         void run_mapping(const input& input);
 };

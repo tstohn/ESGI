@@ -32,20 +32,77 @@ void Mapping<MappingPolicy, FilePolicy>::initializeStats()
     }
 }
 
+//parse a new file with barcodes and writes all barcodes into a vector
 template <typename MappingPolicy, typename FilePolicy>
-void Mapping<MappingPolicy, FilePolicy>::parse_barcode_data(const input& input, std::vector<std::pair<std::string, char> >& patterns, 
-                                                            std::vector<int>& mismatches, std::vector<std::vector<std::string> >& varyingBarcodes)
+void Mapping<MappingPolicy, FilePolicy>::parse_variable_barcode_file(const std::string& barcodeFile)
 {
+    try
+    {
+        std::ifstream barcodeFileStream;
+        inFile.open(barcodeFile);/
+        stringstream strStream;
+        strStream << inFile.rdbuf();
+        std::string barcodeListString = strStream.str();
+
+        delimiter = ",";
+        pos = 0;
+        std::vector<std::string> seqVector;
+        while ((pos = line.find(delimiter)) != std::string::npos) {
+            seq = line.substr(0, pos);
+            line.erase(0, pos + 1);
+            for (char const &c: seq) {
+                if(!(c=='A' | c=='T' | c=='G' |c=='C' |
+                        c=='a' | c=='t' | c=='g' | c=='c'))
+                        {
+                        std::cerr << "PARAMETER ERROR: a barcode sequence in barcode file is not a base (A,T,G,C)\n";
+                        if(c==' ' | c=='\t' | c=='\n')
+                        {
+                            std::cerr << "PARAMETER ERROR: Detected a whitespace in sequence; remove it to continue!\n";
+                        }
+                        exit(1);
+                        }
+            }
+            seqVector.push_back(seq);
+        }
+        seq = line;
+        for (char const &c: seq) {
+            if(!(c=='A' || c=='T' || c=='G' || c=='C' ||
+                    c=='a' || c=='t' || c=='g' || c=='c'))
+                    {
+                    std::cerr << "PARAMETER ERROR: a barcode sequence in barcode file is not a base (A,T,G,C)\n";
+                    if(c==' ' || c=='\t' || c=='\n')
+                    {
+                        std::cerr << "PARAMETER ERROR: Detected a whitespace in sequence of barcode file; remove it to continue!\n";
+                    }
+                    exit(1);
+                    }
+        }
+        seqVector.push_back(seq);
+        varyingBarcodes.push_back(seqVector);
+        seqVector.clear();
+            
+        barcodeFileStream.close();
+    }
+    catch(std::exception& e)
+    {
+        std::cerr << "Detected a file name for variable barcode patterns but file could not be parsed! File: " << barcodeFile << "\n";
+        std::cerr << e.what() << std::endl;
+        exit(1);
+    }
+}
+
+//parse a single line of the pattern file like: [GACTTCAG][15X][barcodes.txt][DNA]
+template <typename MappingPolicy, typename FilePolicy>
+std::vector<std::string> Mapping<MappingPolicy, FilePolicy>::parse_pattern_line(std::string& line)
+{
+    std::vector<std::string> patterns;
     try{
-        // parse the pattern, mismatches, and barcode file (perform quality check as well)
-        int numberOfNonConstantBarcodes = 0;
-        std::string pattern = input.patternLine;
+        // parse one pattern line: e.g.: [ACGTTCAG][15X][file1.txt]
         std::string delimiter = "]";
         const char delimiter2 = '[';
         size_t pos = 0;
         std::string seq;
         //PARSE PATTERN
-        std::pair<std::string, bool> seqPair;
         while ((pos = pattern.find(delimiter)) != std::string::npos) {
             seq = pattern.substr(0, pos);
             pattern.erase(0, pos + 1);
@@ -55,252 +112,242 @@ void Mapping<MappingPolicy, FilePolicy>::parse_barcode_data(const input& input, 
                 exit(1);
             }
             seq.erase(0, 1);
-            //just check if we have a barcode pattern of only'N', bcs the nunber of those patterns must match the number of lines in barcodefile
-            bool nonConstantSeq = true;
-            char patternType = 'c';
-            for (char const &c: seq) {
-                if(!(c=='A' || c=='T' || c=='G' || c=='C' ||
-                    c=='a' || c=='t' || c=='g' || c=='c' ||
-                    c=='N' || c=='X' || c=='*'))
-                {
-                    std::cerr << "PARAMETER ERROR: a barcode sequence in barcode file is not a base (A,T,G,C,N)\n";
-                    if(c==' ' || c=='\t' || c=='\n')
-                    {
-                        std::cerr << "PARAMETER ERROR: Detected a whitespace in sequence; remove it to continue!\n";
-                    }
-                    exit(1);
-                }
-                if(c!='N'){nonConstantSeq=false;}
-
-                //determine pattern type and throw error
-                if( (patternType!='c') && (c!='N') && (c!='X') )
-                {
-                    std::cerr << "PARAMETER ERROR: a barcode sequence has bases as well as wildcard 'X' or variable 'N' bases, the combination is not allowed!!!\n";
-                    exit(1);
-                }
-                if(c=='N'){patternType='v';}
-                else if(c=='X'){patternType='w';}
-                else if(c=='*'){patternType='s';} //stop-pattern type: do not map further when encoutering this
-                else if(c=='D'){patternType='d';} // todo: pattern for RNAseq data
-            }
-            if(nonConstantSeq){++numberOfNonConstantBarcodes;}
             
             patterns.push_back(std::make_pair(seq, patternType));
         }
-        //PARSE mismatches
-        pattern = input.mismatchLine;
+    }
+    catch(std::exception& e)
+    {
+        std::cerr << "PARAMETER ERROR: Could not parse following line in the barcode pattern file: " << line << "\n";
+        std::cerr << e.what() << std::endl;
+        exit(1);
+    }
+
+    return(patterns);
+}
+
+//parsing a new pattern line of the patterns file and store it in a vector
+template <typename MappingPolicy, typename FilePolicy>
+std::vector<std::vector<std::string>> Mapping<MappingPolicy, FilePolicy>::parse_pattern_file(const std::string& patternFile)
+{
+
+    std::vector<std::vector<std::string>> patternList;
+
+    //iterate through rows in pattern file: whenever we encounter a new file of barcodes parse it
+    std::ifstream patternFileStream(patternFile);
+    if(!patternFileStream.is_open())
+    {
+        std::cerr << "Opening File with barcode patterns failed. File name: " << patternFile;
+        exit(EXIT_FAILURE);
+    }
+    std::string line;
+    while(std::getline(patternFileStream, line))
+    {
+        patternList.emplace_back(parse_pattern_line(line));
+    }
+
+    return(patternList);
+}
+
+//parse a new lnie in mismatch file
+template <typename MappingPolicy, typename FilePolicy>
+std::vector<std::vector<int>> Mapping<MappingPolicy, FilePolicy>::parse_mismatch_file(const std::string& mismatchFile)
+{
+    std::vector<std::vector<int>> mismatchList;
+
+    std::ifstream mismatchFileStream(mismatchFile);
+    if(!mismatchFileStream.is_open())
+    {
+        std::cerr << "Opening File with mismatches per pattern failed. File name: " << mismatchFile;
+        exit(EXIT_FAILURE);
+    }
+    std::string mismatchLine;
+
+    //parse every line in the mismatch file, specific for the corresponding pattern line in patternFile
+    while(std::getline(mismatchFile, mismatchLine))
+    {
+        std::vector<int> mismatches;
         delimiter = ",";
         pos = 0;
-        while ((pos = pattern.find(delimiter)) != std::string::npos) 
+        while ((pos = mismatchLine.find(delimiter)) != std::string::npos) 
         {
-            seq = pattern.substr(0, pos);
+            seq = mismatchLine.substr(0, pos);
             pattern.erase(0, pos + 1);
             mismatches.push_back(stoi(seq));
         }
         mismatches.push_back(stoi(pattern));
 
-        if(patterns.size() != mismatches.size())
-        {
-            std::cerr << "PARAMETER ERROR: Number of barcode patterns and mismatches is not equal\n";
-            exit(1);
-        }
-        //PARSE barcode file
-        std::ifstream barcodeFile(input.barcodeFile);
-        for(std::string line; std::getline(barcodeFile, line);)
-        {
-            delimiter = ",";
-            pos = 0;
-            std::vector<std::string> seqVector;
-            while ((pos = line.find(delimiter)) != std::string::npos) {
-                seq = line.substr(0, pos);
-                line.erase(0, pos + 1);
-                for (char const &c: seq) {
-                    if(!(c=='A' | c=='T' | c=='G' |c=='C' |
-                         c=='a' | c=='t' | c=='g' | c=='c'))
-                         {
-                            std::cerr << "PARAMETER ERROR: a barcode sequence in barcode file is not a base (A,T,G,C)\n";
-                            if(c==' ' | c=='\t' | c=='\n')
-                            {
-                                std::cerr << "PARAMETER ERROR: Detected a whitespace in sequence; remove it to continue!\n";
-                            }
-                            exit(1);
-                         }
-                }
-                seqVector.push_back(seq);
-            }
-            seq = line;
-            for (char const &c: seq) {
-                if(!(c=='A' || c=='T' || c=='G' || c=='C' ||
-                        c=='a' || c=='t' || c=='g' || c=='c'))
-                        {
-                        std::cerr << "PARAMETER ERROR: a barcode sequence in barcode file is not a base (A,T,G,C)\n";
-                        if(c==' ' || c=='\t' || c=='\n')
-                        {
-                            std::cerr << "PARAMETER ERROR: Detected a whitespace in sequence of barcode file; remove it to continue!\n";
-                        }
-                        exit(1);
-                        }
-            }
-            seqVector.push_back(seq);
-            varyingBarcodes.push_back(seqVector);
-            seqVector.clear();
-        }
-        barcodeFile.close();
-        if(numberOfNonConstantBarcodes != varyingBarcodes.size())
-        {
-            std::cerr << "PARAMETER ERROR: Number of barcode patterns for non-constant sequences [N*] and lines in barcode file are not equal\n";
-            std::cerr << std::to_string(numberOfNonConstantBarcodes) << " and " << std::to_string(varyingBarcodes.size()) << " respectively\n";
-            exit(1);
-        }
-        //PARSE guide file (only if we map AB and guide reads simultaneously)
-        if(input.guideFile!="")
-        {
-            std::ifstream guideFile(input.guideFile);
-            int lineCount = 0;
-            std::vector<std::string> seqVector;
-            for(std::string line; std::getline(guideFile, line);)
-            {
-                delimiter = ",";
-                pos = 0;
-                while ((pos = line.find(delimiter)) != std::string::npos) {
-                    //if we find delimiters in more than one line, the file is not correct
-                    if(lineCount > 0)
-                    {
-                        std::cerr << "PARAMETER ERROR: The input guide file contains too many lines. It should contain a single line with comma seperated guide sequences.\n";
-                        exit(1);
-                    }
-                    seq = line.substr(0, pos);
-                    line.erase(0, pos + 1);
-                    for (char const &c: seq) {
-                        if(!(c=='A' | c=='T' | c=='G' |c=='C' |
-                            c=='a' | c=='t' | c=='g' | c=='c'))
-                            {
-                                std::cerr << "PARAMETER ERROR: a barcode sequence in guide file is not a base (A,T,G,C)\n";
-                                if(c==' ' | c=='\t' | c=='\n')
-                                {
-                                    std::cerr << "PARAMETER ERROR: Detected a whitespace in sequence of guide file; remove it to continue!\n";
-                                }
-                                exit(1);
-                            }
-                    }
-                    seqVector.push_back(seq);
-                }
-                seq = line;
-                for (char const &c: seq) {
-                    if(!(c=='A' || c=='T' || c=='G' || c=='C' ||
-                            c=='a' || c=='t' || c=='g' || c=='c'))
-                            {
-                            std::cerr << "PARAMETER ERROR: a barcode sequence in guide file is not a base (A,T,G,C)\n";
-                            if(c==' ' || c=='\t' || c=='\n')
-                            {
-                                std::cerr << "PARAMETER ERROR: Detected a whitespace in sequence of guide file; remove it to continue!\n";
-                            }
-                            exit(1);
-                            }
-                }
-                seqVector.push_back(seq);
-                ++lineCount;
-            }
-            guideList = std::make_shared<std::vector<std::string>>(seqVector);
-            guideFile.close();
-            //also set the bool storing weather guide reads contain a UMI or not
-            guideUMI = input.guideUMI;
-        }
+        //push the vector of mismatches into the mismatchList which stores all vectors of mismatches
+        //for every pattern line
+        mismatchList.push_back(mismatches);
     }
-    catch(std::exception& e)
-    {
-        std::cerr << "PARAMETER ERROR: Check the input parameters again (barcode pattern list, mismatch list, file with barcode lists)\n";
-        std::cerr << e.what() << std::endl;
-        exit(1);
-    }
+
+    return(mismatchList);
 }
-
+        
 template <typename MappingPolicy, typename FilePolicy>
-std::vector<std::pair<std::string, char> > Mapping<MappingPolicy, FilePolicy>::generate_barcode_patterns(const input& input)
+BarcodePatternVectorPtr 
+Mapping<MappingPolicy, FilePolicy>::create_barcodeVector_from_patternLine(
+    const std::vector<std::string>>& barcodeList, 
+    const std::vector<std::string>& mismatchList, 
+    std::unordered_map<std::string, std::vector<std::string>>& fileToBarcodesMap)
 {
-    //temporary structure storing the order, length and type of each pattern
-    std::vector<std::pair<std::string, char> > patterns; // vector of all string patterns, 
-                                                        //second entry is c=constant, v=varying, w=wildcard, s=stop(only map until here)
 
-    std::vector<int> mismatches; // vector of all string patterns
-    std::vector<std::vector<std::string> > varyingBarcodes; // a vector storing for all non-constant barcode patterns in the order of occurence
-                                                            // in the barcode pattern string the possible barcode sequences
-    //fill the three vectors and handle as many errors as possible
-    parse_barcode_data(input, patterns, mismatches, varyingBarcodes);
-
-    //iterate over patterns and fill BarcodePatternVector instance
     BarcodePatternVector barcodeVector;
-    BarcodePatternVector guideBarcodeVector;
-    int variableBarcodeIdx = 0; // index for variable barcode sequences is shorter than the vector of patterns in total
-    for(int i=0; i < patterns.size(); ++i)
+    //iterate through all barcodes in the pattern line
+    //parse the pattern and immediately create the Barcode
+    for(int barcodeIdx = 0; barcodeIdx < barcodeList.size(); ++barcodeIdx)
     {
-        if(patterns.at(i).second=='v')
+        std::string patternElement = barcodeList.at(barcodeIdx);
+        int barcodeLength = 0;
+        bool barcodeFound = false;
+
+        // constant barcode
+        bool isConstant = true;
+        for (char const &c: patternElement) 
         {
-            VariableBarcode barcode(varyingBarcodes.at(variableBarcodeIdx), mismatches.at(i));
+            if(c!='A' || c!='T' || c!='G' || c!='C' ||
+            c!='a' || c!='t' || c!='g' || c!='c')
+            {
+                isConstant = false;
+                break;
+            }
+        }
+        if(isConstant)
+        {
+            ConstantBarcode barcode(patternElement, mismatchList.at(barcodeIdx));
+            std::shared_ptr<ConstantBarcode> barcodePtr(std::make_shared<ConstantBarcode>(barcode));
+            barcodeVector.push_back(barcodePtr);
+            barcodeFound = true;
+        }
+
+        //variable barcode file
+        //check if the string is in our file->barcodes map
+        //if not check if we can parse it
+        bool isVariable = false;
+        //if the file was already parsed we know this must be a variable barcode
+        if(fileToBarcodesMap.find(patternElement) != fileToBarcodesMap.end())
+        {
+            isVariable = true;
+        }
+        else //otherwise try to open it as a file
+        {
+            std::ifstream possibleFileStream(patternElement);
+            if(possibleFileStream.good())
+            {
+                //if possible store it in the map of files -> barcode vector
+                fileToBarcodesMap[patternElement] = parse_variable_barcode_file(patternElement);
+            }
+            isVariable = true;
+        }
+        //create Variable Barcode from this data
+        if(isVariable)
+        {
+            VariableBarcode barcode(fileToBarcodesMap.at(patternElement), mismatches.at(i));
             std::shared_ptr<VariableBarcode> barcodePtr(std::make_shared<VariableBarcode>(barcode));
             barcodeVector.push_back(barcodePtr);
-            
-            //if we are at the AB/GUIDE barcode position, we need to here insert the guide sequences
-            if(variableBarcodeIdx == input.guidePos)
+            barcodeFound = true;
+        }
+
+        //random element(e.g., UMI)
+        //format: [15X], before we must check if the prefix-digit is not part of a file name (done above for variable barcode file)
+        if(std::isdigit(patternElement[0]))
+        {
+            size_t pos = 0;
+            barcodeLength = std::stoi(patternElement, &pos);
+            seq = seq.substr(pos);
+            if(seq == "X")
             {
-                VariableBarcode barcode(*guideList, mismatches.at(i));
-                std::shared_ptr<VariableBarcode> barcodePtr(std::make_shared<VariableBarcode>(barcode));
-                guideBarcodeVector.push_back(barcodePtr);
+                //For random sequences we MUST specific the length of this sequence
+                WildcardBarcode barcode(mismatches.at(i), barcodeLength);
+                std::shared_ptr<WildcardBarcode> barcodePtr(std::make_shared<WildcardBarcode>(barcode));
+                barcodeVector.push_back(barcodePtr);
+                barcodeFound = true;
             }
             else
             {
-                guideBarcodeVector.push_back(barcodePtr);
-            }
-            ++variableBarcodeIdx;
-        }
-        else if(patterns.at(i).second=='c')
-        {
-            ConstantBarcode barcode(patterns.at(i).first, mismatches.at(i));
-            std::shared_ptr<ConstantBarcode> barcodePtr(std::make_shared<ConstantBarcode>(barcode));
-            barcodeVector.push_back(barcodePtr);
-            guideBarcodeVector.push_back(barcodePtr);
-        }
-        else if(patterns.at(i).second=='w')
-        {
-            WildcardBarcode barcode(patterns.at(i).first, mismatches.at(i));
-            std::shared_ptr<WildcardBarcode> barcodePtr(std::make_shared<WildcardBarcode>(barcode));
-            barcodeVector.push_back(barcodePtr);
-            //only add the wildcard to guidebarcodePattern if guide has a UMI 
-            //(assuming the wildcard is only the UMI in this scenario)
-            if(guideUMI)
-            {
-                guideBarcodeVector.push_back(barcodePtr);
+                //we already checked above if it is an existing barcode file
+                std::cerr << "Encountered an error in barode pattern: " << patternElement << ".\n" <<
+                "If a pattern has a digit as a prefix it must ether be part of a barcode-file name " <<
+                "or it must be a random sequence like UMIs in the format <NUMBER><X> with a number followed by a sinlge capital X. 
+                For example [15X]\n";
+                exit(1);
             }
         }
-        else if(patterns.at(i).second=='s')
+
+        //DNA element
+        if(patternElement == "DNA")
         {
-            StopBarcode barcode(patterns.at(i).first, mismatches.at(i));
+            DNABarcode barcode(mismatchList.at(i));
             std::shared_ptr<StopBarcode> barcodePtr(std::make_shared<StopBarcode>(barcode));
             barcodeVector.push_back(barcodePtr);
-            guideBarcodeVector.push_back(barcodePtr);
+            barcodeFound = true;
         }
-        else if(patterns.at(i).second=='d')
+
+        //stop pattern: [*] (only map up to here)
+        if(patternElement == "*")
         {
-            //ERROR NOT IMPLEMENTED YET
+            StopBarcode barcode(patternElement, mismatchList.at(i));
+            std::shared_ptr<StopBarcode> barcodePtr(std::make_shared<StopBarcode>(barcode));
+            barcodeVector.push_back(barcodePtr);
+            barcodeFound = true;
+        }
+
+        //if nothing can be created from it, return false and throw an error
+        if(!barcodeFound)
+        {
+            std::cerr << "The pattern element [" << patternElement <<"] is not a valid barcode element.
+            Read the manual again to make sure it matches, e.g.: a constant barcode (only A,G,T,C), a file which contains all possible barcodes
+            at this position, a random barcode like UMIs with <number><X> like <15X>, or a simple string such as <DNA> for a DNA/ RNA sequence,
+            or <*> for a stop position (to seperate FW, RV reads, or simply exclude a sequence in the middle)."
+            exit(1);
         }
 
     }
+    
     BarcodePatternVectorPtr barcodePatternVector = std::make_shared<BarcodePatternVector>(barcodeVector);
+    return(barcodePatternVector);
+}
 
-    //check that number of mismatches does not exceed number of bases in patter
-    for(int i = 0; i < barcodePatternVector->size(); i++)
+//new fucntion to overwrite old function which was misconstructed
+template <typename MappingPolicy, typename FilePolicy>
+bool Mapping<MappingPolicy, FilePolicy>::generate_barcode_patterns(const input& input)
+{
+    
+    //a map of file names to the actual barcodes in this file. This map is updated while itereating through the pattern file
+    //whenever an unknown file is encountered
+    std::unordered_map<std::string, std::vector<std::string>> fileToBarcodesMap;
+
+    //only arsing, no quality check
+    std::vector<std::vector<std::string>> patternList = parse_pattern_file(input.barcodePatternsFile);
+    std::vector<std::vector<int>> mismatchList = parse_mismatch_file(input.mismatchFile);
+
+    // assert that the number of mismatches and patterns are the same
+    if(patternList.size() != mismatchList.size())
     {
-        if(barcodePatternVector->at(i)->get_patterns().at(0).length() <= barcodePatternVector->at(i)->mismatches)
+        std::cerr << "Number of barcode pattern lines and mismatch lines does not match. Please correct in parameters.\n";
+        exit(1);
+    }
+    for(int i = 0; i < patternList.size(); i++)
+    {
+        if(patternList.at(i).size() != mismatchList.at(i).size())
         {
-            std::cerr << "Number of mismatches should not exceed the number of bases in pattern. Please correct in parameters.\n";
+            std::cerr << "Number of barcode patterns and mismatches does not match for line " << std::string(i) << ". Please correct in parameters.\n";
             exit(1);
         }
     }
 
-    //set the vector of barcode patterns
-    barcodePatterns = barcodePatternVector;
-    guideBarcodePatterns = std::make_shared<BarcodePatternVector>(guideBarcodeVector);
-    return patterns;
+    // parse all files with variables barcodes (guides, BC1, BC2, ..., ABs)
+    // parse mismatches, pattern, lengths of patterns (e.g. UMI legnth 15)
+    for(int i = 0; i < patternList.size(); i++)
+    {
+        //create barcode object from pattern & mismatches
+        //inside function check for validity of barcodes
+        BarcodePatternVectorPtr barcodePattern;
+        barcodePatternList->emplace_back(create_barcodeVector_from_patternLine(patternList.at(i), mismatchList.at(i), fileToBarcodesMap));
+    }
+
+    return true;
 }
 
 //apply all BarcodePatterns to a single line to generate a vector strings (the Barcodemapping)
@@ -805,10 +852,12 @@ bool Mapping<MappingPolicy, FilePolicy>::demultiplex_read(std::pair<const std::s
     bool result;
     if(!guideMapping)
     {
+        //demultipelxed barcodes are stored in barcodeMap
         result = this->split_line_into_barcode_patterns(seq, input, barcodeMap, barcodePatterns, stats);
     }
     else
     {
+        //demultipelxed barcodes (for guides) are stored in guideBarcodeMap
         result = this->split_line_into_barcode_patterns(seq, input, guideBarcodeMap, guideBarcodePatterns, stats);
         --stats.noMatches;
     }
