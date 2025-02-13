@@ -1,12 +1,12 @@
-# Combinatorial Indexing Analysis Pipeline
+# Efficient demultiplexing of generic barcoding data
 
 [![LINUX BUILD (22.04)](https://github.com/tstohn/CombinatorialIndexingPipeline/actions/workflows/makefile.yml/badge.svg)](https://github.com/tstohn/CombinatorialIndexingPipeline/actions/workflows/makefile.yml)
 
 <img src=https://github.com/tstohn/CombinatorialIndexingPipeline/blob/master/docs/media/DemultiplexingLogo.png width="200" />
 
-Pipeline for demultiplexing Combinatorial Indexing data of single cell Epitope measurements and generating a CELL * PROTEIN matrix.
+Pipeline for demultiplexing generic barcoded data, like 'combinatorial indexing', spatial, ...  data. Inititally developed to demultiplexed highly multiplexed data of single-cell Epitope measurements, where cells are labelled with severel rounds of combinatorial indexing. The tool efficiently demultiplexes the reads, assigns single-cells and generates a CELL * PROTEIN matrix.
 Any arbitrary barcode pattern can be mapped to the reads, where the pattern can include: 
-  - CI-barcodes
+  - variable barcodes, where the combination of them marks single cells
   - any Linker sequenes between barcodes
   - UMI sequence
   - gRNA sequence
