@@ -16,11 +16,8 @@ class DemultiplexedLinesWriter : private Mapping<MappingPolicy, FilePolicy>
                                 std::atomic<unsigned long long>& lineCount,
                                 const unsigned long long& totalReadCount,
                                 std::atomic<long long int>& elementsInQueue);
-        void initialize_output_files(const input& input,
-                                     const std::vector<std::pair<std::string, char> >& patterns,
-                                     std::string& guideNameTage);
+        void initialize_output_files(const input& input);
         void run_mapping(const input& input);
-
 
     public:
         void run(const input& input);

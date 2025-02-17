@@ -92,22 +92,23 @@ inline void printProgress(double percentage)
 //stores all the input parameters for the mapping tools
 struct input{
     std::string inFile;
-    std::string outFile;
+
+    //this is the path to the output files
+    std::string outPath;
 
     std::string reverseFile = "";
 
     std::string barcodeFile; //file of all barcode-vectors, each line sequentially representing a barcode 
-    std::string mismatchLine; //coma seperated list of mismathces per barcode
+    std::string mismatchFile; //file withg several lines with coma seperated list of mismathces per barcode
     std::string patternLine; //list of patterns in abstract form
-    std::string guideFile = ""; // file with the guide barcodes, only necessary if alos guides r given
 
     std::string barcodePatternsFile;
-    bool guideUMI = false;
-    int guidePos = -1;
 
     //additional informations
     bool writeStats = false; 
     bool writeFailedLines = false;
+    bool writeFilesOnTheFly = false;
+    
     long long int fastqReadBucketSize = 10000000;
     int threads = 5;
 };

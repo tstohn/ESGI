@@ -71,8 +71,10 @@ bool parse_arguments(char** argv, int argc, input& input)
             ("reverse,r", value<std::string>(&(input.reverseFile)), "Use this parameter for paired-end analysis as the reverse read file. <-i> is the forward read in \
             this case.")
 
-            ("output,o", value<std::string>(&(input.outFile))->required(), "output file with all split barcodes")
-            
+            ("output,o", value<std::string>(&(input.outPath))->required(), "output file with all split barcodes")
+            ("writeFilesOnTheFly,w", value<bool>(&(input.writeFilesOnTheFly))->default_value(false), "If set, Ezgi writes the output of every line on the fly, without storing\
+            it in memory durng runtime. THIS SLOWS DOWN the tool, however, might be useful when running on a laptop to SAVE MEMORY\n")
+
             //("sequencePattern,p", value<std::string>(&(input.patternLine))->required(), "pattern for the sequence to match, \
             every substring that should be matched is enclosed with square brackets. N is a barcode match, X is a wild card match \
             and D is a transcriptome read (e.g. cDNA), * is a stop sign (must be enclosed in brackets [*] and then mapping stops at this position \
@@ -84,18 +86,9 @@ bool parse_arguments(char** argv, int argc, input& input)
             on both sides from FW and RV read, completely disregarding any sequence there. This sign can only be used ONCE in a pattern): [AGCTATCACGTAGC][XXXXXXXXXX][NNNNNN][AGAGCATGCCTTCAG][NNNNNN]. You can supply several rows \
             with various patterns.")
 
-            ("barcodeList,b", value<std::string>(&(input.barcodeFile)), "file with a list of all allowed well barcodes (comma seperated barcodes across several rows)\
-            the row refers to the correponding bracket enclosed sequence substring. E.g. for two bracket enclosed substrings in out sequence a possible list could be:\
-            AGCTTCGAG,ACGTTCAGG\nACGTCTAGACT,ATCGGCATACG,ATCGCGATC,ATCGCGCATAC")
-            ("guideList,c", value<std::string>(&(input.guideFile))->default_value(""), "file with only one line with all guides - comma seperated. Those guides can be found in reads \
-            instead of the AB barcode. By default guide reads have also no UMI. If guide reads also contain a UMI set the flag guideUMI.")
             ("mismatchFile,m", value<std::string>(&(input.mismatchFile))->default_value(""), "File with lists of mismatches allowed for each bracket enclosed sequence substring. \
             This should be a comma seperated list of numbers for each substring of the sequence enclosed in squared brackets. E.g.: 2,1,2,1,2. (Also add the STOP, UMI mismatch -  \
             this number is not used however, UMIs are aligned in BarcodeProcessing.) We need one line for every line in the barcodePatternsFile.")
-            ("guideUMI,d", value<bool>(&(input.guideUMI))->default_value(false), "set this flag to true if the guide reads have a UMI as well - only for demultiplexing \
-            guide and AB reads simultaniously.")
-            ("guidePosition,e", value<int>(&(input.guidePos))->default_value(-1), "position of all variable barcodes (in other words line in the barcodeFile), where the guide should be (0-indexed). This parameter needs\
-            to be set if we also want to map guides.")
 
             ("threat,t", value<int>(&(input.threads))->default_value(5), "number of threads")
             ("fastqReadBucketSize,s", value<long long int>(&(input.fastqReadBucketSize))->default_value(-1), "number of lines of the fastQ file that should be read into RAM \
@@ -114,7 +107,7 @@ bool parse_arguments(char** argv, int argc, input& input)
             std::cout << desc << "\n";
 
             std::cout << "###########################################\n";
-            std::cout << "EXAMPLE CALL:\n ./bin/parser -i ./inFile -o ./outFile -p [AGTCAGTC][NNNN] -b ./barcodeFile.txt -m 2,1 -t 5\n";
+            std::cout << "EXAMPLE CALL:\n ./bin/parser -i ./inFile -o ./outPath -p [AGTCAGTC][NNNN] -b ./barcodeFile.txt -m 2,1 -t 5\n";
             std::cout << "Calling the Tool, mapping each line to a pattern, that starts with a constant sequence of <AGTCAGTC> in which up to two mismatches\n\
             are allowed. After that the reads should contain a four base long sequence with a maximum of one mismatch. All sequences that are allowed are in the text file barcodeFile.txt.\n\
             This file should have in its first row, all comma seperated sequences that could map, and they should be all only four bases long, allowed chars are only A,C,G,T.\n";
@@ -144,19 +137,6 @@ int main(int argc, char** argv)
         if(input.fastqReadBucketSize == -1)
         {
             input.fastqReadBucketSize = input.threads * 10;
-        }
-        //check that we have the necessary parameters in case we also perform simultaniously guide mapping
-        if( (input.guideFile != "" && input.guidePos == -1) || (input.guideFile == "" && input.guidePos != -1))
-        {            
-            std::cerr << "Parameter Error: When performing simultanious guide mapping, the position where the guide sits needs to be given by\
-            <guidePosition> paramter -e and the possible guide sequences need to be given by the <guideFile> parameter -c!";
-            exit(1);
-        }
-        if( input.writeStats && (input.guideFile != ""))
-        {
-            std::cerr << "Parameter Error: Please run the tool without writeStats in case of additional guide mapping. If you r interested\
-            in statistics run the tool twice once only mapping AB-reads and once mapping guide reads.\n";
-            exit(1);
         }
 
         // run demultiplexing

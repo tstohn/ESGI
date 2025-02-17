@@ -9,22 +9,80 @@
 #include "helper.hpp"
 
 class Barcode;
-typedef std::shared_ptr<Barcode> BarcodePatternPtr;
-typedef std::vector<BarcodePatternPtr> BarcodePatternVector; 
-//small class to iterate through the barcode pattern and 
-//quickly access if it contains, e.g. DNA barcodes (required for different mapping procedure)
-class BarcodePatternVector
+typedef std::shared_ptr<Barcode> BarcodePtr;
+typedef std::vector<BarcodePtr> BarcodeVector; 
+typedef std::shared_ptr<BarcodeVector> BarcodeVectorPtr; 
+
+//class to handle a barcode pattern 
+//can be used to iterate through the barcode, and stores additional information like:
+//it stores if the pattern contains DNA barcodes which require different handling
+class BarcodePattern
 {
     public:
+        //constructor
+        BarcodePattern(bool dna, std::string name, BarcodeVectorPtr pattern) :  
+        containsDNA(dna), patternName(name), barcodePattern(pattern) {}
+
+        //class variables
         bool containsDNA;
         std::string patternName; //this is also the file this pattern will be written to
-        std::vector<BarcodePatternPtr> barcodePattern;
+        BarcodeVectorPtr barcodePattern;
 
-    //write iterator to iterate through this class by iterating through barcodePattern
+        //class functions
+        //write multiplexed lines to file (must be specific for DNA, AB-barcodes, etc.)
+        void write_demultiplexed_line(const std::vector<std::string> barcodeList, std::string dna = "");
 
+        //barcodeVector/ iterator functions
+        // Add a barcode to the barcodePattern
+        void add_barcode(const BarcodePtr& barcode) {
+            barcodePattern->push_back(barcode);
+        }
+        // Get the size of the barcodePattern
+        std::size_t size() const {
+            return barcodePattern->size();
+        }
+        // Access element by index
+        BarcodePtr& operator[](std::size_t index) {
+            return (*barcodePattern)[index];
+        }
+        const BarcodePtr& operator[](std::size_t index) const {
+            return (*barcodePattern)[index];
+        }
+        // Iterator types
+        using iterator = typename std::vector<BarcodePtr>::iterator;
+        using const_iterator = typename std::vector<BarcodePtr>::const_iterator;
+        using reverse_iterator = typename std::vector<BarcodePtr>::reverse_iterator;
+        using const_reverse_iterator = typename std::vector<BarcodePtr>::const_reverse_iterator;
+        // Begin and end iterators
+        iterator begin() {
+            return barcodePattern->begin();
+        }
+        const_iterator begin() const {
+            return barcodePattern->begin();
+        }
+        iterator end() {
+            return barcodePattern->end();
+        }
+        const_iterator end() const {
+            return barcodePattern->end();
+        }
+        // Reverse iterators
+        reverse_iterator rbegin() {
+            return barcodePattern->rbegin();
+        }
+        const_reverse_iterator rbegin() const {
+            return barcodePattern->rbegin();
+        }
+        reverse_iterator rend() {
+            return barcodePattern->rend();
+        }
+        const_reverse_iterator rend() const {
+            return barcodePattern->rend();
+        }
 };
-typedef std::shared_ptr<BarcodePatternVector> BarcodePatternVectorPtr; 
-typedef std::shared_ptr<std::vector<BarcodePatternVectorPtr>> MultipleBarcodePatternVectorPtr; 
+
+typedef std::shared_ptr<BarcodePattern> BarcodePatternPtr; 
+typedef std::shared_ptr<std::vector<BarcodePatternPtr>> MultipleBarcodePatternVectorPtr; 
 
 struct mappingSolution{             
     int seq_start;
@@ -39,8 +97,9 @@ class Barcode
 {
     public:
     //per default the length of a barcode is set to 0 (unknown), only for UMIs it must be set
-    Barcode(int inMismatches, int inLength = 0) : mismatches(inMismatches), length(inLength) {}
+    Barcode(std::string name, int inMismatches, int inLength = 0) : name(name), mismatches(inMismatches), length(inLength) {}
     int mismatches;
+    std::string name;
     unsigned int length; //length of zero means the length of this barcode is unknown
 
     //reverse complement is a Barcode function that should be available globally
@@ -81,7 +140,7 @@ class ConstantBarcode : public Barcode
 {
 
     public:
-    ConstantBarcode(std::string inPattern, int inMismatches) : pattern(inPattern),Barcode(inMismatches) 
+    ConstantBarcode(std::string inPattern, int inMismatches) : pattern(inPattern),Barcode(inPattern, inMismatches) 
     {
         revCompPattern = generate_reverse_complement(pattern);
     }
@@ -223,7 +282,7 @@ class VariableBarcode : public Barcode
 {
 
     public:
-    VariableBarcode(std::vector<std::string> inPatterns, int inMismatches) : patterns(inPatterns), Barcode(inMismatches) 
+    VariableBarcode(std::vector<std::string> inPatterns, std::string name, int inMismatches) : patterns(inPatterns), Barcode(name, inMismatches) 
     {
         for(std::string pattern : patterns)
         {
@@ -431,13 +490,13 @@ class WildcardBarcode : public Barcode
     //wildcardBarcode doe snot make use of mismatches yet, since anyways we do not know the sequence,
     //therefore its an unused parameter, just set for completeness as these classes derive from Barcode (initialized with mismatches, see up...)
     public:
-    WildcardBarcode(std::string inPattern, int inMismatches, int inLength) : pattern(inPattern),Barcode(inMismatches, inLength) {}
+    WildcardBarcode(int inMismatches, std::string name, int inLength) : Barcode(name, inMismatches, inLength) {}
     bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, std::string& realBarcode, 
                        int& differenceInBarcodeLength, bool startCorrection = false, bool reverse = false, bool fullLengthMapping = false)
     {
 
-        sequence = sequence.substr(offset, pattern.length());
-        int end = (sequence.length() < pattern.length()) ? sequence.length() : pattern.length();
+        sequence = sequence.substr(offset, length);
+        int end = (sequence.length() < length) ? sequence.length() : length;
         // e.g.: [AGTAGT]cccc: start=0 end=6 end is first not included idx
         seq_start = 0;
         seq_end = end;
@@ -446,22 +505,21 @@ class WildcardBarcode : public Barcode
     }
     std::vector<std::string> get_patterns()
     {
-        std::vector<std::string> patterns = {pattern};
+        std::vector<std::string> patterns = {std::string(length, 'X')};
         return patterns;
     }
     bool is_wildcard(){return true;}
     bool is_constant(){return false;}
     bool is_stop(){return false;}
 
-    private:
-    std::string pattern; //just a string of "XXXXX"
 };
 
-
+//A stop-barcode: mapping on both sides is only done up to here
+//the name ('*') is not writen into the output file
 class StopBarcode : public Barcode
 {
     public:
-    StopBarcode(std::string inPattern, int inMismatches) : pattern(inPattern),Barcode(inMismatches) {}
+    StopBarcode(std::string inPattern, int inMismatches) : pattern(inPattern),Barcode("*", inMismatches) {}
     bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, std::string& realBarcode, 
                        int& differenceInBarcodeLength, bool startCorrection = false, bool reverse = false, bool fullLengthMapping = false)
     {
@@ -486,7 +544,7 @@ class StopBarcode : public Barcode
 class DNABarcode : public Barcode
 {
     public:
-    DNABarcode(int inMismatches = -1) : Barcode(inMismatches) {pattern = "DNA"}
+    DNABarcode(int inMismatches = -1) : Barcode("DNA", inMismatches) {pattern = "DNA";}
     bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, std::string& realBarcode, 
                        int& differenceInBarcodeLength, bool startCorrection = false, bool reverse = false, bool fullLengthMapping = false)
     {
