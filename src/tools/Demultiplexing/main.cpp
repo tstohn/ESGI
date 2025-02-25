@@ -7,7 +7,7 @@
 #include <thread>
 
 #include "Barcode.hpp"
-#include "DemultiplexedLinesWriter.hpp"
+#include "Demultiplexer.hpp"
 
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/positional_options.hpp>
@@ -72,8 +72,6 @@ bool parse_arguments(char** argv, int argc, input& input)
             this case.")
 
             ("output,o", value<std::string>(&(input.outPath))->required(), "output file with all split barcodes")
-            ("writeFilesOnTheFly,w", value<bool>(&(input.writeFilesOnTheFly))->default_value(false), "If set, Ezgi writes the output of every line on the fly, without storing\
-            it in memory durng runtime. THIS SLOWS DOWN the tool, however, might be useful when running on a laptop to SAVE MEMORY\n")
 
             //("sequencePattern,p", value<std::string>(&(input.patternLine))->required(), "pattern for the sequence to match, \
             every substring that should be matched is enclosed with square brackets. N is a barcode match, X is a wild card match \
@@ -154,17 +152,17 @@ int main(int argc, char** argv)
                 exit(EXIT_FAILURE);
             }
 
-            DemultiplexedLinesWriter<MapEachBarcodeSequentiallyPolicyPairwise, ExtractLinesFromFastqFilePolicyPairedEnd> mapping;
+            Demultiplexer<MapEachBarcodeSequentiallyPolicyPairwise, ExtractLinesFromFastqFilePolicyPairedEnd> mapping;
             mapping.run(input);
         }
         else if(endWith(input.inFile, "fastq") || endWith(input.inFile, "fastq.gz"))
         {
-            DemultiplexedLinesWriter<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromFastqFilePolicy> mapping;
+            Demultiplexer<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromFastqFilePolicy> mapping;
             mapping.run(input);
         }
         else if(endWith(input.inFile, "txt"))
         {
-            DemultiplexedLinesWriter<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromTxtFilesPolicy> mapping;
+            Demultiplexer<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromTxtFilesPolicy> mapping;
             mapping.run(input);
         }
         else

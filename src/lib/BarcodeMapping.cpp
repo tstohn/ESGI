@@ -11,24 +11,27 @@ bool check_if_seq_too_short(const int& offset, const std::string& seq)
     return false;
 }
 
-//initialize the dictionary of mismatches in each specific barcode
+//initialize the dictionary of mismatches for each possible barcode
 // the vector in the dict has length "mismatches + 2" for each barcode
 // one entry for zero mismatches, eveery number from, 1 to mismatches and 
 //one for more mismatches than the max allowed number of mismathces
 template <typename MappingPolicy, typename FilePolicy>
 void Mapping<MappingPolicy, FilePolicy>::initializeStats()
 {
-    for(BarcodeVector::iterator patternItr = barcodePatterns->begin(); 
-        patternItr < barcodePatterns->end(); 
-        ++patternItr)
+    for(BarcodePatternPtr patternPtr : *barcodePatternList)
     {
-        int mismatches = (*patternItr)->mismatches;
-        const std::vector<std::string> patterns = (*patternItr)->get_patterns();
-        for(const std::string& pattern : patterns)
+        for(BarcodeVector::iterator patternItr = patternPtr->begin(); 
+            patternItr < patternPtr->end(); 
+            ++patternItr)
         {
-            std::vector<int> mismatchVector(mismatches + 2, 0);
-            stats.mapping_dict.insert(std::make_pair(pattern, mismatchVector));
-        }
+            int mismatches = (*patternItr)->mismatches;
+            const std::vector<std::string> patterns = (*patternItr)->get_patterns();
+            for(const std::string& pattern : patterns)
+            {
+                std::vector<int> mismatchVector(mismatches + 2, 0);
+                stats.mapping_dict.insert(std::make_pair(pattern, mismatchVector));
+            }
+        }   
     }
 }
 
@@ -397,12 +400,11 @@ bool Mapping<MappingPolicy, FilePolicy>::generate_barcode_patterns(const input& 
 
 //apply all BarcodePatterns to a single line to generate a vector strings (the Barcodemapping)
 //realBarcodeMap contains the actual string in the seauence that gets a barcode assigned
-bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(std::pair<const std::string&, const std::string&> seq, const input& input, 
-                                        DemultiplexedReads& barcodeMap, 
+bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(std::pair<const std::string&, const std::string&> seq, 
+                                        DemultiplexedLine& demultiplexedLine, const input& input, 
                                         BarcodePatternPtr barcodePatterns,
                                         fastqStats& stats)
 {
-    std::vector<std::string> barcodeList;
 
     //iterate over BarcodeMappingVector
     int offset = 0;
@@ -490,7 +492,7 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(std::pai
 
                 std::string wildCardString = oldWildcardMappedBarcode.substr(lastWildcardEnd, currentWildcardLength);
 
-                barcodeList.push_back(wildCardString);
+                demultiplexedLine.barcodeList.push_back(wildCardString);
                 wildCardToFill -= 1;
 
                 lastWildcardEnd += currentWildcardLength; // add the lengths of barcodes to the next offset position
@@ -498,7 +500,7 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(std::pai
         }
         //add this match to the BarcodeMapping
         //barcodeMap.emplace_back(std::make_shared<std::string>(mappedBarcode));
-        barcodeList.push_back(barcode);
+        demultiplexedLine.barcodeList.push_back(barcode);
     }
     //if the last barcode was a WIldcard that still has to be added:
     //BE CAREFUL: for now this means there can be ONLY ONE UMI at the end of a sequence
@@ -508,10 +510,8 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(std::pai
         wildCardToFill = 0; // unnecessary, still left to explicitely set to false
         std::string oldWildcardMappedBarcode = seq.first.substr(old_offset, seq.first.length() - old_offset);
         //barcodeMap.emplace_back(std::make_shared<std::string>(oldWildcardMappedBarcode));
-        barcodeList.push_back(oldWildcardMappedBarcode);
+        demultiplexedLine.barcodeList.push_back(oldWildcardMappedBarcode);
     }
-
-    barcodeMap.addVector(barcodeList);
 
     if(score_sum == 0)
     {
@@ -780,8 +780,8 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const std::string& se
     return true;
 }
 
-bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(DemultiplexedReads& barcodeMap,
-                                                               const BarcodePatternPtr& barcodePatterns,
+//barcodeListFw is actually already the barcodeList in Demultiplexline, to not copy vectors of strings around but add in place
+bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(const BarcodePatternPtr& barcodePatterns,
                                                                std::vector<std::string>& barcodeListFw,
                                                                const uint& barcodePositionFw,
                                                                const std::vector<std::string>& barcodeListRv,
@@ -852,9 +852,6 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(DemultiplexedRead
         }
     }
 
-    //add the final barcodeList
-    barcodeMap.addVector(barcodeListFw);
-
     if(score_sum == 0)
     {
         ++stats.perfectMatches;
@@ -866,32 +863,36 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(DemultiplexedRead
     return true;
 }
 
-bool MapEachBarcodeSequentiallyPolicyPairwise::split_line_into_barcode_patterns(std::pair<const std::string&, const std::string&> seq, const input& input, 
-                                        DemultiplexedReads& barcodeMap, 
+bool MapEachBarcodeSequentiallyPolicyPairwise::split_line_into_barcode_patterns(std::pair<const std::string&, const std::string&> seq, 
+                                        DemultiplexedLine& demultiplexedLine,
+                                        const input& input,
                                         BarcodePatternPtr barcodePatterns,
                                         fastqStats& stats)
 {
-    std::cout << __LINE__ << "\n";
 
     int score_sum = 0;
     //map forward reads barcodeList contains the stored barcodes, 
     //barcodePosition is the psoiton of the last mapped barcode
-    std::vector<std::string> barcodeListFw;
     uint barcodePositionFw = 0;
-    bool fwBool = map_forward(seq.first, input, barcodePatterns, stats, barcodeListFw, barcodePositionFw, score_sum);
+    //for forward read we immediately add barcodes to demultiplexedLine.barcodeList, which is then extended in combine pattern, IF we find all patterns
+    bool fwBool = map_forward(seq.first, input, barcodePatterns, stats, demultiplexedLine.barcodeList, barcodePositionFw, score_sum);
 
     std::vector<std::string> barcodeListRv;
     uint barcodePositionRv = 0;
     bool rvBool = map_reverse(seq.second, input, barcodePatterns, stats, barcodeListRv, barcodePositionRv, score_sum);
 
-    bool pairwiseMappingSuccess = combine_mapping(barcodeMap, barcodePatterns, barcodeListFw, barcodePositionFw, barcodeListRv, barcodePositionRv, stats, score_sum, seq);
+    //passing demultiplexedLine.barcodeList as the barcodeList in forward pattern
+    bool pairwiseMappingSuccess = combine_mapping(barcodePatterns, demultiplexedLine.barcodeList, barcodePositionFw, barcodeListRv, barcodePositionRv, stats, score_sum, seq);
 
     return (pairwiseMappingSuccess);
 }
 
 template <typename MappingPolicy, typename FilePolicy>
-bool Mapping<MappingPolicy, FilePolicy>::demultiplex_read(std::pair<const std::string&, const std::string&> seq, const input& input, 
-                                                          std::atomic<unsigned long long>& count, const unsigned long long& totalReadCount,
+bool Mapping<MappingPolicy, FilePolicy>::demultiplex_read(std::pair<const std::string&, const std::string&> seq, 
+                                                          DemultiplexedLine& demultiplexedLine,
+                                                          BarcodePatternPtr pattern,
+                                                          const input& input, 
+                                                          const unsigned long long& count, const unsigned long long& totalReadCount,
                                                           bool guideMapping)
 {
     //split line into patterns (barcodeMap, barcodePatters, stats are passed as reference or ptr)
@@ -899,11 +900,9 @@ bool Mapping<MappingPolicy, FilePolicy>::demultiplex_read(std::pair<const std::s
     bool result;
 
     //demultipelxed barcodes are stored in barcodeMap
-    result = this->split_line_into_barcode_patterns(seq, input, barcodeMap, barcodePatternList->at(0), stats);
-
+    result = this->split_line_into_barcode_patterns(seq, demultiplexedLine, input, pattern, stats);
 
     //update status bar
-    ++count;
     if(count%1000==0 && totalReadCount!=ULLONG_MAX && count<totalReadCount) //update at every 1,000th entry
     {
         double perc = count/(double)totalReadCount;
@@ -944,8 +943,8 @@ void MapAroundConstantBarcodesAsAnchorPolicy::map_pattern_between_linker(const s
     }
 }
 
-bool MapAroundConstantBarcodesAsAnchorPolicy::split_line_into_barcode_patterns(std::pair<const std::string&, const std::string&> seq, const input& input, 
-                                        DemultiplexedReads& barcodeMap, 
+bool MapAroundConstantBarcodesAsAnchorPolicy::split_line_into_barcode_patterns(std::pair<const std::string&, const std::string&> seq, 
+                                        DemultiplexedLine& demultiplexedLine, const input& input, 
                                         BarcodePatternPtr barcodePatterns,
                                         fastqStats& stats)
 {
@@ -994,13 +993,13 @@ bool MapAroundConstantBarcodesAsAnchorPolicy::split_line_into_barcode_patterns(s
         //1.) write the skipped barcodes so far
         if(skippedBarcodes > 0)
         {
-            map_pattern_between_linker(seq.first,oldEnd, start, barcodePatterns, barcodeList, barcodePosition, skippedBarcodes);
+            map_pattern_between_linker(seq.first,oldEnd, start, barcodePatterns, demultiplexedLine.barcodeList, barcodePosition, skippedBarcodes);
             //std::string skippedBarcodeString = seq.first.substr(oldEnd, start-oldEnd);
             //barcodeList.push_back(skippedBarcodeString);
         }
 
         //2.) write the newly mapped constant barcode
-        barcodeList.push_back(barcode);
+        demultiplexedLine.barcodeList.push_back(barcode);
 
         //set paramters after constant mapping
         oldEnd += end;
@@ -1011,12 +1010,11 @@ bool MapAroundConstantBarcodesAsAnchorPolicy::split_line_into_barcode_patterns(s
     if(skippedBarcodes > 0)
     {
         int start = seq.first.length();
-        map_pattern_between_linker(seq.first,oldEnd, start, barcodePatterns, barcodeList, barcodePosition, skippedBarcodes);
+        map_pattern_between_linker(seq.first,oldEnd, start, barcodePatterns, demultiplexedLine.barcodeList, barcodePosition, skippedBarcodes);
         //std::string skippedBarcodeString = seq.first.substr(oldEnd, start-oldEnd);
         //barcodeList.push_back(skippedBarcodeString);
     }
 
-    barcodeMap.addVector(barcodeList);
     ++stats.perfectMatches;
 
     return true;
