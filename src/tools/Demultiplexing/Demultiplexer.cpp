@@ -81,18 +81,20 @@ void OutputFileWriter::initialize_output_files(const input& input, const Multipl
     initialize_additional_output(input.outPath);
 }
 
-void OutputFileWriter::initialize_tmp_file()
+void OutputFileWriter::initialize_tmp_file(const int i)
 {
 
     //create a map of pattern name to open streams for barcodes, fastq for every thread
     //those thread files have no header, the header is only written in final file
     std::unordered_map<std::string, TmpPatternStream> tmpFileStreams;
     //the files that r written immediately are failed/ DNA files
+    // fileIT (first: patternName, second: barcode,DNA,faield file names)
     for(auto fileIt = finalFiles.begin(); fileIt != finalFiles.end(); ++fileIt)
     {
         TmpPatternStream tmpStream;
         // Create an ofstream pointer and open the file
-        std::ofstream* outFileBarcode = new std::ofstream(fileIt->second.barcodeFile);
+        //tmp-file name is final name + threadID
+        std::shared_ptr<std::ofstream> outFileBarcode = std::make_shared<std::ofstream>(fileIt->second.barcodeFile + std::to_string(i));
         if (!outFileBarcode->is_open()) 
         {
             std::cerr << "Error opening file: " << fileIt->second.barcodeFile << std::endl;
@@ -101,7 +103,9 @@ void OutputFileWriter::initialize_tmp_file()
         tmpStream.barcodeStream = outFileBarcode;
         if(fileIt->second.dnaFile != "")
         {
-            std::ofstream* outFileDna = new std::ofstream(fileIt->second.dnaFile);
+            //tmp-file name is final name + threadID
+            std::shared_ptr<std::ofstream> outFileDna = std::make_shared<std::ofstream>(fileIt->second.dnaFile + std::to_string(i));
+
             if (!outFileDna->is_open()) 
             {
                 std::cerr << "Error opening file: " << fileIt->second.dnaFile << std::endl;
@@ -141,7 +145,7 @@ void OutputFileWriter::initialize_thread_streams(boost::asio::thread_pool& pool,
     //the number of threads to initialize every thread exactly once
     for(int i = 0; i < threadNum; ++i)
     {
-        boost::asio::post(pool, std::bind(&OutputFileWriter::initialize_tmp_file, this));
+        boost::asio::post(pool, std::bind(&OutputFileWriter::initialize_tmp_file, this, i));
     }
 
     //only continue once all htreads have finished 
@@ -327,7 +331,7 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper(std::pair<con
     if(result && !demultiplexedLine.containsDNA)
     {
         //store in a shared object
-
+        
     }
     else if(result && demultiplexedLine.containsDNA)
     {

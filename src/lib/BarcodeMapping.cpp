@@ -852,6 +852,10 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(const BarcodePatt
         }
     }
 
+    //before: added the final barcodeList here
+    // move this now to the upper functions in Demultiplexer to handle weather we want to store it/ write it/ etc. ..
+    //barcodeMap.addVector(barcodeListFw);
+
     if(score_sum == 0)
     {
         ++stats.perfectMatches;

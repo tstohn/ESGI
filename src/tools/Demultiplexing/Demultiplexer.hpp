@@ -1,4 +1,5 @@
 #include "BarcodeMapping.hpp"
+#include <condition_variable>
 
 //threadID hash to map every thread to its own temporary files to write
 struct thread_id_hash {
@@ -12,13 +13,16 @@ struct thread_id_hash {
 // this struct saves both and contains a nullptr in case of absence
 struct TmpPatternStream
 {
-    std::ofstream* barcodeStream = nullptr;
-    std::ofstream* dnaStream = nullptr;
+    std::shared_ptr<std::ofstream> barcodeStream = nullptr;
+    std::shared_ptr<std::ofstream> dnaStream = nullptr;
+    std::shared_ptr<std::ofstream> failedStream = nullptr;
 };
+
 struct FinalPatternFiles
 {
     std::string barcodeFile = "";
     std::string dnaFile = "";
+    std::string failedLinesFile = "";
 };
 /** @brief class to handle thread-specific output streams
 * streams are initialized from pattern data
@@ -46,12 +50,12 @@ class OutputFileWriter
         void initialize_thread_streams(boost::asio::thread_pool& pool, const int threadNum);
 
         //return the tmp-stream for barcodes of the pattern-name for a threadID
-        std::ofstream* get_barcodeStream_for_threadID_at(const boost::thread::id& threadID, const std::string& patternName)
+        std::shared_ptr<std::ofstream> get_barcodeStream_for_threadID_at(const boost::thread::id& threadID, const std::string& patternName)
         {
             return(tmpStreamMap.at(threadID).at(patternName).barcodeStream);
         }
         //return the tmp-stream for DNA of the pattern-name for a threadID
-        std::ofstream* get_dnaStream_for_threadID_at(const boost::thread::id& threadID, const std::string& patternName)
+        std::shared_ptr<std::ofstream> get_dnaStream_for_threadID_at(const boost::thread::id& threadID, const std::string& patternName)
         {
             return(tmpStreamMap.at(threadID).at(patternName).dnaStream);
         }
@@ -80,7 +84,7 @@ class OutputFileWriter
         void initialize_output_for_pattern(std::string output, const BarcodePatternPtr pattern);
         //initializes the files for output
         void initialize_output_files(const input& input, const MultipleBarcodePatternVectorPtr& barcodePatternList);
-        void initialize_tmp_file();
+        void initialize_tmp_file(const int i);
         
         //maps a patternName to a list of all demultipelx-reads found for this pattern
         std::unordered_map<std::string, std::vector<DemultiplexedReadsPtr>> demultiplexedReads;
@@ -90,8 +94,12 @@ class OutputFileWriter
         std::string patternMismatches;
         std::string failedLines;
 
-        //map of patternName to FinalPattern file struct (storing potential barcode and dna file)
+
+        //map of patternName to FinalPattern file struct 
+        // the struct stores the names of the files per pattern: a demultiplexed barcode file or
+        // (if DNA is contained) a fastq and a SAM file (SAM storing the barcodes with read name) 
         std::unordered_map<std::string, FinalPatternFiles> finalFiles;
+
         //maps threadID -> list of streams for all patterns (ordered)
         std::unordered_map<boost::thread::id, std::unordered_map<std::string, TmpPatternStream>, thread_id_hash> tmpStreamMap;
         std::unique_ptr<std::mutex> threadFileOpenerMutex;  //locking writing access to the above tmpStreamMap
