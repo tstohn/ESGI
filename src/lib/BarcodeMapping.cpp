@@ -384,7 +384,21 @@ bool Mapping<MappingPolicy, FilePolicy>::generate_barcode_patterns(const input& 
         if(patternList.at(i).second.size() != mismatchList.at(i).size())
         {
             std::cerr << "Number of barcode patterns and mismatches does not match for line " << std::to_string(i) << ". Please correct in parameters.\n";
-            exit(1);
+            exit(EXIT_FAILURE);
+        }
+    }
+    //make sure pattern names are unique
+    std::unordered_map<std::string, int> countMap;
+    for(int i = 0; i < patternList.size(); i++)
+    {
+        countMap[patternList.at(i).first]++;
+    }
+    for (const auto& [key, count] : countMap) 
+    {
+        if (count > 1) {
+            std::cout << "Duplicate pattern names in pattern file (-p), e.g., " << key << " \n";
+            std::cout << "Remove duplicate names, or remove names completely (a number as name will be given in order of the patterns) \n";           
+            exit(EXIT_FAILURE);
         }
     }
 
@@ -851,10 +865,6 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(const BarcodePatt
             barcodeListFw.push_back({*rvBarcodeIt});
         }
     }
-
-    //before: added the final barcodeList here
-    // move this now to the upper functions in Demultiplexer to handle weather we want to store it/ write it/ etc. ..
-    //barcodeMap.addVector(barcodeListFw);
 
     if(score_sum == 0)
     {

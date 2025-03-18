@@ -68,7 +68,7 @@ bool parse_arguments(char** argv, int argc, input& input)
             ("input,i", value<std::string>(&(input.inFile))->required(), "single file in fastq(.gz) format or the forward read file, if <-r> is also set for the\
             reverse reads. If the file contains only sequences as strings the file must be stored in txt format (with no fastq-quality lines)")
             //optional for reverse mapping: no recommended, join reads first
-            ("reverse,r", value<std::string>(&(input.reverseFile)), "Use this parameter for paired-end analysis as the reverse read file. <-i> is the forward read in \
+            ("reverse,r", value<std::string>(&(input.reverseFile))->default_value(""), "Use this parameter for paired-end analysis as the reverse read file. <-i> is the forward read in \
             this case.")
 
             ("output,o", value<std::string>(&(input.outPath))->required(), "output file with all split barcodes")

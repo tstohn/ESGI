@@ -73,18 +73,5 @@ class DemultiplexedReads
         std::unique_ptr<std::mutex> lock;  
 
 };
-/** @brief representation of DNA sequences in patterns,
-* it inherits from DemultiplexedReads as it stores a list of barcodes for every DNA sequence (if the pattern has)
-**/
-class DNAReads : private DemultiplexedReads
-{
-    public:
-        //void add_sequence
-    private:
 
-        std::vector<std::string> dnaSequences;
-        std::vector<std::string> qualityScores;
-        std::vector<std::string> readNames;
-
-};
 typedef std::shared_ptr<DemultiplexedReads> DemultiplexedReadsPtr; 
