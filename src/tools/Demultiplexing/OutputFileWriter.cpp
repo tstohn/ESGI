@@ -132,7 +132,7 @@ void OutputFileWriter::write_output(const input& input)
     //write all barcode-only files (data is still in memory at this point)
     for (const auto& [patternName, demultiplexedReadsPtrTmp] : demultiplexedReads) 
     {
-        //write_demultiplexed_barcodes(input, demultiplexedReadsPtrTmp, patternName);
+        write_demultiplexed_barcodes(input, demultiplexedReadsPtrTmp->get_all_reads(), patternName);
     }
     //write 2 mismatch files(pattern->MM, barcodes->MM)
     //write_stats(input, this->get_mismatch_dict());
@@ -210,6 +210,9 @@ void OutputFileWriter::initialize_output_for_pattern(std::string output, const B
         //fastq file
         patternOutputs.dnaFile = output + "/" + pattern->patternName + ".fastq";
         std::remove(patternOutputs.dnaFile.c_str());
+
+        //STORE OUTPUT-FILE NAMES IN LIST
+        finalFiles[pattern->patternName] = patternOutputs;
     }
     else //otherwise we write ONLY a tsv file of barcodes and initialize the DemultiplexedReads structure to store found reads
     {
@@ -218,32 +221,31 @@ void OutputFileWriter::initialize_output_for_pattern(std::string output, const B
 
         //for every pattern create a sharedPtr of DemultiplexedReads
         demultiplexedReads.emplace(pattern->patternName, std::make_shared<DemultiplexedReads>());
-    }
+        //STORE OUTPUT-FILE NAMES IN LIST
+        finalFiles[pattern->patternName] = patternOutputs;
 
-    // 2.) STORE OUTPUT-FILE NAMES IN LIST
-    finalFiles[pattern->patternName] = patternOutputs;
+        //2) ONLY for barcode demultiplexed files: write a header
+        //write header line for barcode file: e.g.: [ACGGCATG][BC1.txt][15X]
+        std::ofstream barcodeOutputStream;   
+        barcodeOutputStream.open(patternOutputs.barcodeFile, std::ofstream::app);
 
-    // 3.) WRITE POTENTIAL HEADER OF BARCODE FILE
-    //write header line for barcode file: e.g.: [ACGGCATG][BC1.txt][15X]
-    std::ofstream barcodeOutputStream;   
-    barcodeOutputStream.open(patternOutputs.barcodeFile, std::ofstream::app);
-
-    for(int bidx = 0; bidx < (pattern->barcodePattern)->size(); ++bidx)
-    {
-
-        BarcodePtr bptr = (pattern->barcodePattern)->at(bidx);
-        //stop and DNA pattern should not be written
-        if( (bptr->name != "*") && (bptr->name != "DNA"))
+        for(int bidx = 0; bidx < (pattern->barcodePattern)->size(); ++bidx)
         {
-            barcodeOutputStream << bptr->name;
-            if( bidx != ((pattern->barcodePattern)->size()-1))
+
+            BarcodePtr bptr = (pattern->barcodePattern)->at(bidx);
+            //stop and DNA pattern should not be written
+            if( (bptr->name != "*") && (bptr->name != "DNA"))
             {
-                barcodeOutputStream << "\t";
+                barcodeOutputStream << bptr->name;
+                if( bidx != ((pattern->barcodePattern)->size()-1))
+                {
+                    barcodeOutputStream << "\t";
+                }
             }
         }
+        barcodeOutputStream << "\n";
+        barcodeOutputStream.close();
     }
-    barcodeOutputStream << "\n";
-    barcodeOutputStream.close();
 
 }
 
@@ -262,6 +264,7 @@ void OutputFileWriter::initialize(const input& input, const MultipleBarcodePatte
     //create universal output files
     // 2 statistics files: mismatches per pattern, and mismatches in barcodes
     // file with failed lines
+    
     initialize_additional_output(input);
 }
 
@@ -431,22 +434,15 @@ void OutputFileWriter::write_failed_line(std::pair<std::shared_ptr<std::ofstream
 }
 
 /// write mapped barcodes to a tab separated file
-void OutputFileWriter::write_demultiplexed_barcodes(const input& input, BarcodeMappingVector barcodes, std::string nameTag)
+void OutputFileWriter::write_demultiplexed_barcodes(const input& input, BarcodeMappingVector barcodes, const std::string& patternName)
 {
     std::string output = input.outPath;
     std::ofstream outputFile;
-    std::size_t found = output.find_last_of("/");
+
+    std::string demultiplexedBarcodesOutput = output + "/" + patternName + ".tsv";
 
     //write the barcodes we mapped
-    if(found == std::string::npos)
-    {
-        output = "Demultiplexed_" + nameTag + output;
-    }
-    else
-    {
-        output = output.substr(0,found) + "/" + "Demultiplexed_" + nameTag + output.substr(found+1);
-    }
-    outputFile.open (output, std::ofstream::app);
+    outputFile.open (demultiplexedBarcodesOutput, std::ofstream::app);
     for(int i = 0; i < barcodes.size(); ++i)
     {
         for(int j = 0; j < barcodes.at(i).size(); ++j)

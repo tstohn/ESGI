@@ -90,7 +90,7 @@ struct thread_id_hash {
           void write_dna_line(TmpPatternStream& dnaLineStream, std::pair<const std::string&, const std::string&>& dnaLine);
 
           //write final files: from memory or by concatenating & deleting tmp-files
-          void write_demultiplexed_barcodes(const input& input, BarcodeMappingVector barcodes, std::string nameTag = "");
+          void write_demultiplexed_barcodes(const input& input, BarcodeMappingVector barcodes, const std::string& patternName);
 
           // 1.) Write DemutltiplexedReads as barcode-files for every pattern
           // 2.) write the 2 mismatch files: a) mismatches per barcode b) mismatches for the different patterns

@@ -170,7 +170,12 @@ int main(int argc, char** argv)
             fprintf(stderr,"Input file must be of format: <.fastq> | <.fastq.gz> | <.txt>!!!\nFail to open file: %s\n", input.inFile.c_str());
             exit(EXIT_FAILURE);
         }
-
+        //check output is a valid directory
+        if(! (std::filesystem::exists(input.outPath) && std::filesystem::is_directory(input.outPath)))
+        {
+            fprintf(stderr,"The output directory (-o) must exist! Please provide a valid directory.\n Fail to find directory: %s\n", input.outPath.c_str());
+            exit(EXIT_FAILURE);
+        }
     }
     else
     {

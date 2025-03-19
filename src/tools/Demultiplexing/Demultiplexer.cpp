@@ -32,6 +32,7 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper(std::pair<con
             //as soon as a pattern matches, we exit and safe it!
             //we DO NOT check if other patterns match as well -> responsibility of user to design non-ambiguous patterns
             foundPatternName = pattern->patternName;
+            result = true;
             break;
         }
     }
