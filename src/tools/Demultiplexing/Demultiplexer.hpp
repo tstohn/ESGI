@@ -15,7 +15,7 @@ class Demultiplexer : private Mapping<MappingPolicy, FilePolicy>
 {
     private:
 
-        void demultiplex_wrapper(std::pair<const std::string&, const std::string&> line,
+        void demultiplex_wrapper(const std::pair<fastqLine, fastqLine>& line,
                                 const input& input,
                                 const unsigned long long lineCount,
                                 const unsigned long long& totalReadCount,

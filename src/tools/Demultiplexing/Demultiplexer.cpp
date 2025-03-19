@@ -5,7 +5,7 @@
 * in the current queue. Used to allow processing of only a few lines a time instead of writing all into RAM.
 **/
 template <typename MappingPolicy, typename FilePolicy>
-void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper(std::pair<const std::string&, const std::string&> line,
+void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper(const std::pair<fastqLine, fastqLine>& line,
                                                             const input& input,
                                                             const unsigned long long lineCount,
                                                             const unsigned long long& totalReadCount,
@@ -48,6 +48,11 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper(std::pair<con
         //write out immediately into file for thread
         std::cout << boost::this_thread::get_id() << "\n";
 
+        // call write_dna_line
+        //implement write DNA line to write a sam line and a RNA fastq line
+
+        //demultiplexedLine contains the barcode vector, as well as the RNA-info
+
     }
     else if(!result && input.writeFailedLines)
     {
@@ -73,7 +78,7 @@ void Demultiplexer<MappingPolicy, FilePolicy>::run_mapping(const input& input)
 
     //read line by line and add to thread pool
     this->FilePolicy::init_file(input.inFile, input.reverseFile);
-    std::pair<std::string, std::string> line;
+    std::pair<fastqLine, fastqLine> line;
     unsigned long long lineCount = 0; //using atomic<int> as thread safe read count
     std::atomic<long long int> elementsInQueue(0);
     unsigned long long totalReadCount = FilePolicy::get_read_number();

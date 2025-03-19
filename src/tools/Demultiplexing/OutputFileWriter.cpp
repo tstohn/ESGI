@@ -31,9 +31,15 @@ void OutputFileWriter::concatenateFiles(const std::vector<std::string>& tmpFileL
     out.close();
 }
 
-void OutputFileWriter::write_dna_line(TmpPatternStream& dnaLineStream, std::pair<const std::string&, const std::string&>& dnaLine)
+void OutputFileWriter::write_dna_line(TmpPatternStream& dnaLineStream, const DemultiplexedLine& demultiplexedLine)
 {
+    std::shared_ptr<std::ofstream> barcodeStream = dnaLineStream.barcodeStream;
+    std::shared_ptr<std::ofstream> dnaStream = dnaLineStream.dnaStream;
 
+    //write RNA data to dnaStream (FASTQ)
+
+
+    //write barcode data to barcodeStream (SAM)
 }
 
 void OutputFileWriter::close_and_concatenate_fileStreams(const input& input)
@@ -231,12 +237,22 @@ void OutputFileWriter::initialize_output_for_pattern(std::string output, const B
 
         for(int bidx = 0; bidx < (pattern->barcodePattern)->size(); ++bidx)
         {
-
             BarcodePtr bptr = (pattern->barcodePattern)->at(bidx);
             //stop and DNA pattern should not be written
             if( (bptr->name != "*") && (bptr->name != "DNA"))
             {
-                barcodeOutputStream << bptr->name;
+
+                //get the short name for the barcode (instead of whole path) if it copntains a slash
+                std::string filename;
+                if (bptr->name.find('/') != std::string::npos || bptr->name.find('\\') != std::string::npos) 
+                {
+                    filename = std::filesystem::path(bptr->name).filename().string();
+                } else 
+                {
+                    filename = bptr->name;
+                }
+
+                barcodeOutputStream << filename;
                 if( bidx != ((pattern->barcodePattern)->size()-1))
                 {
                     barcodeOutputStream << "\t";
@@ -418,18 +434,18 @@ void write_stats(const input& input, const std::map<std::string, std::vector<int
 }
 
 /// write failed lines into a txt file
-void OutputFileWriter::write_failed_line(std::pair<std::shared_ptr<std::ofstream>, std::shared_ptr<std::ofstream>>& failedFileStream, std::pair<const std::string&, const std::string&>& failedLine)
+void OutputFileWriter::write_failed_line(std::pair<std::shared_ptr<std::ofstream>, std::shared_ptr<std::ofstream>>& failedFileStream, const std::pair<fastqLine, fastqLine>& failedLine)
 {
     if(failedFileStream.second == nullptr)
     {
         //for single-read write only first entry into first stream (second is a nullptr)
-        *failedFileStream.first << failedLine.first;
+        *failedFileStream.first << failedLine.first.line;
     }
     else
     {
         //for paired-end sequencing write both reads
-        *failedFileStream.first << failedLine.first;
-        *failedFileStream.second << failedLine.second;
+        *failedFileStream.first << failedLine.first.line;
+        *failedFileStream.second << failedLine.second.line;
     }
 }
 

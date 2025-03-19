@@ -86,8 +86,9 @@ struct thread_id_hash {
           void close_and_concatenate_fileStreams(const input& input);
   
           //write a failed line that is encountered to the tmp-threadFileStreams
-          void write_failed_line(std::pair<std::shared_ptr<std::ofstream>, std::shared_ptr<std::ofstream>>& failedFileStream, std::pair<const std::string&, const std::string&>& failedLine);
-          void write_dna_line(TmpPatternStream& dnaLineStream, std::pair<const std::string&, const std::string&>& dnaLine);
+          void write_failed_line(std::pair<std::shared_ptr<std::ofstream>, std::shared_ptr<std::ofstream>>& failedFileStream, const std::pair<fastqLine, fastqLine>& failedLine);
+          
+          void write_dna_line(TmpPatternStream& dnaLineStream, const DemultiplexedLine& demultiplexedLine);
 
           //write final files: from memory or by concatenating & deleting tmp-files
           void write_demultiplexed_barcodes(const input& input, BarcodeMappingVector barcodes, const std::string& patternName);

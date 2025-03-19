@@ -26,13 +26,21 @@
 
 KSEQ_INIT(gzFile, gzread)
 
+struct fastqLine
+{
+    std::string line;
+    std::string quality = "";
+    std::string name = "";
+};
+
 /** @brief mapping sequentially each barcode leaving no pattern out,
  *if a pattern can not be found the read is discarded
  **/
 class MapEachBarcodeSequentiallyPolicy
 {
     public:
-        bool split_line_into_barcode_patterns(std::pair<const std::string&, const std::string&> seq, 
+        bool split_line_into_barcode_patterns(
+            const std::pair<fastqLine, fastqLine>& seq, 
             DemultiplexedLine& demultiplexedLine, const input& input,
             BarcodePatternPtr barcodePatterns, fastqStats& stats);
 };
@@ -60,10 +68,10 @@ class MapEachBarcodeSequentiallyPolicyPairwise
                              const std::vector<std::string>& barcodeListRv,
                              const uint& barcodePositionRv,
                              fastqStats& stats,
-                             int& score_sum,
-                             std::pair<const std::string&, const std::string&> seq);
+                             int& score_sum);
     public:
-        bool split_line_into_barcode_patterns(std::pair<const std::string&, const std::string&> seq,  
+        bool split_line_into_barcode_patterns(
+            const std::pair<fastqLine, fastqLine>& seq,  
             DemultiplexedLine& demultiplexedLine,
             const input& input, 
             BarcodePatternPtr barcodePatterns, fastqStats& stats);
@@ -76,13 +84,14 @@ class MapEachBarcodeSequentiallyPolicyPairwise
 class MapAroundConstantBarcodesAsAnchorPolicy
 {
     public:
-    bool split_line_into_barcode_patterns(std::pair<const std::string&, const std::string&> seq, 
-        DemultiplexedLine& demultiplexedLine,
-        const input& input,
-        BarcodePatternPtr barcodePatterns, fastqStats& stats);
-    void map_pattern_between_linker(const std::string& seq, const int& oldEnd, const int& start, 
-                                    BarcodePatternPtr barcodePatterns, std::vector<std::string>& barcodeList,
-                                    int& barcodePosition, int& skippedBarcodes);
+        bool split_line_into_barcode_patterns(
+            const std::pair<fastqLine, fastqLine>& seq, 
+            DemultiplexedLine& demultiplexedLine,
+            const input& input,
+            BarcodePatternPtr barcodePatterns, fastqStats& stats);
+        void map_pattern_between_linker(const std::string& seq, const int& oldEnd, const int& start, 
+                                        BarcodePatternPtr barcodePatterns, std::vector<std::string>& barcodeList,
+                                        int& barcodePosition, int& skippedBarcodes);
 };
 
 /// parser policy for txt files
@@ -111,15 +120,18 @@ class ExtractLinesFromTxtFilesPolicy
         fileStream.seekg(0);
     }
 
-    bool get_next_line(std::pair<std::string, std::string>& line)
-    {   bool returnValue = true;
-        if(!std::getline(fileStream, line.first))
+    //for txt files we assume every line contains a line of bases
+    //quality and read names DO NOT exist
+    bool get_next_line(std::pair<fastqLine, fastqLine>& line)
+    {   
+        bool returnValue = true;
+        if(!std::getline(fileStream, line.first.line))
         {
             returnValue = false;
         }
         if(returnValue)
         {
-            line.first.erase(std::remove(line.first.begin(), line.first.end(), '\n'), line.first.end());
+            line.first.line.erase(std::remove(line.first.line.begin(), line.first.line.end(), '\n'), line.first.line.end());
         }
 
         return(returnValue);
@@ -155,7 +167,7 @@ class ExtractLinesFromFastqFilePolicy
         }
         ks = kseq_init(fp);
         totalReads = 0;
-        std::pair<std::string, std::string> line;
+        std::pair<fastqLine, fastqLine> line;
         while(get_next_line(line))
         {
             if(totalReads == ULLONG_MAX)
@@ -171,7 +183,7 @@ class ExtractLinesFromFastqFilePolicy
         ks = kseq_init(fp);
     }
 
-    bool get_next_line(std::pair<std::string, std::string>& line, bool reverse = false)
+    bool get_next_line(std::pair<fastqLine, fastqLine>& line, bool reverse = false)
     {
         if(kseq_read(ks) < 0)
         {
@@ -187,11 +199,15 @@ class ExtractLinesFromFastqFilePolicy
         }
         if(!reverse)
         {
-            line.first = std::string(ks->seq.s);
+            line.first.line = std::string(ks->seq.s);
+            line.first.quality = std::string(ks->qual.s);
+            line.first.name = std::string(ks->name.s);
         }
         else
         {
-            line.second = std::string(ks->seq.s);
+            line.second.line = std::string(ks->seq.s);
+            line.second.quality = std::string(ks->qual.s);
+            line.second.name = std::string(ks->name.s);
         }
         return true;
     }
@@ -223,7 +239,7 @@ class ExtractLinesFromFastqFilePolicyPairedEnd
             rvFileManager.init_file(rvFile, "");
         }
 
-        bool get_next_line(std::pair<std::string, std::string>& line)
+        bool get_next_line(std::pair<fastqLine, fastqLine>& line)
         {
             bool fwBool = fwFileManager.get_next_line(line);
             bool rvBool = rvFileManager.get_next_line(line, true);
@@ -339,7 +355,7 @@ class Mapping : protected MappingPolicy, protected FilePolicy
         }
 
         //wrapper to call the actual mapping function on one read and updates the status bar
-        bool demultiplex_read(std::pair<const std::string&, const std::string&>  seq, 
+        bool demultiplex_read(const std::pair<fastqLine, fastqLine>& seq, 
                               DemultiplexedLine& demultiplexedLine,
                               BarcodePatternPtr pattern,
                               const input& input, 
