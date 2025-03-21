@@ -2,7 +2,7 @@
 
 void OutputFileWriter::concatenateFiles(const std::vector<std::string>& tmpFileList, const std::string& outputFile) 
 {
-    std::ofstream out(outputFile, std::ios::binary);  // Final output file
+    std::ofstream out(outputFile, std::ios::app);  // Final output file
     if (!out) 
     {
         std::cerr << "Error opening output file!\n";
@@ -31,15 +31,42 @@ void OutputFileWriter::concatenateFiles(const std::vector<std::string>& tmpFileL
     out.close();
 }
 
-void OutputFileWriter::write_dna_line(TmpPatternStream& dnaLineStream, const DemultiplexedLine& demultiplexedLine)
+//writes the dna (fastq) and barcode (tsv) data
+void OutputFileWriter::write_dna_line(TmpPatternStream& dnaLineStream, const DemultiplexedLine& demultiplexedLine, const boost::thread::id& threadID)
 {
     std::shared_ptr<std::ofstream> barcodeStream = dnaLineStream.barcodeStream;
     std::shared_ptr<std::ofstream> dnaStream = dnaLineStream.dnaStream;
 
+    //create a read ID (threadID and fastq line number)
+    unsigned long readCount = ++dnaLineStream.lineNumber;
+    std::ostringstream oss;
+    oss << threadID;
+    std::string threadIDString = oss.str();
+    std::string lineName =  threadIDString + "_" + std::to_string(readCount) + "_" + demultiplexedLine.dnaName;
+    
     //write RNA data to dnaStream (FASTQ)
+    *dnaStream << lineName << "\n";
+    *dnaStream << demultiplexedLine.dna << "\n";
+    *dnaStream << "+\n";
+    *dnaStream << demultiplexedLine.dnaQuality << "\n";
 
-
-    //write barcode data to barcodeStream (SAM)
+    //write barcode data to barcodeStream (tsv)
+    // entries: 1.) ReadName 2.) mapped barcodes
+    *barcodeStream << lineName << "\t";
+    int i = 0;
+    for(const std::string& barcode : demultiplexedLine.barcodeList)
+    {
+        *barcodeStream << barcode;
+        if(++i < demultiplexedLine.barcodeList.size())
+        {
+            *barcodeStream << "\t";
+        }
+        else
+        {
+            *barcodeStream << "\n";
+        }
+    }
+    
 }
 
 void OutputFileWriter::close_and_concatenate_fileStreams(const input& input)
@@ -58,15 +85,15 @@ void OutputFileWriter::close_and_concatenate_fileStreams(const input& input)
             failedFileStream.second->close();
         }
 
-        //CLOSE DNA-LINE STREAMS: for failed (DNA, barcode-SAM)-pair we have one file per pattern (with DNA)
+        //CLOSE DNA-LINE STREAMS: for failed (DNA, barcode-tsv)-pair we have one file per pattern (with DNA)
         for (auto patternStreams_pair : threadID_patternStreamMap_pair.second) 
         {
             std::shared_ptr<std::ofstream> dnaStream = get_dnaStream_for_threadID_at(threadID_patternStreamMap_pair.first, patternStreams_pair.first);
             if(dnaStream != nullptr)
             {
                 dnaStream->close();
-                std::shared_ptr<std::ofstream> barcodeSamStream = get_barcodeStream_for_threadID_at(threadID_patternStreamMap_pair.first, patternStreams_pair.first);
-                barcodeSamStream->close();
+                std::shared_ptr<std::ofstream> barcodeStream = get_barcodeStream_for_threadID_at(threadID_patternStreamMap_pair.first, patternStreams_pair.first);
+                barcodeStream->close();
             }
         }
     }
@@ -107,9 +134,9 @@ void OutputFileWriter::close_and_concatenate_fileStreams(const input& input)
         {
             //temporary file vectors
             std::vector<std::string> dnaFileList; // fastq files of,e.g., RNA/DNA
-            std::vector<std::string> barcodeFileList; //SAM files for corersponding fastq files
+            std::vector<std::string> barcodeFileList; //tsv files for corersponding fastq files
         
-            //list all temporary dna-files (FASTQ)/ barcode-files (SAM) and combine them
+            //list all temporary dna-files (FASTQ)/ barcode-files (tsv) and combine them
             for(int i = 0; i < input.threads; ++i)
             {
                 //pattern and thread specific DNA file
@@ -206,11 +233,11 @@ void OutputFileWriter::initialize_output_for_pattern(std::string output, const B
    
     //fastq-file with the RNA sequence
     patternOutputs.dnaFile = "";
-    //if pattern contains DNA we write a SAM and FASTQ file
+    //if pattern contains DNA we write a tsv and FASTQ file
     if(pattern->containsDNA)
     {
-         //sam-file with barcodes
-        patternOutputs.barcodeFile = output + "/" + pattern->patternName + ".sam";
+         //tsv-file with barcodes
+        patternOutputs.barcodeFile = output + "/" + pattern->patternName + ".tsv";
         std::remove(patternOutputs.barcodeFile.c_str());
 
         //fastq file
@@ -229,39 +256,48 @@ void OutputFileWriter::initialize_output_for_pattern(std::string output, const B
         demultiplexedReads.emplace(pattern->patternName, std::make_shared<DemultiplexedReads>());
         //STORE OUTPUT-FILE NAMES IN LIST
         finalFiles[pattern->patternName] = patternOutputs;
+    }
 
-        //2) ONLY for barcode demultiplexed files: write a header
-        //write header line for barcode file: e.g.: [ACGGCATG][BC1.txt][15X]
-        std::ofstream barcodeOutputStream;   
-        barcodeOutputStream.open(patternOutputs.barcodeFile, std::ofstream::app);
 
-        for(int bidx = 0; bidx < (pattern->barcodePattern)->size(); ++bidx)
+
+    //2) WRITE HEADER OF BARCODE DATA   (if barcodes correspont to a fastq, the first column stores the read names)
+    //write header line for barcode file: e.g.: [ACGGCATG][BC1.txt][15X]
+    std::ofstream barcodeOutputStream;   
+    barcodeOutputStream.open(patternOutputs.barcodeFile, std::ofstream::app);
+
+    //store the read name in the first column for DNA reads (to map fastq-alignment to barcodes)
+    if(pattern->containsDNA)
+    {
+        barcodeOutputStream << "READNAME\t";
+    }
+    
+    for(int bidx = 0; bidx < (pattern->barcodePattern)->size(); ++bidx)
+    {
+        BarcodePtr bptr = (pattern->barcodePattern)->at(bidx);
+        //stop and DNA pattern should not be written
+        if( (bptr->name != "*") && (bptr->name != "DNA"))
         {
-            BarcodePtr bptr = (pattern->barcodePattern)->at(bidx);
-            //stop and DNA pattern should not be written
-            if( (bptr->name != "*") && (bptr->name != "DNA"))
+
+            //get the short name for the barcode (instead of whole path) if it copntains a slash
+            std::string filename;
+            if (bptr->name.find('/') != std::string::npos || bptr->name.find('\\') != std::string::npos) 
             {
+                filename = std::filesystem::path(bptr->name).filename().string();
+            } else 
+            {
+                filename = bptr->name;
+            }
 
-                //get the short name for the barcode (instead of whole path) if it copntains a slash
-                std::string filename;
-                if (bptr->name.find('/') != std::string::npos || bptr->name.find('\\') != std::string::npos) 
-                {
-                    filename = std::filesystem::path(bptr->name).filename().string();
-                } else 
-                {
-                    filename = bptr->name;
-                }
-
-                barcodeOutputStream << filename;
-                if( bidx != ((pattern->barcodePattern)->size()-1))
-                {
-                    barcodeOutputStream << "\t";
-                }
+            barcodeOutputStream << filename;
+            if( bidx != ((pattern->barcodePattern)->size()-1))
+            {
+                barcodeOutputStream << "\t";
             }
         }
-        barcodeOutputStream << "\n";
-        barcodeOutputStream.close();
     }
+    barcodeOutputStream << "\n";
+    barcodeOutputStream.close();
+
 
 }
 
@@ -303,8 +339,8 @@ void OutputFileWriter::initialize_tmp_file(const int i)
         //only create a temporary stream for a pattern that does contain a DNA region
         if(fileIt->second.dnaFile != "")
         {
-            TmpPatternStream tmpStream; // struct storing a stream for barcode(SAM) and DNA(FASTQ)
-            //TEMPORARY BARCODE-SAM STREAM
+            TmpPatternStream tmpStream; // struct storing a stream for barcode(tsv) and DNA(FASTQ)
+            //TEMPORARY BARCODE-tsv STREAM
             dotPos = fileIt->second.barcodeFile.find_last_of('.');  // Find the last dot
             std::string barcodeTmpFileName = fileIt->second.barcodeFile.substr(0, dotPos) + std::to_string(i) + fileIt->second.barcodeFile.substr(dotPos);
             std::shared_ptr<std::ofstream> outFileBarcode = std::make_shared<std::ofstream>(barcodeTmpFileName);

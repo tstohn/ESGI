@@ -26,13 +26,6 @@
 
 KSEQ_INIT(gzFile, gzread)
 
-struct fastqLine
-{
-    std::string line;
-    std::string quality = "";
-    std::string name = "";
-};
-
 /** @brief mapping sequentially each barcode leaving no pattern out,
  *if a pattern can not be found the read is discarded
  **/
@@ -50,13 +43,13 @@ class MapEachBarcodeSequentiallyPolicy
 class MapEachBarcodeSequentiallyPolicyPairwise
 {
     private:
-        bool map_forward(const std::string& seq, const input& input, 
+        bool map_forward(const fastqLine& seq, const input& input, 
                         BarcodePatternPtr barcodePatterns,
                         fastqStats& stats,
                         std::vector<std::string>& barcodeList,
                         uint& barcodePosition,
                         int& score_sum);
-        bool map_reverse(const std::string& seq, const input& input, 
+        bool map_reverse(const fastqLine& seq, const input& input, 
                         BarcodePatternPtr barcodePatterns,
                         fastqStats& stats,
                         std::vector<std::string>& barcodeList,

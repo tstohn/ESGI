@@ -19,6 +19,7 @@ struct thread_id_hash {
   {
       std::shared_ptr<std::ofstream> barcodeStream = nullptr;
       std::shared_ptr<std::ofstream> dnaStream = nullptr;
+      unsigned long lineNumber = 0;
   };
   
   struct FinalPatternFiles
@@ -65,6 +66,12 @@ struct thread_id_hash {
           {
               return(tmpStreamMap.at(threadID).at(patternName).dnaStream);
           }
+        //return the tmp-stream for DNA of the pattern-name for a threadID
+        TmpPatternStream& get_streams_for_threadID(const boost::thread::id& threadID, const std::string& patternName)
+        {
+            return(tmpStreamMap.at(threadID).at(patternName));
+        }
+
           //return the tmp-stream for DNA of the pattern-name for a threadID
           std::pair<std::shared_ptr<std::ofstream>, std::shared_ptr<std::ofstream>> get_failedStream_for_threadID_at(const boost::thread::id& threadID)
           {
@@ -88,7 +95,8 @@ struct thread_id_hash {
           //write a failed line that is encountered to the tmp-threadFileStreams
           void write_failed_line(std::pair<std::shared_ptr<std::ofstream>, std::shared_ptr<std::ofstream>>& failedFileStream, const std::pair<fastqLine, fastqLine>& failedLine);
           
-          void write_dna_line(TmpPatternStream& dnaLineStream, const DemultiplexedLine& demultiplexedLine);
+          //write the fastq and barcode data into temporary stream
+          void write_dna_line(TmpPatternStream& dnaLineStream, const DemultiplexedLine& demultiplexedLine, const boost::thread::id& threadID);
 
           //write final files: from memory or by concatenating & deleting tmp-files
           void write_demultiplexed_barcodes(const input& input, BarcodeMappingVector barcodes, const std::string& patternName);
@@ -97,7 +105,7 @@ struct thread_id_hash {
           // 2.) write the 2 mismatch files: a) mismatches per barcode b) mismatches for the different patterns
           // 3.) close thw failedLines streams per thread, write into ONE output, and delte tmp files (file per thread)
           // 4.) for every thread, fo every pattern (with DNA) close the tmp-files, write to a final
-          // DNa(fastq)&barcode(SAM) file, and delete tmp files (file per thread per dna-pattern)
+          // DNa(fastq)&barcode(TSV) file, and delete tmp files (file per thread per dna-pattern)
           void write_output(const input& input);
   
       private:
@@ -117,7 +125,7 @@ struct thread_id_hash {
   
           //map of patternName to FinalPattern file struct 
           // the struct stores the names of the files per pattern: a demultiplexed barcode file or
-          // (if DNA is contained) a fastq and a SAM file (SAM storing the barcodes with read name) 
+          // (if DNA is contained) a fastq and a TSV file (TSV storing the barcodes with read name) 
           //the string is the same as pattern->patternName
           std::unordered_map<std::string, FinalPatternFiles> finalFiles;
           std::pair<std::string, std::string>  failedLines; //fw and rv read of failed lines, if not paired end the failed lines are stored in first entry of pair

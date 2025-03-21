@@ -11,9 +11,17 @@
 #include <unordered_map>
 #include <mutex>
 
+struct fastqLine
+{
+    std::string line;
+    std::string quality = "";
+    std::string name = "";
+};
+
 class DemultiplexedLine
 {
     public:
+
         std::vector<std::string> barcodeList;
 
         bool containsDNA = false;

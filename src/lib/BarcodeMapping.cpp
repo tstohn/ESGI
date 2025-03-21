@@ -539,7 +539,7 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
     return true;
 }
 
-bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const std::string& seq, const input& input, 
+bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const fastqLine& seq, const input& input, 
                                                            BarcodePatternPtr barcodePatterns,
                                                            fastqStats& stats,
                                                            std::vector<std::string>& barcodeList,
@@ -585,14 +585,14 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const std::string& se
         if(wildCardToFill){startCorrection = true;} // sart correction checks if we have to move our mapping window to the 5' direction
         
         // in case the sequence ends in the middle of the next barcode
-        bool seqToShort = check_if_seq_too_short(offset, seq);
+        bool seqToShort = check_if_seq_too_short(offset, seq.line);
         if(seqToShort)
         {
             return true;
         }
 
         //if we did not match a pattern
-        if(!(*patternItr)->match_pattern(seq, offset, start, end, score, barcode, differenceInBarcodeLength, startCorrection, false))
+        if(!(*patternItr)->match_pattern(seq.line, offset, start, end, score, barcode, differenceInBarcodeLength, startCorrection, false))
         {
             return false;
         }
@@ -602,7 +602,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const std::string& se
         //(we only focus on deletions that we can not distinguish from substitutions)
         //differenceInBarcodeLength = barcode.length() - (end);
         if(differenceInBarcodeLength<0){differenceInBarcodeLength=0;}
-        std::string sequence = seq.substr(offset + start, end-start);
+        std::string sequence = seq.line.substr(offset + start, end-start);
         offset += end;
         score_sum += score;
 
@@ -620,7 +620,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const std::string& se
         if(wildCardToFill)
         {
             startCorrection = false;
-            std::string oldWildcardMappedBarcode = seq.substr(old_offset, (offset+start-end) - old_offset);
+            std::string oldWildcardMappedBarcode = seq.line.substr(old_offset, (offset+start-end) - old_offset);
             //barcodeMap.emplace_back(uniqueChars.  (oldWildcardMappedBarcode));
             unsigned int lastWildcardEnd = 0; //in case we have several wildcards and need to know old offset
             // to subset new string
@@ -655,7 +655,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const std::string& se
     if(wildCardToFill)
     {
         wildCardToFill = 0; // unnecessary, still left to explicitely set to false
-        std::string oldWildcardMappedBarcode = seq.substr(old_offset, seq.length() - old_offset);
+        std::string oldWildcardMappedBarcode = seq.line.substr(old_offset, seq.line.length() - old_offset);
         //barcodeMap.emplace_back(std::make_shared<std::string>(oldWildcardMappedBarcode));
         barcodeList.push_back(oldWildcardMappedBarcode);
         ++barcodePosition; //increase the count of found positions
@@ -664,7 +664,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const std::string& se
     return true;
 }
 
-bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const std::string& seq, const input& input, 
+bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const fastqLine& seq, const input& input, 
                                                            BarcodePatternPtr barcodePatterns,
                                                            fastqStats& stats,
                                                            std::vector<std::string>& barcodeList,
@@ -707,14 +707,14 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const std::string& se
         if(wildCardToFill){startCorrection = true;} // sart correction checks if we have to move our mapping window to the 5' direction
         
         // in case the sequence ends in the middle of the next barcode
-        bool seqToShort = check_if_seq_too_short(offset, seq);
+        bool seqToShort = check_if_seq_too_short(offset, seq.line);
         if(seqToShort)
         {
             return true;
         }
 
         //map each pattern with reverse complement
-        if(!(*patternItr)->match_pattern(seq, offset, start, end, score, barcode, differenceInBarcodeLength, startCorrection, true))
+        if(!(*patternItr)->match_pattern(seq.line, offset, start, end, score, barcode, differenceInBarcodeLength, startCorrection, true))
         {
             return false;
         }
@@ -725,7 +725,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const std::string& se
         //we only substract the end, bcs we only consider barcode length differences at the end of the barcode
         //differenceInBarcodeLength = barcode.length() - (end);
         if(differenceInBarcodeLength<0){differenceInBarcodeLength=0;}
-        std::string sequence = seq.substr(offset + start, end-start);
+        std::string sequence = seq.line.substr(offset + start, end-start);
         offset += end;
         score_sum += score;
 
@@ -743,7 +743,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const std::string& se
         if(wildCardToFill)
         {
             startCorrection = false;
-            std::string oldWildcardMappedBarcode = seq.substr(old_offset, (offset+start-end) - old_offset);
+            std::string oldWildcardMappedBarcode = seq.line.substr(old_offset, (offset+start-end) - old_offset);
 
             //barcodeMap.emplace_back(uniqueChars.  (oldWildcardMappedBarcode));
             unsigned int lastWildcardEnd = 0; //in case we have several wildcards and need to know old offset
@@ -785,7 +785,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const std::string& se
     if(wildCardToFill)
     {
         wildCardToFill = 0; // unnecessary, still left to explicitely set to false
-        std::string oldWildcardMappedBarcode = seq.substr(old_offset, seq.length() - old_offset);
+        std::string oldWildcardMappedBarcode = seq.line.substr(old_offset, seq.line.length() - old_offset);
         //barcodeMap.emplace_back(std::make_shared<std::string>(oldWildcardMappedBarcode));
         barcodeList.push_back(oldWildcardMappedBarcode);
         ++barcodePosition; //increase the count of found positions
@@ -888,11 +888,11 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::split_line_into_barcode_patterns(
     //barcodePosition is the psoiton of the last mapped barcode
     uint barcodePositionFw = 0;
     //for forward read we immediately add barcodes to demultiplexedLine.barcodeList, which is then extended in combine pattern, IF we find all patterns
-    bool fwBool = map_forward(seq.first.line, input, barcodePatterns, stats, demultiplexedLine.barcodeList, barcodePositionFw, score_sum);
+    bool fwBool = map_forward(seq.first, input, barcodePatterns, stats, demultiplexedLine.barcodeList, barcodePositionFw, score_sum);
 
     std::vector<std::string> barcodeListRv;
     uint barcodePositionRv = 0;
-    bool rvBool = map_reverse(seq.second.line, input, barcodePatterns, stats, barcodeListRv, barcodePositionRv, score_sum);
+    bool rvBool = map_reverse(seq.second, input, barcodePatterns, stats, barcodeListRv, barcodePositionRv, score_sum);
 
     //passing demultiplexedLine.barcodeList as the barcodeList in forward pattern
     bool pairwiseMappingSuccess = combine_mapping(barcodePatterns, demultiplexedLine.barcodeList, barcodePositionFw, barcodeListRv, barcodePositionRv, stats, score_sum);

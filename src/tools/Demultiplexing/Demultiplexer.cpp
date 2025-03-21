@@ -45,14 +45,9 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper(const std::pa
     }
     else if(result && demultiplexedLine.containsDNA)
     {
-        //write out immediately into file for thread
-        std::cout << boost::this_thread::get_id() << "\n";
-
+        //write out immediately into file for thread (bcs. RNA reads are not very repretitive and might take quite some memory)
         // call write_dna_line
-        //implement write DNA line to write a sam line and a RNA fastq line
-
-        //demultiplexedLine contains the barcode vector, as well as the RNA-info
-
+        this->fileWriter->write_dna_line(fileWriter->get_streams_for_threadID(boost::this_thread::get_id(), foundPatternName), demultiplexedLine, boost::this_thread::get_id());
     }
     else if(!result && input.writeFailedLines)
     {
