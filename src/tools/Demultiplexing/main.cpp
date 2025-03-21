@@ -78,11 +78,15 @@ bool parse_arguments(char** argv, int argc, input& input)
             and D is a transcriptome read (e.g. cDNA), * is a stop sign (must be enclosed in brackets [*] and then mapping stops at this position \
             on both sides from FW and RV read): [AGCTATCACGTAGC][XXXXXXXXXX][NNNNNN][AGAGCATGCCTTCAG][NNNNNN]")
 
-            ("barcodePatternsFile,p", value<std::string>(&(input.barcodePatternsFile))->required(), "patterns for the sequences to match, \
-            every substring that should be matched is enclosed with square brackets. N is a barcode match, X is a wild card match \
-            and D is a transcriptome read (e.g. cDNA), * is a stop sign/ random sequence part that will also not be mapped (must be enclosed in brackets [*] and then mapping stops at this position \
-            on both sides from FW and RV read, completely disregarding any sequence there. This sign can only be used ONCE in a pattern): [AGCTATCACGTAGC][XXXXXXXXXX][NNNNNN][AGAGCATGCCTTCAG][NNNNNN]. You can supply several rows \
-            with various patterns.")
+            ("barcodePatternsFile,p", value<std::string>(&(input.barcodePatternsFile))->required(), "patterns for the sequences to match, every substring that should be matched is enclosed with square brackets. \
+            Linker sequences of known barcodes can be 'hard-coded', e.g. [ACGTCAG], for variable barcodes one can add a file path, e.g.[data/barcodes.txt] with comma seperated possible barcodes that can be found at this position(the barcodes can be of variable lengths), [10X] is a wild card match with 10 random bases (e.g., for UMIs) and [DNA] is a transcriptome read (e.g. cDNA), [*] is a stop sign/random sequence part that will also not be mapped, and [-] seperates forward and reverse read. ALL signs (also [*] and [-] must be enclosed in brackets). \
+            You can supply several rows with various patterns that might all exist in the input fastq.\
+            \nSIGN DETAILS: \
+            \n[*]: mapping stops at this position on both sides from FW and RV read, completely disregarding any sequence that follows from FW/ RV read. This sign can only be used ONCE in a pattern). E.g.: [AGCTATCACGTAGC][XXXXXXXXXX][BC1.txt][*][AGAGCATGCCTTCAG][BC1.txt]. in the FW read we map only [AGCTATCACGTAGC][XXXXXXXXXX][BC1.txt] and in the reverse read only [AGAGCATGCCTTCAG][BC1.txt].\
+            \n[-]: seperates FW and RV reads. Useful if one read contains DNA and (after mapping a barcode in the beginning) the rest of the read should be assign to DNA. E.g.: [BC1.txt][DNA][-][15X][BC1.txt]: extracts BC1 in FW read and assigns the rest of the read to DNA that can be mapped to a reference. \
+            \n[DNA]: DNA can only be at the end of a read (we map the FW and RV read from the 5' to the 3' end), this mean that we can have any barcodes before a DNA pattern, but we can not have barcodes after. In other words the DNA pattern must always be at the end of a read and valid patterns must look like this (where ... can be any pattern except [*],[-]): ...[DNA][-][DNA]... \
+            \nvalid structures: [BC1.txt][DNA][-][15X][BC1.txt], [BC1.txt][-][DNA][15X][BC1.txt], [DNA][-][15X][BC1.txt], [15X][BC1.txt][-][DNA], [BC1.txt][15X][BC1.txt][DNA] \
+            \nNOT valid structures: [BC1.txt][DNA][BC2.txt][-][15X][BC1.txt], [BC1.txt][DNA][15X][BC1.txt]")
 
             ("mismatchFile,m", value<std::string>(&(input.mismatchFile))->default_value(""), "File with lists of mismatches allowed for each bracket enclosed sequence substring. \
             This should be a comma seperated list of numbers for each substring of the sequence enclosed in squared brackets. E.g.: 2,1,2,1,2. (Also add the STOP, UMI mismatch -  \

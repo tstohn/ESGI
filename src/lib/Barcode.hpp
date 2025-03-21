@@ -134,6 +134,7 @@ class Barcode
     virtual bool is_wildcard() = 0;
     virtual bool is_constant() = 0;
     virtual bool is_stop() = 0;
+    virtual bool is_dna() = 0;
 };
 
 class ConstantBarcode : public Barcode
@@ -203,6 +204,7 @@ class ConstantBarcode : public Barcode
     bool is_wildcard(){return false;}
     bool is_constant(){return true;}
     bool is_stop(){return false;}
+    bool is_dna(){return false;}
 
     private:
     bool private_match_pattern(std::string sequence, const int& offset, const int& offsetShiftValue, int& seq_start, int& seq_end, 
@@ -364,6 +366,7 @@ class VariableBarcode : public Barcode
     bool is_wildcard(){return false;}
     bool is_constant(){return false;}
     bool is_stop(){return false;}
+    bool is_dna(){return false;}
 
     private:
     // IMPROVE FUNCTION:
@@ -511,6 +514,7 @@ class WildcardBarcode : public Barcode
     bool is_wildcard(){return true;}
     bool is_constant(){return false;}
     bool is_stop(){return false;}
+    bool is_dna(){return false;}
 
 };
 
@@ -533,6 +537,7 @@ class StopBarcode : public Barcode
     bool is_wildcard(){return false;}
     bool is_constant(){return false;}
     bool is_stop(){return true;}
+    bool is_dna(){return false;}
 
     private:
     std::string pattern; //just a string of "XXXXX"
@@ -558,6 +563,7 @@ class DNABarcode : public Barcode
     bool is_wildcard(){return false;}
     bool is_constant(){return false;}
     bool is_stop(){return false;}
+    bool is_dna(){return true;}
 
     private:
     std::string pattern; //just a string of "DNA"

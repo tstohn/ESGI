@@ -577,6 +577,10 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const fastqLine& seq,
             //stop here: we do not continue mapping after stop barcode [*]
             return true;
         }
+        else if((*patternItr)->is_dna())
+        {
+            
+        }
 
         //for every barcodeMapping element find a match
         std::string barcode = ""; //the actual real barcode that we find (mismatch corrected)
