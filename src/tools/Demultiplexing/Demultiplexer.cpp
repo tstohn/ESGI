@@ -20,10 +20,11 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper(const std::pa
     std::string foundPatternName;
     for(BarcodePatternPtr pattern : *this->get_barcode_pattern())
     {
+        //pattern contains DNA also store the read name
         if(pattern->containsDNA)
         {
-            // set the quality of the read and also the read name
-
+            //use ONLY the forward read name (in the DNA/barcode file later we also add threadID and a readID within thread for unique names)
+            demultiplexedLine.dnaName = line.first.name;
         }
 
         //write demultiplexed information into demultiplexedLine, this is passed by reference and can be accessed here

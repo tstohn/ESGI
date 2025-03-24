@@ -89,7 +89,7 @@ bool parse_arguments(char** argv, int argc, input& input)
             \nNOT valid structures: [BC1.txt][DNA][BC2.txt][-][15X][BC1.txt], [BC1.txt][DNA][15X][BC1.txt]")
 
             ("mismatchFile,m", value<std::string>(&(input.mismatchFile))->default_value(""), "File with lists of mismatches allowed for each bracket enclosed sequence substring. \
-            This should be a comma seperated list of numbers for each substring of the sequence enclosed in squared brackets. E.g.: 2,1,2,1,2. (Also add the STOP, UMI mismatch -  \
+            This should be a comma seperated list of numbers for each substring of the sequence enclosed in squared brackets. E.g.: 2,1,2,1,2. (Also add mismatches for the STOP[*], UMI[X], READSEPERATOR[-] -  \
             this number is not used however, UMIs are aligned in BarcodeProcessing.) We need one line for every line in the barcodePatternsFile.")
 
             ("threat,t", value<int>(&(input.threads))->default_value(5), "number of threads")

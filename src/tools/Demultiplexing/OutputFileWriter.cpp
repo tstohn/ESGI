@@ -45,7 +45,7 @@ void OutputFileWriter::write_dna_line(TmpPatternStream& dnaLineStream, const Dem
     std::string lineName =  threadIDString + "_" + std::to_string(readCount) + "_" + demultiplexedLine.dnaName;
     
     //write RNA data to dnaStream (FASTQ)
-    *dnaStream << lineName << "\n";
+    *dnaStream << demultiplexedLine.dnaName << "\n";
     *dnaStream << demultiplexedLine.dna << "\n";
     *dnaStream << "+\n";
     *dnaStream << demultiplexedLine.dnaQuality << "\n";
