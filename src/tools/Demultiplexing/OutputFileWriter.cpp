@@ -2,16 +2,9 @@
 
 void OutputFileWriter::concatenateFiles(const std::vector<std::string>& tmpFileList, const std::string& outputFile) 
 {
-    std::ofstream out(outputFile, std::ios::app);  // Final output file
-    if (!out) 
-    {
-        std::cerr << "Error opening output file!\n";
-        return;
-    }
-
     for (const std::string& file : tmpFileList) 
     {
-        std::ifstream in(file, std::ios::binary);  // Read written files
+        std::ifstream in(file, std::ios::in | std::ios::binary);  // Read written files
         if (!in) 
         {
             std::cerr << "Error opening input file: " << file << "\n";
@@ -19,16 +12,17 @@ void OutputFileWriter::concatenateFiles(const std::vector<std::string>& tmpFileL
         }
 
         //write temporary file into final file
+        std::ofstream out(outputFile, std::ios::app | std::ios::binary);  // Final output file
         out << in.rdbuf();
+        out.close();
 
         in.close();
         // Delete the temporary file
         if (std::remove(file.c_str()) != 0) 
         {
-            std::cerr << "Error: Could not delete " << file << std::endl;
+        std::cerr << "Error: Could not delete " << file << std::endl;
         }
     }
-    out.close();
 }
 
 //writes the dna (fastq) and barcode (tsv) data
@@ -110,6 +104,9 @@ void OutputFileWriter::close_and_concatenate_fileStreams(const input& input)
         failedLinesTmpFileNameFW = failedLines.first.substr(0, dotPos) + std::to_string(i) + failedLines.first.substr(dotPos);
         failedFileListFW.push_back(failedLinesTmpFileNameFW);
     }
+
+    std::cout << "ADDING TO FAILED LINES: " << failedFileListFW.at(0) << " " << failedLines.first << "\n";
+
     concatenateFiles(failedFileListFW, failedLines.first);
     //if we have paired-end also concatenated RV reads
     if(failedLines.second != "")
@@ -124,7 +121,7 @@ void OutputFileWriter::close_and_concatenate_fileStreams(const input& input)
         }
         concatenateFiles(failedFileListRV, failedLines.second);
     }
-
+    
     //CONCATENATED DNA-FILES & BARCODE-FILES
     //for every pattern, that contains DNA
     for(auto fileIt = finalFiles.begin(); fileIt != finalFiles.end(); ++fileIt)
@@ -137,6 +134,7 @@ void OutputFileWriter::close_and_concatenate_fileStreams(const input& input)
             std::vector<std::string> barcodeFileList; //tsv files for corersponding fastq files
         
             //list all temporary dna-files (FASTQ)/ barcode-files (tsv) and combine them
+
             for(int i = 0; i < input.threads; ++i)
             {
                 //pattern and thread specific DNA file
@@ -149,6 +147,9 @@ void OutputFileWriter::close_and_concatenate_fileStreams(const input& input)
                 std::string barcodeTmpFileName = fileIt->second.barcodeFile.substr(0, dotPos) + std::to_string(i) + fileIt->second.barcodeFile.substr(dotPos);
                 barcodeFileList.push_back(barcodeTmpFileName);
             }
+
+            std::cout << "ADDING TO DNA LINES: " << dnaFileList.at(0) << " " << fileIt->second.dnaFile << "\n";
+
             concatenateFiles(dnaFileList, fileIt->second.dnaFile);
             concatenateFiles(barcodeFileList, fileIt->second.barcodeFile);
         }
@@ -275,7 +276,7 @@ void OutputFileWriter::initialize_output_for_pattern(std::string output, const B
     {
         BarcodePtr bptr = (pattern->barcodePattern)->at(bidx);
         //stop and DNA pattern should not be written
-        if( (bptr->name != "*") && (bptr->name != "DNA"))
+        if( (bptr->name != "*") && (bptr->name != "DNA") && (bptr->name != "-"))
         {
 
             //get the short name for the barcode (instead of whole path) if it copntains a slash
@@ -383,10 +384,11 @@ void OutputFileWriter::initialize_tmp_file(const int i)
     std::shared_ptr<std::ofstream> outFileFailedLineRV = nullptr;
     if(failedLines.second != "")
     {
+        std::cout << "ADDING REVERSE " << failedLines.second << "\n";
         dotPos = failedLines.second.find_last_of('.');  // Find the last dot
-        std::string failedLinesTmpFileName = failedLines.second.substr(0, dotPos) + std::to_string(i) + failedLines.second.substr(dotPos);
+        std::string failedLinesTmpFileNameRv = failedLines.second.substr(0, dotPos) + std::to_string(i) + failedLines.second.substr(dotPos);
         
-        std::shared_ptr<std::ofstream> outFileFailedLineRV = std::make_shared<std::ofstream>(failedLinesTmpFileName);
+        outFileFailedLineRV = std::make_shared<std::ofstream>(failedLinesTmpFileNameRv);
         if (!outFileFailedLineRV->is_open()) 
         {
             std::cerr << "Error opening file: " << failedLines.second << std::endl;
@@ -400,6 +402,11 @@ void OutputFileWriter::initialize_tmp_file(const int i)
     tmpStreamMap[boost::this_thread::get_id()] = tmpFileStreams;
 
     //add the temporary failedLine to map
+
+    std::cout << 'FILE STREAMS: \n';
+    std::cout << outFileFailedLineFW << "\n";
+    std::cout << outFileFailedLineRV << "\n";
+
     failedStreamMap[boost::this_thread::get_id()] = std::make_pair(outFileFailedLineFW, outFileFailedLineRV);
     //decrease number of threads that need initialization, when all are initialized we can continue program in main function
     if (*threadToInitializePtr == 0) 

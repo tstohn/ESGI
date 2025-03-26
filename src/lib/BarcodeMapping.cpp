@@ -589,7 +589,6 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const fastqLine& seq,
         patternItr < barcodePatterns->end(); 
         ++patternItr)
     {
-
         //if we have a wildcard skip this matching, we match again the next sequence
         if((*patternItr)->is_wildcard())
         {
@@ -620,16 +619,19 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const fastqLine& seq,
                 Please adjust pattern file accordingly.";
                 exit(EXIT_FAILURE);
             }
+            ++barcodePosition; //increase the count of found positions for DNA
 
             //set dna, quality (name was already set when getting next line to the name of forward read ONLY)
             demultiplexedLine.dna = seq.line.substr(offset, seq.line.length()); //extract DNA fragment
             demultiplexedLine.dnaQuality = seq.quality.substr(offset, seq.line.length()); //extract DNA fragment
             demultiplexedLine.containsDNA = true;
+            continue;
         }
         else if((*patternItr)->is_read_end())
         {
+            ++barcodePosition; //read-end is a valid found barcode
             //stop here: we do not continue mapping when the read ends
-            break;
+            return true;
         }
 
         //for every barcodeMapping element find a match
@@ -958,6 +960,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(const BarcodePatt
     {
         ++stats.moderateMatches;
     }
+
     return true;
 }
 
@@ -977,6 +980,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::split_line_into_barcode_patterns(
 
     DemultiplexedLine demultiplexedLineRv;
     uint barcodePositionRv = 0;
+
     bool rvBool = map_reverse(seq.second, input, barcodePatterns, stats, demultiplexedLineRv,barcodePositionRv, score_sum);
 
     //passing demultiplexedLine.barcodeList as the barcodeList in forward pattern
