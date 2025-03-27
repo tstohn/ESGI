@@ -39,7 +39,7 @@ void OutputFileWriter::write_dna_line(TmpPatternStream& dnaLineStream, const Dem
     std::string lineName =  threadIDString + "_" + std::to_string(readCount) + "_" + demultiplexedLine.dnaName;
     
     //write RNA data to dnaStream (FASTQ)
-    *dnaStream << demultiplexedLine.dnaName << "\n";
+    *dnaStream << lineName << "\n";
     *dnaStream << demultiplexedLine.dna << "\n";
     *dnaStream << "+\n";
     *dnaStream << demultiplexedLine.dnaQuality << "\n";
@@ -105,8 +105,6 @@ void OutputFileWriter::close_and_concatenate_fileStreams(const input& input)
         failedFileListFW.push_back(failedLinesTmpFileNameFW);
     }
 
-    std::cout << "ADDING TO FAILED LINES: " << failedFileListFW.at(0) << " " << failedLines.first << "\n";
-
     concatenateFiles(failedFileListFW, failedLines.first);
     //if we have paired-end also concatenated RV reads
     if(failedLines.second != "")
@@ -147,8 +145,6 @@ void OutputFileWriter::close_and_concatenate_fileStreams(const input& input)
                 std::string barcodeTmpFileName = fileIt->second.barcodeFile.substr(0, dotPos) + std::to_string(i) + fileIt->second.barcodeFile.substr(dotPos);
                 barcodeFileList.push_back(barcodeTmpFileName);
             }
-
-            std::cout << "ADDING TO DNA LINES: " << dnaFileList.at(0) << " " << fileIt->second.dnaFile << "\n";
 
             concatenateFiles(dnaFileList, fileIt->second.dnaFile);
             concatenateFiles(barcodeFileList, fileIt->second.barcodeFile);
@@ -384,7 +380,6 @@ void OutputFileWriter::initialize_tmp_file(const int i)
     std::shared_ptr<std::ofstream> outFileFailedLineRV = nullptr;
     if(failedLines.second != "")
     {
-        std::cout << "ADDING REVERSE " << failedLines.second << "\n";
         dotPos = failedLines.second.find_last_of('.');  // Find the last dot
         std::string failedLinesTmpFileNameRv = failedLines.second.substr(0, dotPos) + std::to_string(i) + failedLines.second.substr(dotPos);
         
@@ -402,11 +397,6 @@ void OutputFileWriter::initialize_tmp_file(const int i)
     tmpStreamMap[boost::this_thread::get_id()] = tmpFileStreams;
 
     //add the temporary failedLine to map
-
-    std::cout << 'FILE STREAMS: \n';
-    std::cout << outFileFailedLineFW << "\n";
-    std::cout << outFileFailedLineRV << "\n";
-
     failedStreamMap[boost::this_thread::get_id()] = std::make_pair(outFileFailedLineFW, outFileFailedLineRV);
     //decrease number of threads that need initialization, when all are initialized we can continue program in main function
     if (*threadToInitializePtr == 0) 
@@ -482,13 +472,13 @@ void OutputFileWriter::write_failed_line(std::pair<std::shared_ptr<std::ofstream
     if(failedFileStream.second == nullptr)
     {
         //for single-read write only first entry into first stream (second is a nullptr)
-        *failedFileStream.first << failedLine.first.line;
+        *failedFileStream.first << failedLine.first.line << "\n";
     }
     else
     {
         //for paired-end sequencing write both reads
-        *failedFileStream.first << failedLine.first.line;
-        *failedFileStream.second << failedLine.second.line;
+        *failedFileStream.first << failedLine.first.line << "\n";
+        *failedFileStream.second << failedLine.second.line << "\n";
     }
 }
 
