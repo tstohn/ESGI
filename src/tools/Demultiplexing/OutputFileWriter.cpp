@@ -39,14 +39,14 @@ void OutputFileWriter::write_dna_line(TmpPatternStream& dnaLineStream, const Dem
     std::string lineName =  threadIDString + "_" + std::to_string(readCount) + "_" + demultiplexedLine.dnaName;
     
     //write RNA data to dnaStream (FASTQ)
-    *dnaStream << lineName << "\n";
+    *dnaStream << "@" << lineName << "\n";
     *dnaStream << demultiplexedLine.dna << "\n";
     *dnaStream << "+\n";
     *dnaStream << demultiplexedLine.dnaQuality << "\n";
 
     //write barcode data to barcodeStream (tsv)
     // entries: 1.) ReadName 2.) mapped barcodes
-    *barcodeStream << lineName << "\t";
+    *barcodeStream << "@" << lineName << "\t";
     int i = 0;
     for(const std::string& barcode : demultiplexedLine.barcodeList)
     {
