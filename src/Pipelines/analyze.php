@@ -3,6 +3,11 @@
 Script to run CI data analysis:
 This can contain barcodes for ABs, sgRNA, etc.
 
+REQUIREMENTS:
+- FOR RNA: DOWNLOAD AND INDEX REFENRECE
+- CREATE BED FILE FOR GENE NAMES (e.g., FROM gtf FILE)
+1.) STAR FOR RNA MAPPING
+2.) SAMTOOLS/ BEDTOOLS TO ANNOTATE SAM WITH GENE NAMES
 
 */
 

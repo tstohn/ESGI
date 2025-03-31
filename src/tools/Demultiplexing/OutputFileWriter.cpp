@@ -45,8 +45,8 @@ void OutputFileWriter::write_dna_line(TmpPatternStream& dnaLineStream, const Dem
     *dnaStream << demultiplexedLine.dnaQuality << "\n";
 
     //write barcode data to barcodeStream (tsv)
-    // entries: 1.) ReadName 2.) mapped barcodes
-    *barcodeStream << "@" << lineName << "\t";
+    // entries: 1.) ReadName (WITHOUT @, this is only for fastq and is also removed during mapping with STAR) 2.) mapped barcodes
+    *barcodeStream << lineName << "\t";
     int i = 0;
     for(const std::string& barcode : demultiplexedLine.barcodeList)
     {
