@@ -1,4 +1,5 @@
-# Efficient demultiplexing of generic barcoding data
+# EZGI
+# Efficient Splitting of Generic Indices
 
 [![LINUX BUILD (22.04)](https://github.com/tstohn/CombinatorialIndexingPipeline/actions/workflows/makefile.yml/badge.svg)](https://github.com/tstohn/CombinatorialIndexingPipeline/actions/workflows/makefile.yml)
 
