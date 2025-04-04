@@ -32,11 +32,9 @@ using namespace boost::program_options;
  * */
 
 bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& outFile, int& threats, 
-                     std::string& barcodeFile, std::string& barcodeIndices, int& umiMismatches,
-                     std::string& abFile, int& abIdx, std::string& treatmentFile, int& treatmentIdx,
-                     std::string& classSeqFile, std::string& classNameFile, double& umiThreshold,
-                     bool& scClassConstraint, std::string& guideReadsFile, bool& umiRemoval,
-                     std::string& umiSingleCellIdx)
+                     std::string& barcodeDir, std::string& barcodeIndices, int& umiMismatches,
+                     std::string& abFile, int& featureIdx, std::string& treatmentFile, int& treatmentIdx,
+                     double& umiThreshold, bool& umiRemoval)
 {
     try
     {
@@ -45,19 +43,13 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             ("input,i", value<std::string>(&inFile)->required(), "input file of demultiplexed reads for ABs in Single cells in tsv.gz format (input must be gzipped)")
             ("output,o", value<std::string>(&outFile)->required(), "output file with all split barcodes")
 
-            ("barcodeList,b", value<std::string>(&(barcodeFile)), "file with a list of all allowed well barcodes (comma seperated barcodes across several rows)\
-            the row refers to the correponding bracket enclosed sequence substring. E.g. for two bracket enclosed substrings in out sequence a possible list could be:\
-            AGCTTCGAG,ACGTTCAGG\nACGTCTAGACT,ATCGGCATACG,ATCGCGATC,ATCGCGCATAC. This can be the same list as it was for FastqParser. Do not include the barcodes for the\
-            guide reads here; add them as two seperate files guide reads are present.")
+            ("barcodeDir,b", value<std::string>(&(barcodeDir)), "directory where all the barcode files are (the files itself are in the header of the inFile")
             ("antibodyList,a", value<std::string>(&(abFile)), "file with a list of all antbodies used, should be in same order as the ab-barcodes in the barcodeList.")
-            ("antibodyIndex,x", value<int>(&abIdx), "Index used for antibody distinction. This is the x-th barcode from the barcodeFile (0 indexed)")
+            
+            ("featureIndex,x", value<int>(&featureIdx)->required(), "Index used for feature counting. This is the index of the column that should be used for features (0 indexed)")
             ("groupList,d", value<std::string>(&(treatmentFile)), "file with a list of all groups (e.g.treatments) used, should be in same order as the specific arcodes in the barcodeList. \
             If this argument is given, you must also add the index of barcodes used for grouping")
             ("GroupingIndex,y", value<int>(&treatmentIdx), "Index used to group cells(e.g. by treatment). This is the x-th barcode from the barcodeFile (0 indexed).")
-
-            ("classSeq,g", value<std::string>(&(classSeqFile)), "file with the sequences that define origin of cells (e.g. sgRNA sequences along the experiment)")
-            ("className,n", value<std::string>(&(classNameFile)), "file with names to replace the sequence of origin")
-            ("guideFile,j", value<std::string>(&guideReadsFile)->default_value(""), "file with all the demultiplexed guide reads.")
 
             ("CombinatorialIndexingBarcodeIndices,c", value<std::string>(&(barcodeIndices))->default_value(""), "comma seperated list of indexes, that are used during \
             combinatorial indexing and should distinguish a unique cell. Be aware that this is the index of the line inside the barcodeList file (see above). \
@@ -70,12 +62,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             ("umiThreshold,f", value<double>(&umiThreshold)->default_value(0.0), "threshold for filtering UMIs. E.g. if set to 0.9 we only retain reads of a UMI, if more \
             than 90percent of them have the same SC-AB combination. All other reads are deleted. Keep at 0 if UMIs should not be removed.")
             ("umiRemoval,z", value<bool>(&umiRemoval)->default_value(true), "Set to false if UMIs should NOT be collapsed.")
-            ("scClassConstraint,k", value<bool>(&scClassConstraint)->default_value(true), "Boolean to store whether sc reads should be removed if we find no guide read for them. \
-            If set to false reads for no guide are given the class wildtype.")
-            ("umiSingleCellIdx,s", value<std::string>(&umiSingleCellIdx)->default_value(""), "In case the Single-Cell barcode(s) are not given beforehand.\
-            In this case this Idx is the (0 indexed) position of the X-barcode, which should be used as single cell identifier.\
-            E.g. for 10X when we have single cell indices that can not be distiguished from a UMI when mapping. This position must be a \
-            sequence with the [X] pattern.")
+
 
             ("help,h", "help message");
 
@@ -100,8 +87,8 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
 }
 
 // generate a dictionary to map sequences to AB(proteins)
-std::unordered_map<std::string, std::string > generateProteinDict(std::string abFile, int abIdx, 
-                                                                                              const std::vector<std::string>& abBarcodes)
+std::unordered_map<std::string, std::string > generateProteinDict(std::string abFile, int featureIdx, 
+                                                                  const std::vector<std::string>& abBarcodes)
 {
     std::unordered_map<std::string, std::string > map;
     std::vector<std::string> proteinNames;
@@ -167,163 +154,86 @@ std::unordered_map<std::string, std::string > generateTreatmentDict(std::string 
     return map;
 }
 
-// generate a dictionary to map sequences to treatments
-std::unordered_map<std::string, std::string > generateClassDict(const std::string& classSeqFile,
-                                                                const std::string& classNameFile)
-{
-    std::unordered_map<std::string, std::string > map;
-    std::vector<std::string> names;
-    std::vector<std::string> seqs;
-
-    //parse all sequences
-    std::ifstream seqFileStream(classSeqFile);
-    for(std::string line; std::getline(seqFileStream, line);)
-    {
-        std::string delimiter = ",";
-        std::string seq;
-        size_t pos = 0;
-        std::vector<std::string> seqVector;
-        while ((pos = line.find(delimiter)) != std::string::npos) 
-        {
-            seq = line.substr(0, pos);
-            line.erase(0, pos + 1);
-            seqs.push_back(seq);
-        }
-        seq = line;
-        seqs.push_back(seq);
-    }
-    seqFileStream.close();
-    if(seqs.empty())
-    {
-        std::cout << "ERROR: Could not parse any sequence for guides! Check the guide sequence file.\n";
-        exit(EXIT_FAILURE);
-    }
-
-    //parse all names
-    std::ifstream nameFileStream(classNameFile);
-    for(std::string line; std::getline(nameFileStream, line);)
-    {
-        std::string delimiter = ",";
-        std::string seq;
-        size_t pos = 0;
-        std::vector<std::string> seqVector;
-        while ((pos = line.find(delimiter)) != std::string::npos) 
-        {
-            seq = line.substr(0, pos);
-            line.erase(0, pos + 1);
-            names.push_back(seq);
-        }
-        seq = line;
-        names.push_back(seq);
-    }
-    nameFileStream.close();
-    if(names.empty())
-    {
-        std::cout << "ERROR: Could not parse any names for guides! Check the guide name file.\n";
-        exit(EXIT_FAILURE);
-    }
-
-    if(names.size() != seqs.size())
-    {
-        std::cout << "ERROR: The number of sequences and names for guide reads does not match. Check files for guide sequences and names.\n";
-        exit(EXIT_FAILURE);
-    }
-
-    for(int i = 0; i < names.size(); ++i)
-    {
-        map.insert(std::make_pair(seqs.at(i), names.at(i)));
-    }
-
-    return map;
-}
-
 int main(int argc, char** argv)
 {
 
     std::string inFile;
     std::string outFile;
-    std::string barcodeFile;
+    std::string barcodeDir;
     std::string barcodeIndices;
     int thread;
     int umiMismatches;
     double umiThreshold = -1;
-    bool scClassConstraint = true;
     bool umiRemoval = true;
 
     //data for protein(ab) and treatment information
     std::string abFile; 
-    int abIdx;
+    int featureIdx;
     std::string treatmentFile;
-    int treatmentIdx = INT_MAX;
+    int treatmentIdx = -1;
     std::vector<std::string> abBarcodes;
     std::vector<std::string> treatmentBarcodes;
 
-    //data for class information (given e.g. by guide RNA)
-    std::string classSeqFile;
-    std::string classNameFile;
-    std::string guideReadsFile;
-
-    //only used in case we have no CombinatiorialIndexing
-    //but a single UMI-like SingleCell ID
-    std::string umiSingleCellIdx;
-
-    if(!parse_arguments(argv, argc, inFile, outFile, thread, barcodeFile, barcodeIndices, 
-                        umiMismatches, abFile, abIdx, treatmentFile, treatmentIdx,
-                        classSeqFile, classNameFile, umiThreshold, scClassConstraint, 
-                        guideReadsFile, umiRemoval, umiSingleCellIdx))
+    if(!parse_arguments(argv, argc, inFile, outFile, thread, 
+                        barcodeDir, barcodeIndices, umiMismatches, 
+                        abFile, featureIdx, treatmentFile, treatmentIdx,
+                        umiThreshold, umiRemoval))
     {
         exit(EXIT_FAILURE);
     }
-
-    //make sure we have ETHER a barcode list for CombinatorialIndexing (barcodeIndices)
-    // OR a single UMI-like single cell Idx
-    if(barcodeIndices == "")
-    {
-        assert( (umiSingleCellIdx != "") && "We can have ETHER the -c OR the -s flag for CI-barcodes OR a single UMI-like single cell sequence.");
-    }
-    else
-    {
-        assert( (umiSingleCellIdx == "") &&  "We can have ETHER the -c OR the -s flag for CI-barcodes OR a single UMI-like single cell sequence.");
-    }
     
     //generate the dictionary of barcode alternatives to idx
-    NBarcodeInformation barcodeIdData;
-    generateBarcodeDicts(barcodeFile, barcodeIndices, barcodeIdData, abBarcodes, abIdx, 
-                        umiSingleCellIdx, &treatmentBarcodes, treatmentIdx);
+    BarcodeInformation barcodeIdData;
+
+    //get the first line of headers from input file
+    std::string firstLine;
+    if(!endWith(inFile,".gz"))
+    {
+        std::cerr << "Input file must be gzip compressed\n";
+        exit(EXIT_FAILURE);
+    }
+    std::ifstream file(inFile, std::ios_base::in | std::ios_base::binary);
+    boost::iostreams::filtering_streambuf<boost::iostreams::input> inbuf;
+    inbuf.push(boost::iostreams::gzip_decompressor());
+    inbuf.push(file);
+    std::istream instream(&inbuf);
+
+    if (file.is_open() && std::getline(instream, firstLine)) 
+    {  
+        generateBarcodeDicts(firstLine, barcodeDir, barcodeIndices, barcodeIdData, abBarcodes, featureIdx, &treatmentBarcodes, treatmentIdx);
+    } 
+    else 
+    {
+        std::cerr << "Error reading input file or file is empty!" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    file.close();
+
     BarcodeProcessingHandler dataParser(barcodeIdData);
     if(umiThreshold != -1){dataParser.setUmiFilterThreshold(umiThreshold);}
-    dataParser.setScClassConstaint(scClassConstraint);
     dataParser.setumiRemoval(umiRemoval);
 
     //generate dictionaries to map sequences to the real names of Protein/ treatment/ etc...
+    std::unordered_map<std::string, std::string > featureMap;
     if(!abFile.empty())
     {
-        std::unordered_map<std::string, std::string > map = generateProteinDict(abFile, abIdx, abBarcodes);
-        dataParser.addProteinData(map);
+        featureMap = generateProteinDict(abFile, featureIdx, abBarcodes);
     }
+
+    //featureMap is empty if the feature name should stay as they are (no mapping of e.g. barcodes to proteins)
+    dataParser.addProteinData(featureMap);
     if(!treatmentFile.empty())
     {
-        std::unordered_map<std::string, std::string > map = generateTreatmentDict(treatmentFile, treatmentIdx, treatmentBarcodes);
-        dataParser.addTreatmentData(map);
-    }
-    if(!classSeqFile.empty()) //could take any of both files: generateClassDict checks for both files beeing same length
-    {
-        std::unordered_map<std::string, std::string > map = generateClassDict(classSeqFile, classNameFile);
-        dataParser.addClassData(map);
+        std::unordered_map<std::string, std::string > treatmentMap = generateTreatmentDict(treatmentFile, treatmentIdx, treatmentBarcodes);
+        dataParser.addTreatmentData(treatmentMap);
     }
 
     //parse the file of demultiplexed barcodes and
     //add all the data to the Unprocessed Demultiplexed Data (stored in rawData)
     // (AB, treatment already are mapped to their real names, scID is a concatenation of numbers for each barcode in
     //each abrcoding round, seperated by a dot)
-    if(guideReadsFile != "")
-    {
-        dataParser.parse_ab_and_guide_file(inFile, guideReadsFile, thread);
-    }
-    else
-    {
-        dataParser.parse_combined_file(inFile, thread);
-    }
+    dataParser.parse_barcode_file(inFile, thread);
+
     //further process the data (correct UMIs, collapse same UMIs, etc.)
     dataParser.processBarcodeMapping(umiMismatches, thread);
     dataParser.writeLog(outFile);

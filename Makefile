@@ -41,10 +41,10 @@ testDemultiplexAroundLinker:
 	diff ./src/test/test_data/demultiplexAroundLinker_output2_sorted.tsv ./bin/demultiplexAroundLinker_output2_sorted.tsv
 
 #process the mapped sequences: correct for UMI-mismatches, then map barcodes to Protein, treatment, SinglecellIDs
-processing:
+featureCounting:
 	g++ -c src/tools/FeatureCounting/BarcodeProcessingHandler.cpp -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
 	g++ -c src/tools/FeatureCounting/main.cpp -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
-	g++ main.o BarcodeProcessingHandler.o -o ./bin/processing -lpthread -lz -lboost_program_options -lboost_iostreams
+	g++ main.o BarcodeProcessingHandler.o -o ./bin/featureCounting -lpthread -lz -lboost_program_options -lboost_iostreams
 
 #Umiqual is a toll to analuze the quality of the CI reads based on the UMI. Imagine we have an explosion of barocode combinations
 # we can use this tool to see in which BC round those combinations occure (based on the UMI)
@@ -109,10 +109,20 @@ testDemultiplexing:
 	./bin/demultiplexing -i ./src/test/test_data/inFastqDoubleUmiTest_1.fastq -r ./src/test/test_data/inFastqDoubleUmiTest_2.fastq -o ./bin/testMultipleUmis_PairedEnd.tsv -p [AAAA][XXXX][XXXX][TTTT] -m 1,1,1,1 -t 1
 	diff ./bin/Demultiplexed_testMultipleUmis_PairedEnd.tsv ./src/test/test_data/result_testMultipleUmis_PairedEnd.tsv
 
+testFeatureCounting:
+	./bin/featureCounting -i ./src/test/test_data/testSet.txt.gz -o ./bin/processed_out.tsv -t 2 -b ./src/test/test_data -c 0,5,7,9 -a ./src/test/test_data/antibody.txt -x 3 -d ./src/test/test_data/treatment.txt -y 5 -u 2 -f 0.9
+	(head -n 1 ./bin/ABprocessed_out.tsv && tail -n +2 ./bin/ABprocessed_out.tsv | LC_ALL=c sort) > ./bin/sortedABprocessed_out.tsv
+	diff ./src/test/test_data/sortedABprocessed_out.tsv ./bin/sortedABprocessed_out.tsv
+
+
+
+
+
+
 #test processing of the barcodes, includes several UMIs with mismatches, test the mapping of barcodes to unique CellIDs, ABids, treatments
 testProcessing:
 #origional first test with several basic examples
-	./bin/processing -i ./src/test/test_data/testSet.txt.gz -o ./bin/processed_out.tsv -t 2 -b ./src/test/test_data/processingBarcodeFile.txt  -c 0,2,3,4 -a ./src/test/test_data/antibody.txt -x 1 -d ./src/test/test_data/treatment.txt -y 2 -u 2 -f 0.9
+	./bin/featureCounting -i ./src/test/test_data/testSet.txt.gz -o ./bin/processed_out.tsv -t 2 -b ./src/test/test_data -c 0,2,3,4 -a ./src/test/test_data/antibody.txt -x 1 -d ./src/test/test_data/treatment.txt -y 2 -u 2 -f 0.9
 	(head -n 1 ./bin/ABprocessed_out.tsv && tail -n +2 ./bin/ABprocessed_out.tsv | LC_ALL=c sort) > ./bin/sortedABprocessed_out.tsv
 	diff ./src/test/test_data/sortedABprocessed_out.tsv ./bin/sortedABprocessed_out.tsv
 #testing the removal of one wrong read bcs of different AB-Sc for same UMI

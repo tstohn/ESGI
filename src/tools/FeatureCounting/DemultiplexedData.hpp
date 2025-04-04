@@ -246,6 +246,10 @@ class UnprocessedDemultiplexedData
         inline void setProteinDict(std::unordered_map<std::string, std::string > dict)
         {
             proteinDict = dict;
+            if(proteinDict.empty())
+            {
+                mapFeatureNames = false;
+            }
         }
         inline void setClassDict(std::unordered_map<std::string, std::string > dict)
         {
@@ -256,9 +260,12 @@ class UnprocessedDemultiplexedData
             scClassMap = tmpCcClassMap;
         }
 
-        inline std::string getProteinName(const std::string& barcode) const
+        inline std::string getFeatureName(const std::string& barcode) const
         {
-             if ( proteinDict.find(barcode) == proteinDict.end() ) {
+            if(mapFeatureNames == false){return barcode;}
+            //if we have to map names
+            if ( proteinDict.find(barcode) == proteinDict.end() ) 
+            {
                 std::cerr << "Barcode is not in protein dict, check protein barcodes, protein ID and protein File:\n" << barcode << "\n";
                 exit(EXIT_FAILURE);
             }
@@ -279,17 +286,6 @@ class UnprocessedDemultiplexedData
                 exit(EXIT_FAILURE);
             }
             return classDict.at(barcode);
-        }
-        inline std::string get_protein_or_class_name(const std::string& barcode, bool& is_class) const
-        {
-            if ( proteinDict.find(barcode) == proteinDict.end() ) 
-            {
-                std::string className = getClassName(barcode);
-                is_class = true;
-                return className;
-            }
-            //else
-            return proteinDict.at(barcode);
         }
         inline const char* get_sc_class_name(const char* sc)
         {
@@ -368,6 +364,8 @@ class UnprocessedDemultiplexedData
         //dictionaries to map a barcode-sequence to the treatment, and Protein, class
         //those dicts are used in the very beginning when lines r parsed, so the real barcode sequence is never stored
         std::unordered_map<std::string, std::string > treatmentDict;
+        bool mapFeatureNames = true; //if FeatureCounting shall map feature barcodes to names or not
+        //e.g.: for scRNAseq we assign gene names previously and do not need to map barcodes to names, for AB-barcodes this might still be necessary
         std::unordered_map<std::string, std::string > proteinDict;
         std::unordered_map<std::string, std::string > classDict;
 };

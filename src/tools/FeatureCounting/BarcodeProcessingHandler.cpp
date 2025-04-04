@@ -24,15 +24,29 @@ double calcualtePercentages(std::vector<unsigned long long> groups, int num, dou
     return(-1);
 }
 
-void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, NBarcodeInformation& barcodeIdData, 
-                          std::vector<std::string>& proteinDict, const int& protIdx, 
-                          const std::string& umiSingleCellIdx,
-                          std::vector<std::string>* treatmentDict, const int& treatmentIdx)
+bool endsWithTxt(const std::string& filename) 
 {
-    //parse barcode file into a vector of a vector of all sequences
-    std::vector<std::vector<std::string> > barcodeList;
-    std::ifstream barcodeFileStream(barcodeFile);
-    for(std::string line; std::getline(barcodeFileStream, line);)
+    return filename.size() >= 4 && filename.substr(filename.size() - 4) == ".txt";
+}
+
+int isUMICol(const std::string& str) 
+{
+    std::regex pattern(R"(^(\d+)X$)");
+    std::smatch match;
+    
+    if (std::regex_match(str, match, pattern)) 
+    {
+        return std::stoi(match[1]); 
+    }
+    return 0;
+}
+
+void parseVariableBarcodeFile(const std::string& file, std::unordered_map<int, std::vector<std::string>>& barcodeList, int colIdx)
+{
+    std::ifstream barcodeFileStream(file);
+
+    std::string line;
+    while (std::getline(barcodeFileStream, line)) 
     {
         std::string delimiter = ",";
         std::string seq;
@@ -70,10 +84,59 @@ void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, N
                     }
         }
         seqVector.push_back(seq);
-        barcodeList.push_back(seqVector);
+        barcodeList.insert(std::make_pair(colIdx, seqVector));
         seqVector.clear();
     }
-    barcodeFileStream.close();
+}
+
+std::vector<std::string> parseFeatureNames(const std::string& featureFile) {
+    std::vector<std::string> result;
+    std::stringstream ss(featureFile);
+    std::string item;
+    while (std::getline(ss, item, ',')) 
+    {
+        result.push_back(item);
+    }
+    return result;
+}
+
+void generateBarcodeDicts(const std::string& headerLine, const std::string& barcodeDir, std::string barcodeIndices, BarcodeInformation& barcodeIdData, 
+                          std::vector<std::string>& proteinNamelist, const int& featureIdx, 
+                          std::vector<std::string>* treatmentDict, const int& treatmentIdx)
+{
+    //parse barcode file into a vector of a vector of all sequences
+    std::vector<std::string> barcodeHeader;
+
+    //iterate through the header of the input file
+    std::stringstream ss(headerLine);
+    std::string colName;
+    //iterate over columns
+    int colIdx = 0;
+
+    //PROCESS HEADERS
+    std::unordered_map<int, std::vector<std::string>> barcodeList; //maps column number -> all barcodes: e.g. 2 -> variables barcode sin BC1.txt, ...
+    while (std::getline(ss, colName, '\t')) 
+    {
+        //STORE ALL HEADERS
+        barcodeHeader.push_back(colName);
+
+        //MAPPING OF COLIDX -> LIST OF ALL BARCODES (STRINGS)
+        if(endsWithTxt(colName))
+        {
+            parseVariableBarcodeFile(barcodeDir + "/" + colName, barcodeList, colIdx);
+        }
+        else
+        {
+            //MAP OF COLIDX to UMI, UMILENGTH
+            int umiLen = isUMICol(colName);
+            if(umiLen)
+            {
+                barcodeIdData.umiIdx.push_back(colIdx);
+                barcodeIdData.umiLength += umiLen;
+            }
+        }
+        ++colIdx;
+    }
 
     //if we have CombinatorialIndexing lines, parse the single cell IDs
     if(barcodeIndices != "")
@@ -81,94 +144,75 @@ void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, N
         //parse the indices of CI-barcodes (the index of the lines that store CI-barcodes)
         std::stringstream ss;
         ss.str(barcodeIndices);
+
+        // barcodeIdData.scBarcodeIndices contains a list of all COLIDX for sc assignment
         while(ss.good())
         {
             std::string substr;
             getline(ss, substr, ',' );
-            barcodeIdData.NBarcodeIndices.push_back(stoi(substr));
+            barcodeIdData.scBarcodeIndices.push_back(stoi(substr));
+            if(!endsWithTxt(barcodeHeader.at(stoi(substr))))
+            {
+                std::cout << "Column " << barcodeHeader.at(stoi(substr)) << " is the " << substr << " th column and no txt-file!!\n";
+                std::cout << "Every column for a single-cell ID must be a \'variable barcode\' to assign single-cells!\n";
+                std::cout << "Therefore, provide a txt-file with a whitelist of barcodes that are used as single-cell IDs!\n";
+                exit(EXIT_FAILURE);
+            }
         }
-        //write a mapping of barcode sequence to a unique number for each
-        //CI barcoding round
-        for(const int& i : barcodeIdData.NBarcodeIndices)
+
+        std::cout << "Assinging single-cells according to columns: ";
+        for(int i = 0; i < barcodeIdData.scBarcodeIndices.size()-1; ++i)
+        {
+            std::cout << barcodeHeader.at(barcodeIdData.scBarcodeIndices.at(i)) << ",";
+        }
+        std::cout << barcodeHeader.at(barcodeIdData.scBarcodeIndices.back());
+        std::cout << "\n";
+        
+        //make map colIdx -> (map: barcode string -> number)
+        //iterate over colIdx for scID
+        for(int scIdx : barcodeIdData.scBarcodeIndices)
         {
             int barcodeCount = 0;
             std::unordered_map<std::string, int> barcodeMap;
-            //for all options of this barcode
-            for(const std::string& barcodeEntry : barcodeList.at(i))
+            //map all barcode strings to numbers
+            for(const std::string& barcodeEntry : barcodeList.at(scIdx))
             {
-                barcodeMap.insert(std::pair<std::string, int>(barcodeEntry,barcodeCount));
+                barcodeMap.insert(std::pair<std::string, int>(barcodeEntry, barcodeCount));
                 ++barcodeCount;
             }
-            barcodeIdData.barcodeIdDict.push_back(barcodeMap);
+            barcodeIdData.barcodeIdMaps.push_back(barcodeMap);
         }
     }
-    else if(umiSingleCellIdx != "")
+
+    if(!endsWithTxt(barcodeHeader.at((treatmentIdx))))
     {
-        //store the barcode Index for UMI-like single cell Id
-        barcodeIdData.UMIBarcodeIndex = stoi(umiSingleCellIdx);
-        //do not store any predifined barcode-to-number dicts
-        //it will belater written on-the-fly
-        barcodeIdData.umiSingleCellIdx = true;
+        std::cout << "Column " << barcodeHeader.at((treatmentIdx)) << " is the " << treatmentIdx << " th column and no txt-file!!\n";
+        std::cout << "Every column for a treatment assignment must be a \'variable barcode\' to assign single-cells!\n";
+        std::cout << "Therefore, provide a txt-file with a whitelist of barcodes that are used as single-cell IDs!\n";
+        exit(EXIT_FAILURE);
     }
+    std::cout << "Assigning treatment to column: " << barcodeHeader.at(treatmentIdx) << "\n";
+    barcodeIdData.treatmentIdx = treatmentIdx;
 
-    barcodeIdData.NTreatmentIdx = treatmentIdx;
-    barcodeIdData.NAbIdx = protIdx;
+    if(!endsWithTxt(barcodeHeader.at((featureIdx))))
+    {
+        std::cout << "Column " << barcodeHeader.at((featureIdx)) << " is the " << featureIdx << " th column and no txt-file!!\n";
+        std::cout << "Every column for a feature assignment must be a \'variable barcode\' to assign single-cells!\n";
+        std::cout << "Therefore, provide a txt-file with a whitelist of barcodes that are used as single-cell IDs!\n";
+        exit(EXIT_FAILURE);
+    }
+    std::cout << "Assigning feature to column: " << barcodeHeader.at(featureIdx) << "\n";
+    barcodeIdData.featureIdx = featureIdx;
 
-    proteinDict = barcodeList.at(protIdx);
-
-    if(treatmentIdx!=INT_MAX)
+    proteinNamelist = barcodeList.at(featureIdx);
+    if(treatmentIdx!=-1)
     {
         *treatmentDict = barcodeList.at(treatmentIdx);
     }
-}
-
-void BarcodeProcessingHandler::generate_unique_sc_to_class_dict(const std::unordered_map< const char*, 
-                                                                std::unordered_map< const char*, UnorderedSetCharPtr>>& scClasseCountDict)
-{
-    std::unordered_map< const char*, const char*> scClassDict;
-
-    //calculate real class for each single cell
-    std::unordered_map< const char*, std::unordered_map< const char*, UnorderedSetCharPtr>>::const_iterator it;
-    for (it = scClasseCountDict.begin(); it != scClasseCountDict.end(); it++)
-    {
-        //count the read for each class for the single cell
-        std::unordered_map< const char*, UnorderedSetCharPtr>::const_iterator it2;
-        unsigned long long totalReads = 0;
-        unsigned long long realReads = 0;
-        for(it2 = it->second.begin(); it2 != it->second.end(); it2++)
-        {
-            totalReads += it2->second.size();
-        }
-        //check if any class represents more than 90% of reads
-        const char* realClass = nullptr;
-        bool foundUniqueClass = false;
-        for(it2 = it->second.begin(); it2 != it->second.end(); it2++)
-        {
-            if( (it2->second.size()/totalReads) >= 0.9 )
-            {
-                realClass = it2->first;
-                realReads = it2->second.size();
-                foundUniqueClass = true;
-            }
-        }
-
-        //add class for single cell to dict
-        if(foundUniqueClass)
-        {
-            scClassDict.insert(std::pair<const char*, const char*>(it->first, realClass));
-            guideCountPerSC.insert(std::make_pair(it->first, realReads));
-        }
-        else
-        {
-            result.add_removed_class_for_single_cell();
-        }
-    }
-
-    rawData.set_cell_to_class_dict(scClassDict);
 
 }
 
-void BarcodeProcessingHandler::parse_combined_file(const std::string fileName, const int& thread)
+void BarcodeProcessingHandler::parse_barcode_file(const std::string fileName, const int& thread)
 {
     unsigned long long totalReads = totalNumberOfLines(fileName);
     unsigned long long currentReads = 0;
@@ -184,205 +228,34 @@ void BarcodeProcessingHandler::parse_combined_file(const std::string fileName, c
     inbuf.push(file);
     std::istream instream(&inbuf);
     
-    std::unordered_map< const char*, std::unordered_map< const char*, UnorderedSetCharPtr>> scClasseCountDict;
-    parseBarcodeLines(&instream, totalReads, currentReads, scClasseCountDict);
-
-    //finally add the class of each single cell if we also have class labels (e.g. guide data)
-    if(rawData.check_class())
-    {
-        generate_unique_sc_to_class_dict(scClasseCountDict);
-    }
+    parseBarcodeLines(&instream, totalReads, currentReads);
 
     file.close();
 }
 
-void BarcodeProcessingHandler::parse_file_seperately(const std::string fileName, const int& thread, 
-                                         std::unordered_map< const char*, std::unordered_map< const char*, UnorderedSetCharPtr>>* scClasseCountDict)
-{
-    unsigned long long totalReads = totalNumberOfLines(fileName);
-    unsigned long long currentReads = 0;
-    //open gz file
-    if(!endWith(fileName,".gz"))
-    {
-        std::cerr << "Input file must be gzip compressed\n";
-        exit(EXIT_FAILURE);
-    }
-    std::ifstream file(fileName, std::ios_base::in | std::ios_base::binary);
-    boost::iostreams::filtering_streambuf<boost::iostreams::input> inbuf;
-    inbuf.push(boost::iostreams::gzip_decompressor());
-    inbuf.push(file);
-    std::istream instream(&inbuf);
-    
-    parse_barcode_lines_seperately(&instream, totalReads, currentReads, scClasseCountDict);
-
-    file.close();
-}
-
-void BarcodeProcessingHandler::parse_barcode_lines_seperately(std::istream* instream, const unsigned long long& totalReads, unsigned long long& currentReads, 
-                                                 std::unordered_map< const char*, std::unordered_map< const char*, UnorderedSetCharPtr>>* scClasseCountDict)
+void BarcodeProcessingHandler::parseBarcodeLines(std::istream* instream, const unsigned long long& totalReads, unsigned long long& currentReads)
 {
     std::string line;
     std::cout << "STEP[1/3]\t(READING ALL LINES INTO MEMORY)\n";
     int count = 0;
     int elements = 0; //check that each row has the correct number of barcodes
-    unsigned long long abReadCount = 0;
-    unsigned long long guideReadCount = 0;
+    unsigned long long readCount = 0;
     while(std::getline(*instream, line))
     {
-        //for the first read check the positions in the string that refer to CIBarcoding positions
+        //Skip the header line
         if(currentReads==0)
         {
-            ++currentReads;
-            fastqReadBarcodeIdx.clear();
-            getBarcodePositions(line, elements);
-            continue;
-        }
-
-        add_line_to_temporary_data(line, elements, scClasseCountDict, abReadCount, guideReadCount);   
-
-        double perc = currentReads/ (double)totalReads;
-        ++currentReads;
-        printProgress(perc);        
-    }
-
-    if(scClasseCountDict == nullptr)
-    {
-        result.set_total_ab_reads(abReadCount);
-    }
-    else
-    {
-        result.set_total_guide_reads(guideReadCount);
-    }
-
-    printProgress(1);
-    std::cout << "\n";
-}
-
-void BarcodeProcessingHandler::add_line_to_temporary_data(const std::string& line, const int& elements,
-   std::unordered_map< const char*, std::unordered_map< const char*, UnorderedSetCharPtr>>* scClasseCountDict,
-   unsigned long long& abReadCount, unsigned long long& guideReadCount)
-{
-    //split the line into barcodes
-    std::vector<std::string> result;
-    std::stringstream ss;
-    ss.str(line);
-    std::string substr;
-
-    while(getline( ss, substr, '\t' ))
-    {
-        if(substr != ""){result.push_back( substr );}
-    }
-    if(result.size() != elements)
-    {
-        std::cout << "Warning in barcode file, following row has not the correct number of sequences: " << line << "\n";
-        return;
-    }
-
-    //hand over the UMI string, ab string, singleCellstring (concatenation of CIbarcodes)
-    std::vector<std::string> ciBarcodes;
-    for(int i : fastqReadBarcodeIdx)
-    {
-        ciBarcodes.push_back(result.at(i));
-    }
-    std::string singleCellIdx = generateSingleCellIndexFromBarcodes(ciBarcodes);
-    std::string proteinName = "";
-    if(scClasseCountDict == nullptr)
-    {
-        proteinName = rawData.getProteinName(result.at(abIdx));
-    }
-    else
-    {
-        std::string name = rawData.getClassName(result.at(abIdx));
-
-        ++guideReadCount;
-        const char* umiSeq;
-        std::string umiSeqString;
-        if(!umiIdx.empty())
-        {
-            for(int idx : umiIdx)
+            std::stringstream ss(line);
+            std::string item;
+            while (std::getline(ss, item, '\t')) 
             {
-                std::string tmpUmi = result.at(idx).c_str();
-                umiSeqString = umiSeqString + tmpUmi;
+                elements++;
             }
-            umiSeq = umiSeqString.c_str();
-        }
-        else
-        {
-            umiSeq = nullptr;
-        }
-
-        rawData.add_tmp_class_line(name, singleCellIdx, *scClasseCountDict, umiSeq);
-        return;
-    }
-    
-    std::string treatment = "";
-    if(treatmentIdx != INT_MAX)
-    {
-        treatment = rawData.getTreatmentName(result.at(treatmentIdx));
-    }
-
-    ++abReadCount;
-    const char* umiSeq;
-    //if there is a UMI and also we should filter reads by the fact that a UMI should belong only to one SC-AB
-    //the also create a UMI-SCAB Dict for filtering
-    //(this is only useful if we expected the data to be extremely noisy or so shallow that there no
-    //UMI-clashes: e.g. for debugging of CI experiments with many barcode recombinations to reduce erroneous reads)
-    if(!umiIdx.empty() && umiRemoval)
-    {
-        std::string umiSeqString;
-        for(int idx : umiIdx)
-        {
-            std::string tmpUmi = result.at(idx).c_str();
-            umiSeqString = umiSeqString + tmpUmi;
-        }
-        umiSeq = umiSeqString.c_str();
-
-        rawData.add_to_umiDict(umiSeq, proteinName, singleCellIdx, treatment);
-    }
-    //otherwise add reads directly to dict of ScAb to reads
-    else
-    {
-        rawData.add_to_scAbDict("", proteinName, singleCellIdx, treatment);
-    }
-}
-
-void BarcodeProcessingHandler::parse_ab_and_guide_file(const std::string abFileName, 
-                                                   const std::string guideFileName, 
-                                                   const int& thread)
-{
-    //parse AB file
-    parse_file_seperately(abFileName, thread, nullptr);
-
-    //parse guide file
-    //finally add the class of each single cell
-    std::unordered_map< const char*, std::unordered_map< const char*, UnorderedSetCharPtr>> scClasseCountDict;
-    parse_file_seperately(guideFileName, thread, &scClasseCountDict);
-    generate_unique_sc_to_class_dict(scClasseCountDict);
-
-    //combine results
-    result.set_total_reads(result.get_log_data().totalAbReads + result.get_log_data().totalGuideReads); //minus header line
-}
-
-void BarcodeProcessingHandler::parseBarcodeLines(std::istream* instream, const unsigned long long& totalReads, unsigned long long& currentReads, 
-                                                 std::unordered_map< const char*, std::unordered_map< const char*, UnorderedSetCharPtr>>& scClasseCountDict)
-{
-    std::string line;
-    std::cout << "STEP[1/3]\t(READING ALL LINES INTO MEMORY)\n";
-    int count = 0;
-    int elements = 0; //check that each row has the correct number of barcodes
-    unsigned long long abReadCount = 0;
-    unsigned long long guideReadCount = 0;
-    while(std::getline(*instream, line))
-    {
-
-        //for the first read check the positions in the string that refer to CIBarcoding positions
-        if(currentReads==0){
             ++currentReads; 
-            getBarcodePositions(line, elements);
             continue;
         }
 
-        add_line_to_temporary_data(line, elements, scClasseCountDict, abReadCount, guideReadCount);   
+        add_line_to_temporary_data(line, elements, readCount);   
 
         double perc = currentReads/ (double)totalReads;
         ++currentReads;
@@ -390,16 +263,13 @@ void BarcodeProcessingHandler::parseBarcodeLines(std::istream* instream, const u
     }
 
     result.set_total_reads(currentReads-1); //minus header line
-    result.set_total_ab_reads(abReadCount);
-    result.set_total_guide_reads(guideReadCount);
+    result.set_total_ab_reads(readCount);
 
     printProgress(1);
     std::cout << "\n";
 }
 
-void BarcodeProcessingHandler::add_line_to_temporary_data(const std::string& line, const int& elements,
-   std::unordered_map< const char*, std::unordered_map< const char*, UnorderedSetCharPtr>>& scClasseCountDict,
-   unsigned long long& abReadCount, unsigned long long& guideReadCount)
+void BarcodeProcessingHandler::add_line_to_temporary_data(const std::string& line, const int& elements, unsigned long long& readCount)
 {
     //split the line into barcodes
     std::vector<std::string> result;
@@ -419,96 +289,54 @@ void BarcodeProcessingHandler::add_line_to_temporary_data(const std::string& lin
 
     //hand over the UMI string, ab string, singleCellstring (concatenation of CIbarcodes)
     std::vector<std::string> ciBarcodes;
-    for(int i : fastqReadBarcodeIdx)
+    //CiBarcodes are added in order of the scBarcodeIndices, this order must always be respected!!!
+    for(int i : barcodeInformation.scBarcodeIndices)
     {
         ciBarcodes.push_back(result.at(i));
     }
     std::string singleCellIdx = generateSingleCellIndexFromBarcodes(ciBarcodes);
 
-    std::string proteinName = "";
-    if(rawData.check_class())
-    {
-        bool classLine = false;
-        std::string name = rawData.get_protein_or_class_name(result.at(abIdx), classLine);
-        if(classLine)
-        {
-            ++guideReadCount;
-
-            const char* umiSeq;
-            if(!umiIdx.empty())
-            {
-                std::string umiSeqString;
-                for(int idx : umiIdx)
-                {
-                    std::string tmpUmi = result.at(idx).c_str();
-                    umiSeqString = umiSeqString + tmpUmi;
-                }
-                umiSeq = umiSeqString.c_str();
-            }
-            else
-            {
-                umiSeq = nullptr;
-            }
-
-            rawData.add_tmp_class_line(name, singleCellIdx, scClasseCountDict, umiSeq);
-            return;
-        }
-        else
-        {
-            proteinName = name;
-        }
-    }
-    else
-    {
-        proteinName = rawData.getProteinName(result.at(abIdx));
-    }
+    std::string featureName = "";
+    featureName = rawData.getFeatureName(result.at(barcodeInformation.featureIdx));
     
     std::string treatment = "";
-    if(treatmentIdx != INT_MAX)
+    if(barcodeInformation.treatmentIdx != INT_MAX)
     {
-        treatment = rawData.getTreatmentName(result.at(treatmentIdx));
+        treatment = rawData.getTreatmentName(result.at(barcodeInformation.treatmentIdx));
     }
 
-    ++abReadCount;
+    ++readCount;
     const char* umiSeq;
     //if there is a UMI and also we should filter reads by the fact that a UMI should belong only to one SC-AB
     //the also create a UMI-SCAB Dict for filtering
     //(this is only useful if we expected the data to be extremely noisy or so shallow that there no
     //UMI-clashes: e.g. for debugging of CI experiments with many barcode recombinations to reduce erroneous reads)
-    if(!umiIdx.empty() && umiRemoval)
+    if(!barcodeInformation.umiIdx.empty() && umiRemoval)
     {
         std::string umiSeqString;
-        for(int idx : umiIdx)
+        for(int idx : barcodeInformation.umiIdx)
         {
             std::string tmpUmi = result.at(idx).c_str();
             umiSeqString = umiSeqString + tmpUmi;
         }
         umiSeq = umiSeqString.c_str();
 
-        rawData.add_to_umiDict(umiSeq, proteinName, singleCellIdx, treatment);
+        rawData.add_to_umiDict(umiSeq, featureName, singleCellIdx, treatment);
     }
     //otherwise add reads directly to dict of ScAb to reads
     else
     {
-        rawData.add_to_scAbDict("", proteinName, singleCellIdx, treatment);
+        rawData.add_to_scAbDict("", featureName, singleCellIdx, treatment);
     }
 }
 
-std::string BarcodeProcessingHandler::generateSingleCellIndexFromBarcodes(std::vector<std::string> ciBarcodes)
+std::string BarcodeProcessingHandler::generateSingleCellIndexFromBarcodes(const std::vector<std::string>& ciBarcodes)
 {
     std::string scIdx;
-
-    if(varyingBarcodesPos.umiSingleCellIdx)
+    for(int i = 0; i < barcodeInformation.scBarcodeIndices.size(); ++i)
     {
-        assert( (ciBarcodes.size() == 1) && "If we have one single (UMI-like) single cell pattern we can have ONLY ONE \
-        barcode for a single cell with the pattern-descriptor: [X]");
-        return(ciBarcodes.at(0));
-    }
-
-    for(int i = 0; i < ciBarcodes.size(); ++i)
-    {
-        std::string barcodeAlternative = ciBarcodes.at(i);
-        int tmpIdx = varyingBarcodesPos.barcodeIdDict.at(i)[barcodeAlternative];
+        //first is the column idx of the barcode, second is the actual barcode that we want to map to a number
+        int tmpIdx = (barcodeInformation.barcodeIdMaps.at(i)).at(ciBarcodes.at(i));
         scIdx += std::to_string(tmpIdx);
         if(i < ciBarcodes.size() - 1)
         {
@@ -517,66 +345,6 @@ std::string BarcodeProcessingHandler::generateSingleCellIndexFromBarcodes(std::v
     }
 
     return scIdx;
-}
-
-void BarcodeProcessingHandler::getBarcodePositions(const std::string& line, int& barcodeElements)
-{
-    std::vector<std::string> result;
-    std::stringstream ss;
-    ss.str(line);
-    int count = 0;
-    int variableBarcodeCount = 0;
-    std::string substr;
-    while(std::getline(ss, substr, '\t'))
-    {
-        if(substr.empty()){continue;}
-        //if substr is only N's
-        if(substr.find_first_not_of('N') == std::string::npos)
-        {
-            //add index for treatment
-            if(variableBarcodeCount == varyingBarcodesPos.NTreatmentIdx)
-            {
-                treatmentIdx = count;
-            }
-            //add index for combinatorial indexing barcode
-            if (std::count(varyingBarcodesPos.NBarcodeIndices.begin(), varyingBarcodesPos.NBarcodeIndices.end(), variableBarcodeCount)) 
-            {
-                fastqReadBarcodeIdx.push_back(count);
-            }
-            if(variableBarcodeCount == varyingBarcodesPos.NAbIdx)
-            {
-                abIdx = count;
-            }
-            ++variableBarcodeCount;
-        }
-        else if(substr.find_first_not_of('X') == std::string::npos)
-        {
-            //in case we have a SINGLE UMI-like singleCell Id
-            //this ID is marked by a UMI-pattern [X]
-            if(varyingBarcodesPos.umiSingleCellIdx)
-            {
-                if(count == varyingBarcodesPos.UMIBarcodeIndex)
-                {
-                    fastqReadBarcodeIdx.push_back(count);
-                }
-            }
-            umiIdx.push_back(count);
-            umiLength = strlen(substr.c_str());
-        }
-        result.push_back( substr );
-        ++count;
-    }
-    barcodeElements = count;
-    if(!varyingBarcodesPos.umiSingleCellIdx)
-    {
-        assert(fastqReadBarcodeIdx.size() == varyingBarcodesPos.NBarcodeIndices.size());
-    }
-    else
-    {
-        assert( (fastqReadBarcodeIdx.size() == 1) && "For UMI-like single cell barcodes, so far ONLY ONE single cell ID-pattern is allowed!");
-    }
-    //assert(!umiIdx.empty());  we now allow also analyses without UMI
-    assert(abIdx != INT_MAX);
 }
 
 //all reads of the same UMI are combined -> written to a dict for an AB of a unique cell (this read is stored only once, there can already be seen
@@ -746,7 +514,7 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
             //reads get a value for dsitance to UMi length (one Base plus minus gets same value)
             //and are then sorted in decreasing fashion (when comparing UMIs a UMI of length umilength is chosen first)
             //to minimize erros bcs e.g. three reads are within 2MM but we choose one UMI out the outer end regarding MM
-            sort(scAbCounts.rbegin(), scAbCounts.rend(), less_than_umi(umiLength, umiMap));
+            sort(scAbCounts.rbegin(), scAbCounts.rend(), less_than_umi(barcodeInformation.umiLength, umiMap));
         }
         //we take always last element in vector of read of same AB and SC ID
         //then store all reads wwhere UMIs are within distance, and delete those line, and sum up the AB count by one
@@ -756,7 +524,7 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
             int lastIdx = scAbCounts.size() - 1;
 
             //check if we have to delete element anyways, bcs umi is too long
-            if( std::abs(int( strlen(lastAbSc->umiSeq) - umiLength )) >  umiMismatches)
+            if( std::abs(int( strlen(lastAbSc->umiSeq) - barcodeInformation.umiLength )) >  umiMismatches)
             {
                 //scAbCounts.pop_back();
                 //continue;
@@ -915,7 +683,6 @@ void BarcodeProcessingHandler::writeLog(std::string output)
     outputFile << "Lost SINGLECELL->CLASS mappings because guide reads for single cell were not unique(>=90% reads for same CLASS):\t" << result.get_log_data().removedClasses << "\n";
 
     outputFile.close();
-
 }
 
 void BarcodeProcessingHandler::writeAbCountsPerSc(const std::string& output)

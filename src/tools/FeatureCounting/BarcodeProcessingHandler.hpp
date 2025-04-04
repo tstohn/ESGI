@@ -11,6 +11,7 @@
 #include <sstream>
 #include <climits>
 #include <mutex>
+#include <regex>
 
 #include <boost/iostreams/filtering_streambuf.hpp>
 #include <boost/iostreams/copy.hpp>
@@ -27,25 +28,22 @@
  *        for this sequence (this is done seperately for each barcoding round)
  * 
  *        It also stores also the indices for Ci-barcodes, AB, treatment.
- *        These indices indicate the position within the file of all barcodes. So only the position
- *        among all barcodes with the [NNN...] pattern - this data is used to then get the position in the
- *        full dataLine of Demultiplexed file.
+ *        It stores the indices (0-indexed) that contain information of the whole tsv file
+ *        (an index is the position in the barcode tsv file)
  */
-struct NBarcodeInformation
+struct BarcodeInformation
 {
-    // map of barcode to id, maps are in order of their occurence in the fastqRead
-    // ids of the CI barcode within the barcode file (includes only barcodes for variable sequence regions)
-    std::vector<std::unordered_map<std::string, int> > barcodeIdDict; //used to generate a SC-index
+    // mapping ColumnIdx -> map(barcodes -> number)
+    //these dicts are in order of scBarcodeIndices!!!!
+    std::vector<std::unordered_map<std::string, int>> barcodeIdMaps; //used to generate a SC-index
     
     //different indices, they r the index of the NNN-barcodes only (and therefore differe from the index of all barcodes incl. constant ones)
-    std::vector<int> NBarcodeIndices; //CI barcode indices
-    int NTreatmentIdx; // treatment index
-    int NAbIdx; //AB index
-
-    bool umiSingleCellIdx = false; //in case we have no Combinatorial Indexing but ONE truely unique (UMI-like)
-    //single cell barcode (described with a UMI-sequence [X])
-    int UMIBarcodeIndex; //the single barcode Index used for the UMI-like single cell ID
-    //be careful: in this case NBarcodeIndices should not be set
+    std::vector<int> scBarcodeIndices; //CI barcode indices
+    int treatmentIdx = -1; // treatment index
+    int featureIdx = 1; //AB index
+    
+    std::vector<int> umiIdx; //UMI index
+    int umiLength = 0; //the sum of lengths for all UMIs
 };
 
 //data type to represent final processed AB counts per single cell
@@ -230,11 +228,10 @@ class Results
  *        save positions for CI-barocdes, AB, treatment barcode within the
  *        file of barcodes (position among all varying barcodes with [NNN...] pattern)
  */
-void generateBarcodeDicts(std::string barcodeFile, std::string barcodeIndices, 
-                          NBarcodeInformation& barcodeIdData, 
-                          std::vector<std::string>& proteinDict, const int& protIdx, 
-                          const std::string& umiSingleCellIdx,
-                          std::vector<std::string>* treatmentDict = nullptr, const int& treatmentIdx = 0);
+void generateBarcodeDicts(const std::string& headerLine, const std::string& barcodeDir, std::string barcodeIndices, 
+                          BarcodeInformation& barcodeIdData, 
+                          std::vector<std::string>& proteinNamelist, const int& protIdx, 
+                          std::vector<std::string>* treatmentDict = nullptr, const int& treatmentIdx = -1);
 
 /**
  * @brief A class to handle the processing of the demultiplexed data. 
@@ -255,12 +252,9 @@ class BarcodeProcessingHandler
 
     public:
 
-        BarcodeProcessingHandler(NBarcodeInformation barcodeIdData) : varyingBarcodesPos(barcodeIdData){}
+        BarcodeProcessingHandler(BarcodeInformation barcodeInformationInput) : barcodeInformation(barcodeInformationInput){}
 
-        void parse_combined_file(const std::string fileName, const int& thread);
-        void parse_ab_and_guide_file(const std::string abFileName, 
-                                 const std::string guideFileName, 
-                                 const int& thread);
+        void parse_barcode_file(const std::string fileName, const int& thread);
 
         //counts AB and UMIs per single cell, data is stored in result (also saves basic information about processing
         //like removed reads, mismatched UMIs, etc.)
@@ -291,19 +285,19 @@ class BarcodeProcessingHandler
         }
         const std::vector<int> getCIBarcodeIdx() const
         {
-            return(fastqReadBarcodeIdx);
+            return(barcodeInformation.scBarcodeIndices);
         }
         const int getAbIdx() const
         {
-            return(abIdx);
+            return(barcodeInformation.featureIdx);
         }
         const std::vector<int> getUmiIdx() const
         {
-            return(umiIdx);
+            return(barcodeInformation.umiIdx);
         }
         const int getTreatmentIdx() const
         {
-            return(treatmentIdx);
+            return(barcodeInformation.treatmentIdx);
         }
         void setUmiFilterThreshold(double threshold)
         {
@@ -323,21 +317,9 @@ class BarcodeProcessingHandler
         //parse the file, store each line in UnprocessedDemultiplexedData structure (ABs, treatment is already stored as a name,
         // single cells are defined by a dot seperated list of indices)
         void add_line_to_temporary_data(const std::string& line, const int& elements,
-                                        std::unordered_map< const char*, std::unordered_map< const char*, UnorderedSetCharPtr>>& scClasseCountDict,
-                                        unsigned long long& abReadCount, unsigned long long& guideReadCount);
-        void parseBarcodeLines(std::istream* instream, const unsigned long long& totalReads, unsigned long long& currentReads,
-                               std::unordered_map< const char*, std::unordered_map< const char*, UnorderedSetCharPtr>>& scClasseCountDict);
+                                        unsigned long long& readCount);
+        void parseBarcodeLines(std::istream* instream, const unsigned long long& totalReads, unsigned long long& currentReads);
         
-        //a couple of overloaded frunctions to read AB and guide demultiplexed lines seperately (ToDo: delete old function taking also ONE file with both data)
-        void add_line_to_temporary_data(const std::string& line, const int& elements,
-                                   std::unordered_map< const char*, std::unordered_map< const char*, UnorderedSetCharPtr>>* scClasseCountDict,
-                                   unsigned long long& abReadCount, unsigned long long& guideReadCount);
-        void parse_barcode_lines_seperately(std::istream* instream, const unsigned long long& totalReads, unsigned long long& currentReads, 
-                          std::unordered_map< const char*, std::unordered_map< const char*, UnorderedSetCharPtr>>* scClasseCountDict);
-        void parse_file_seperately(const std::string fileName, const int& thread, 
-                  std::unordered_map< const char*, std::unordered_map< const char*, 
-                  UnorderedSetCharPtr>>* scClasseCountDict);
-
         //check if a read is in 'dataLinesToDelete' (not-unique UMI for this read)
         bool checkIfLineIsDeleted(const dataLinePtr& line, const std::vector<dataLinePtr>& dataLinesToDelete);
         //stores a real unique read in a dict for the corresponding AB-SC (only read with UMI presence > 90 considered)
@@ -367,11 +349,7 @@ class BarcodeProcessingHandler
         void getBarcodePositions(const std::string& line, int& barcodeElements);
 
         //map all the barcodes of CI to a unique 'number' string as SingleCellIdx
-        std::string generateSingleCellIndexFromBarcodes(std::vector<std::string> ciBarcodes);
-
-        //functions processing the class labels for single cells (obtained by guide reads)
-        void generate_unique_sc_to_class_dict(const std::unordered_map< const char*, 
-                                              std::unordered_map< const char*, UnorderedSetCharPtr>>& scClasseCountDict);
+        std::string generateSingleCellIndexFromBarcodes(const std::vector<std::string>& ciBarcodes);
 
         void combine_ab_and_guide_data(std::vector<dataLine>& abDataLines,
                                        const std::unordered_map< const char*, const char*>& scClassMap);
@@ -389,13 +367,7 @@ class BarcodeProcessingHandler
 
         // DATA STRUCTURES FOR PARSING DEMULTIPLEXED DATA
         //stores all the indices of variable barcodes in the barcode file (among all barcodes of [NNN...] pattern)
-        NBarcodeInformation varyingBarcodesPos;
-        // variables to read the data from each fastq line
-        std::vector<int> fastqReadBarcodeIdx; // ids of the CI barcode within the whole pattern of all barcodes
-        int abIdx = INT_MAX;
-        std::vector<int> umiIdx;
-        int treatmentIdx = INT_MAX;
-        int umiLength = 0;
+        BarcodeInformation barcodeInformation;
 
         double umiFilterThreshold = 0.0;
         bool scMustHaveClass = true;

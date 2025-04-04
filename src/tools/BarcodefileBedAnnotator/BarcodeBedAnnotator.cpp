@@ -106,6 +106,7 @@ void BarcodeBedAnnotator::processBarcodeFile()
 
     std::string line;
     std::getline(barcodeFileStream, line);
+    annotatedFileStream << line << "\t" << "FEATURE" << "\n";  // Write to output file
 
     while (std::getline(barcodeFileStream, line)) 
     {
