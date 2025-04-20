@@ -101,7 +101,7 @@ std::vector<std::string> parseFeatureNames(const std::string& featureFile) {
 }
 
 void generateBarcodeDicts(const std::string& headerLine, const std::string& barcodeDir, std::string barcodeIndices, BarcodeInformation& barcodeIdData, 
-                          std::vector<std::string>& proteinNamelist, const int& featureIdx, 
+                          std::vector<std::string>& proteinNamelist, bool parseAbBarcodes, const int& featureIdx, 
                           std::vector<std::string>* treatmentDict, const int& treatmentIdx)
 {
     //parse barcode file into a vector of a vector of all sequences
@@ -151,13 +151,6 @@ void generateBarcodeDicts(const std::string& headerLine, const std::string& barc
             std::string substr;
             getline(ss, substr, ',' );
             barcodeIdData.scBarcodeIndices.push_back(stoi(substr));
-            if(!endsWithTxt(barcodeHeader.at(stoi(substr))))
-            {
-                std::cout << "Column " << barcodeHeader.at(stoi(substr)) << " is the " << substr << " th column and no txt-file!!\n";
-                std::cout << "Every column for a single-cell ID must be a \'variable barcode\' to assign single-cells!\n";
-                std::cout << "Therefore, provide a txt-file with a whitelist of barcodes that are used as single-cell IDs!\n";
-                exit(EXIT_FAILURE);
-            }
         }
 
         std::cout << "Assinging single-cells according to columns: ";
@@ -184,27 +177,19 @@ void generateBarcodeDicts(const std::string& headerLine, const std::string& barc
         }
     }
 
-    if(!endsWithTxt(barcodeHeader.at((treatmentIdx))))
+    if(treatmentIdx!=-1)
     {
-        std::cout << "Column " << barcodeHeader.at((treatmentIdx)) << " is the " << treatmentIdx << " th column and no txt-file!!\n";
-        std::cout << "Every column for a treatment assignment must be a \'variable barcode\' to assign single-cells!\n";
-        std::cout << "Therefore, provide a txt-file with a whitelist of barcodes that are used as single-cell IDs!\n";
-        exit(EXIT_FAILURE);
+        std::cout << "Assigning treatment to column: " << barcodeHeader.at(treatmentIdx) << "\n";
+        barcodeIdData.treatmentIdx = treatmentIdx;    
     }
-    std::cout << "Assigning treatment to column: " << barcodeHeader.at(treatmentIdx) << "\n";
-    barcodeIdData.treatmentIdx = treatmentIdx;
 
-    if(!endsWithTxt(barcodeHeader.at((featureIdx))))
-    {
-        std::cout << "Column " << barcodeHeader.at((featureIdx)) << " is the " << featureIdx << " th column and no txt-file!!\n";
-        std::cout << "Every column for a feature assignment must be a \'variable barcode\' to assign single-cells!\n";
-        std::cout << "Therefore, provide a txt-file with a whitelist of barcodes that are used as single-cell IDs!\n";
-        exit(EXIT_FAILURE);
-    }
     std::cout << "Assigning feature to column: " << barcodeHeader.at(featureIdx) << "\n";
     barcodeIdData.featureIdx = featureIdx;
 
-    proteinNamelist = barcodeList.at(featureIdx);
+    if(parseAbBarcodes)
+    {
+        proteinNamelist = barcodeList.at(featureIdx);
+    }
     if(treatmentIdx!=-1)
     {
         *treatmentDict = barcodeList.at(treatmentIdx);
@@ -300,7 +285,7 @@ void BarcodeProcessingHandler::add_line_to_temporary_data(const std::string& lin
     featureName = rawData.getFeatureName(result.at(barcodeInformation.featureIdx));
     
     std::string treatment = "";
-    if(barcodeInformation.treatmentIdx != INT_MAX)
+    if(barcodeInformation.treatmentIdx != -1)
     {
         treatment = rawData.getTreatmentName(result.at(barcodeInformation.treatmentIdx));
     }
@@ -333,6 +318,14 @@ void BarcodeProcessingHandler::add_line_to_temporary_data(const std::string& lin
 std::string BarcodeProcessingHandler::generateSingleCellIndexFromBarcodes(const std::vector<std::string>& ciBarcodes)
 {
     std::string scIdx;
+    if(scIdString)
+    {
+        for(int i=0; i < ciBarcodes.size(); ++i)
+        {
+            scIdx += ciBarcodes.at(i);
+        }
+        return scIdx;
+    }
     for(int i = 0; i < barcodeInformation.scBarcodeIndices.size(); ++i)
     {
         //first is the column idx of the barcode, second is the actual barcode that we want to map to a number

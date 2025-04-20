@@ -34,7 +34,7 @@ using namespace boost::program_options;
 bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& outFile, int& threats, 
                      std::string& barcodeDir, std::string& barcodeIndices, int& umiMismatches,
                      std::string& abFile, int& featureIdx, std::string& treatmentFile, int& treatmentIdx,
-                     double& umiThreshold, bool& umiRemoval)
+                     double& umiThreshold, bool& umiRemoval,  bool& scIdString)
 {
     try
     {
@@ -62,7 +62,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             ("umiThreshold,f", value<double>(&umiThreshold)->default_value(0.0), "threshold for filtering UMIs. E.g. if set to 0.9 we only retain reads of a UMI, if more \
             than 90percent of them have the same SC-AB combination. All other reads are deleted. Keep at 0 if UMIs should not be removed.")
             ("umiRemoval,z", value<bool>(&umiRemoval)->default_value(true), "Set to false if UMIs should NOT be collapsed.")
-
+            ("scIdAsString,s", value<bool>(&scIdString)->default_value(false), "Stores the single-cell ID not as an id for the barcode, but as the actual string.")
 
             ("help,h", "help message");
 
@@ -165,6 +165,7 @@ int main(int argc, char** argv)
     int umiMismatches;
     double umiThreshold = -1;
     bool umiRemoval = true;
+    bool scIdAsString = false;
 
     //data for protein(ab) and treatment information
     std::string abFile; 
@@ -177,7 +178,7 @@ int main(int argc, char** argv)
     if(!parse_arguments(argv, argc, inFile, outFile, thread, 
                         barcodeDir, barcodeIndices, umiMismatches, 
                         abFile, featureIdx, treatmentFile, treatmentIdx,
-                        umiThreshold, umiRemoval))
+                        umiThreshold, umiRemoval, scIdAsString))
     {
         exit(EXIT_FAILURE);
     }
@@ -200,7 +201,9 @@ int main(int argc, char** argv)
 
     if (file.is_open() && std::getline(instream, firstLine)) 
     {  
-        generateBarcodeDicts(firstLine, barcodeDir, barcodeIndices, barcodeIdData, abBarcodes, featureIdx, &treatmentBarcodes, treatmentIdx);
+        bool parseAbBarcodes = true;
+        if(abFile.empty()){parseAbBarcodes = false;}
+        generateBarcodeDicts(firstLine, barcodeDir, barcodeIndices, barcodeIdData, abBarcodes, parseAbBarcodes, featureIdx, &treatmentBarcodes, treatmentIdx);
     } 
     else 
     {
@@ -212,6 +215,7 @@ int main(int argc, char** argv)
     BarcodeProcessingHandler dataParser(barcodeIdData);
     if(umiThreshold != -1){dataParser.setUmiFilterThreshold(umiThreshold);}
     dataParser.setumiRemoval(umiRemoval);
+    dataParser.setSingleCellIdStyle(scIdAsString);
 
     //generate dictionaries to map sequences to the real names of Protein/ treatment/ etc...
     std::unordered_map<std::string, std::string > featureMap;
@@ -222,7 +226,7 @@ int main(int argc, char** argv)
 
     //featureMap is empty if the feature name should stay as they are (no mapping of e.g. barcodes to proteins)
     dataParser.addProteinData(featureMap);
-    if(!treatmentFile.empty())
+    if(!treatmentFile.empty() && treatmentIdx != -1)
     {
         std::unordered_map<std::string, std::string > treatmentMap = generateTreatmentDict(treatmentFile, treatmentIdx, treatmentBarcodes);
         dataParser.addTreatmentData(treatmentMap);

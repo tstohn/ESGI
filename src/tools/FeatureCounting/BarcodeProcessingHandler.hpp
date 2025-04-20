@@ -230,7 +230,7 @@ class Results
  */
 void generateBarcodeDicts(const std::string& headerLine, const std::string& barcodeDir, std::string barcodeIndices, 
                           BarcodeInformation& barcodeIdData, 
-                          std::vector<std::string>& proteinNamelist, const int& protIdx, 
+                          std::vector<std::string>& proteinNamelist, bool parseAbBarcodes, const int& featureIdx, 
                           std::vector<std::string>* treatmentDict = nullptr, const int& treatmentIdx = -1);
 
 /**
@@ -311,6 +311,10 @@ class BarcodeProcessingHandler
         {
             umiRemoval = umiRemovalTmp;
         }
+        void setSingleCellIdStyle(bool scIdStringTmp)
+        {
+            scIdString = scIdStringTmp;
+        }
 
     private:
 
@@ -372,4 +376,5 @@ class BarcodeProcessingHandler
         double umiFilterThreshold = 0.0;
         bool scMustHaveClass = true;
         bool umiRemoval = true;
+        bool scIdString = false;
 };
