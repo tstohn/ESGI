@@ -43,6 +43,7 @@ struct BarcodeInformation
     int featureIdx = 1; //AB index
     
     std::vector<int> umiIdx; //UMI index
+    int umiMismatches;
     int umiLength = 0; //the sum of lengths for all UMIs
 };
 
@@ -231,7 +232,8 @@ class Results
 void generateBarcodeDicts(const std::string& headerLine, const std::string& barcodeDir, std::string barcodeIndices, 
                           BarcodeInformation& barcodeIdData, 
                           std::vector<std::string>& proteinNamelist, bool parseAbBarcodes, const int& featureIdx, 
-                          std::vector<std::string>* treatmentDict = nullptr, const int& treatmentIdx = -1);
+                          std::vector<std::string>* treatmentDict = nullptr, const int& treatmentIdx = -1,
+                          std::string umiIdx = "", int umiMismatches = 1);
 
 /**
  * @brief A class to handle the processing of the demultiplexed data. 
@@ -262,7 +264,7 @@ class BarcodeProcessingHandler
         //1.) retain only reads for UMI has for more than 90% same Ab-Sc-Treatment
         //2.) retain only reads for SC where reads have more than 90% same treatment
         //3.) collapse same UMI reads with correcting mismatches in UMI for default 2 mismatches
-        void processBarcodeMapping(const int& umiMismatches, const int& thread);
+        void processBarcodeMapping(const int& thread);
 
         void writeLog(std::string output);
         void writeAbCountsPerSc(const std::string& output);
@@ -303,9 +305,9 @@ class BarcodeProcessingHandler
         {
             umiFilterThreshold = threshold;
         }
-        void setScClassConstaint(bool scMustHaveClass)
+        void setScClassConstaint(bool scMustHaveClassTmp)
         {
-            scMustHaveClass = scMustHaveClass;
+            scMustHaveClass = scMustHaveClassTmp;
         }
         void setumiRemoval(bool umiRemovalTmp)
         {
@@ -339,15 +341,14 @@ class BarcodeProcessingHandler
         void count_umi_occurence(std::vector<int>& positionsOfSameUmi, 
                                                    umiCount& umiLineTmp,
                                                    const std::vector<dataLinePtr>& allScAbCounts,
-                                                   const int& umiMismatches,
                                                    const int& lastIdx);
         //count the ABs per single cell (iterating over reads for a AB-SC combination and summing them, this is already a sparse vector)
         //reads of same UMI are collapsed before
-        void count_abs_per_single_cell(const int& umiMismatches, const std::vector<dataLinePtr>& uniqueAbSc,
+        void count_abs_per_single_cell(const std::vector<dataLinePtr>& uniqueAbSc,
                                                         std::atomic<unsigned long long>& count,
                                                         const unsigned long long& totalCount,
                                                         std::shared_ptr<std::unordered_map<const char*, std::vector<umiDataLinePtr>, 
-                    CharHash, CharPtrComparator>>& umiMap);
+                                                        CharHash, CharPtrComparator>>& umiMap);
 
         //get positions of all barcodes in the lines of demultiplexed data
         void getBarcodePositions(const std::string& line, int& barcodeElements);

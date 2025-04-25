@@ -73,10 +73,11 @@ bool parse_arguments(char** argv, int argc, input& input)
 
             ("output,o", value<std::string>(&(input.outPath))->required(), "output file with all split barcodes")
 
-            //("sequencePattern,p", value<std::string>(&(input.patternLine))->required(), "pattern for the sequence to match, \
-            every substring that should be matched is enclosed with square brackets. N is a barcode match, X is a wild card match \
-            and D is a transcriptome read (e.g. cDNA), * is a stop sign (must be enclosed in brackets [*] and then mapping stops at this position \
-            on both sides from FW and RV read): [AGCTATCACGTAGC][XXXXXXXXXX][NNNNNN][AGAGCATGCCTTCAG][NNNNNN]")
+            //removed: old parameter for seuqence pattern: its now parsed directly form the demultiplexed output
+            /*("sequencePattern,p", value<std::string>(&(input.patternLine))->required(), "pattern for the sequence to match, 
+            every substring that should be matched is enclosed with square brackets. N is a barcode match, X is a wild card match 
+            and D is a transcriptome read (e.g. cDNA), * is a stop sign (must be enclosed in brackets [*] and then mapping stops at this position 
+            on both sides from FW and RV read): [AGCTATCACGTAGC][XXXXXXXXXX][NNNNNN][AGAGCATGCCTTCAG][NNNNNN]")*/
 
             ("barcodePatternsFile,p", value<std::string>(&(input.barcodePatternsFile))->required(), "patterns for the sequences to match, every substring that should be matched is enclosed with square brackets. \
             Linker sequences of known barcodes can be 'hard-coded', e.g. [ACGTCAG], for variable barcodes one can add a file path, e.g.[data/barcodes.txt] with comma seperated possible barcodes that can be found at this position(the barcodes can be of variable lengths), [10X] is a wild card match with 10 random bases (e.g., for UMIs) and [DNA] is a transcriptome read (e.g. cDNA), [*] is a stop sign/random sequence part that will also not be mapped, and [-] seperates forward and reverse read. ALL signs (also [*] and [-] must be enclosed in brackets). \

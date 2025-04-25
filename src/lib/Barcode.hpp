@@ -98,8 +98,11 @@ class Barcode
     public:
     //per default the length of a barcode is set to 0 (unknown), only for UMIs it must be set
     Barcode(std::string name, int inMismatches, int inLength = 0) : name(name), mismatches(inMismatches), length(inLength) {}
-    int mismatches;
+    //virtual destructor, needed to be called when destructing classes that inherit from Barcode
+    virtual ~Barcode() = default;
+
     std::string name;
+    int mismatches;
     unsigned int length; //length of zero means the length of this barcode is unknown
 
     //reverse complement is a Barcode function that should be available globally
@@ -143,10 +146,11 @@ class ConstantBarcode : public Barcode
 {
 
     public:
-    ConstantBarcode(std::string inPattern, int inMismatches) : pattern(inPattern),Barcode(inPattern, inMismatches) 
+    ConstantBarcode(std::string inPattern, int inMismatches) : Barcode(inPattern, inMismatches), pattern(inPattern)
     {
         revCompPattern = generate_reverse_complement(pattern);
     }
+
     bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, std::string& realBarcode, 
                        int& differenceInBarcodeLength, bool startCorrection = false, bool reverse = false,
                        bool fullLengthMapping = false)
@@ -287,7 +291,7 @@ class VariableBarcode : public Barcode
 {
 
     public:
-    VariableBarcode(std::vector<std::string> inPatterns, std::string name, int inMismatches) : patterns(inPatterns), Barcode(name, inMismatches) 
+    VariableBarcode(std::vector<std::string> inPatterns, std::string name, int inMismatches) : Barcode(name, inMismatches), patterns(inPatterns)
     {
         for(std::string pattern : patterns)
         {
@@ -528,7 +532,7 @@ class WildcardBarcode : public Barcode
 class StopBarcode : public Barcode
 {
     public:
-    StopBarcode(std::string inPattern, int inMismatches) : pattern(inPattern),Barcode("*", inMismatches) {}
+    StopBarcode(std::string inPattern, int inMismatches) : Barcode("*", inMismatches),pattern(inPattern) {}
     bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, std::string& realBarcode, 
                        int& differenceInBarcodeLength, bool startCorrection = false, bool reverse = false, bool fullLengthMapping = false)
     {
@@ -554,7 +558,7 @@ class StopBarcode : public Barcode
 class ReadSeperatorBarcode : public Barcode
 {
     public:
-    ReadSeperatorBarcode(std::string inPattern, int inMismatches) : pattern(inPattern),Barcode("-", inMismatches) {}
+    ReadSeperatorBarcode(std::string inPattern, int inMismatches) : Barcode("-", inMismatches),pattern(inPattern) {}
     bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, std::string& realBarcode, 
                        int& differenceInBarcodeLength, bool startCorrection = false, bool reverse = false, bool fullLengthMapping = false)
     {

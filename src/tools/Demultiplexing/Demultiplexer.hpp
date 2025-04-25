@@ -1,6 +1,6 @@
 #pragma once
 
-#include "OutputFileWriter.hpp"
+#include "DemultiplexedResult.hpp"
 
 /** @brief class to map several barcode Patterns simultaneously, 
  * and handles writing of results/ or storage in RAM
@@ -26,7 +26,7 @@ class Demultiplexer : private Mapping<MappingPolicy, FilePolicy>
         //theadID maps to a vector of ordered fileStreams for every pattern in the order of
         //the inout file. ASSURE THE RIGHT ORDER!! We explicitely do not use the patternNames
         //to avoid another string-hash as we can also simply keep the order of patterns
-        OutputFileWriterPtr fileWriter;
+        DemultiplexedResultPtr fileWriter;
 
         //dictionary mapping the barcodePattern-name to the file in which to write it in the end (final output)
         std::vector<std::string> outputFileNames;

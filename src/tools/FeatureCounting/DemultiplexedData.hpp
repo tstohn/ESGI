@@ -222,8 +222,8 @@ class UnprocessedDemultiplexedData
             std::string abScIdxStr = std::string((oldLine->abName)) + std::string((oldLine->scID));
             const char* abScIdxChar = uniqueChars->getUniqueChar(abScIdxStr.c_str());
 
-            std::string singleCell = std::string((oldLine->scID));
-            const char* singleCellChar = uniqueChars->getUniqueChar(singleCell.c_str());
+            //std::string singleCell = std::string((oldLine->scID));
+            //const char* singleCellChar = uniqueChars->getUniqueChar(singleCell.c_str());
             
             //remove all the old unnecessary lines from the dicts
             remove(positionsOfUmiPtr->at(oldUmi).begin(), positionsOfUmiPtr->at(oldUmi).end(), oldLine);

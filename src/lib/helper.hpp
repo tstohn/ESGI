@@ -39,7 +39,7 @@ inline unsigned long long totalNumberOfLines(std::string fileName)
     while(!gzeof(fp))
     {
         gzread(fp, buffer, 999);
-        for (const char &c : buffer) 
+        for (const unsigned char &c : buffer) 
         {
             if ( c == '\n' )
             {
@@ -111,19 +111,6 @@ struct input{
     
     long long int fastqReadBucketSize = 10000000;
     int threads = 5;
-};
-
-struct fastqStats{
-    //parameters that are evaluated over the whole fastq line
-    //e.g. perfect match occurs only if ALL barcodes match perfectly in a fastq line
-    std::atomic<unsigned long long> perfectMatches = 0;
-    std::atomic<unsigned long long> noMatches = 0;
-    std::atomic<unsigned long long> moderateMatches = 0;
-    //parameter stating how often a barcode sequence could be matched to several sequences, can occure more than once per line
-    //can only happen for vairable sequences
-    //a dictionary of the number of mismatches in a barcode, in the case of a match
-    std::map<std::string, std::vector<int> > mapping_dict;
-    std::unique_ptr<std::mutex> statsLock;
 };
 
 struct levenshtein_value{

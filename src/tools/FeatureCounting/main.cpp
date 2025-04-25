@@ -32,7 +32,8 @@ using namespace boost::program_options;
  * */
 
 bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& outFile, int& threats, 
-                     std::string& barcodeDir, std::string& barcodeIndices, int& umiMismatches,
+                     std::string& barcodeDir, std::string& barcodeIndices, 
+                     std::string umiIdx, int& umiMismatches,
                      std::string& abFile, int& featureIdx, std::string& treatmentFile, int& treatmentIdx,
                      double& umiThreshold, bool& umiRemoval,  bool& scIdString)
 {
@@ -43,27 +44,30 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             ("input,i", value<std::string>(&inFile)->required(), "input file of demultiplexed reads for ABs in Single cells in tsv.gz format (input must be gzipped)")
             ("output,o", value<std::string>(&outFile)->required(), "output file with all split barcodes")
 
-            ("barcodeDir,b", value<std::string>(&(barcodeDir)), "directory where all the barcode files are (the files itself are in the header of the inFile")
-            ("antibodyList,a", value<std::string>(&(abFile)), "file with a list of all antbodies used, should be in same order as the ab-barcodes in the barcodeList.")
+            ("barcodeDir,d", value<std::string>(&(barcodeDir)), "directory where all the barcode files are (the files itself are in the header of the inFile")
             
+            ("antibodyList,a", value<std::string>(&(abFile)), "file with a list of all antbodies (protein names) used, should be in same order as the ab-barcodes in the barcodeList.")
             ("featureIndex,x", value<int>(&featureIdx)->required(), "Index used for feature counting. This is the index of the column that should be used for features (0 indexed)")
-            ("groupList,d", value<std::string>(&(treatmentFile)), "file with a list of all groups (e.g.treatments) used, should be in same order as the specific arcodes in the barcodeList. \
+            
+            ("groupList,g", value<std::string>(&(treatmentFile)), "file with a list of all groups (e.g.treatments) used, should be in same order as the specific barcodes in the barcodeList. \
             If this argument is given, you must also add the index of barcodes used for grouping")
-            ("GroupingIndex,y", value<int>(&treatmentIdx), "Index used to group cells(e.g. by treatment). This is the x-th barcode from the barcodeFile (0 indexed).")
+            ("groupingIndex,y", value<int>(&treatmentIdx), "Index used to group cells(e.g. by treatment). This is the x-th barcode from the barcodeFile (0 indexed).")
 
-            ("CombinatorialIndexingBarcodeIndices,c", value<std::string>(&(barcodeIndices))->default_value(""), "comma seperated list of indexes, that are used during \
-            combinatorial indexing and should distinguish a unique cell. Be aware that this is the index of the line inside the barcodeList file (see above). \
+            ("singleCellIndices,s", value<std::string>(&(barcodeIndices))->default_value(""), "comma seperated list of indexes, that are used for \
+            single-cell assignment (e.g., combinatorial indexing) and should distinguish a unique cell. Be aware that this is the index of the line inside the barcodeList file (see above). \
             This file ONLY includes lines for the varying sequences (except UMI). Therefore the index is not the same as the position in the whole sequence \
             if constant or UMI-seq are present. Index starts with zero.")
 
-            ("mismatches,u", value<int>(&umiMismatches)->default_value(1), "number of allowed mismatches in a UMI. The nucleotides in the beginning and end do NOT count.\
-            Since the UMI is defined as the sequence between the last and first match of neighboring sequences, bases of mismatches could be in the beginning/ end.")
-            ("thread,t", value<int>(&threats)->default_value(5), "number of threads")
+            ("umiIndex,u", value<std::string>(&umiIdx)->default_value(""), "list of indices used as unique molecular identifier (UMI). This can be several columns. indices are 0-indexed. \
+            If this parameter is not given all columns with an X from the pattern-input-file (e.g., [10X]) are used as UMI.")
+            ("mismatches,z", value<int>(&umiMismatches)->default_value(1), "number of allowed mismatches in a UMI. If there are several UMI-barcodes in one sequence\
+            the sequences are concatenated and the whole sequence is aligned to other UMI-seuqences by THIS ONE MISMATCH NUMBER.")
             ("umiThreshold,f", value<double>(&umiThreshold)->default_value(0.0), "threshold for filtering UMIs. E.g. if set to 0.9 we only retain reads of a UMI, if more \
             than 90percent of them have the same SC-AB combination. All other reads are deleted. Keep at 0 if UMIs should not be removed.")
             ("umiRemoval,z", value<bool>(&umiRemoval)->default_value(true), "Set to false if UMIs should NOT be collapsed.")
             ("scIdAsString,s", value<bool>(&scIdString)->default_value(false), "Stores the single-cell ID not as an id for the barcode, but as the actual string.")
 
+            ("thread,t", value<int>(&threats)->default_value(5), "number of threads")
             ("help,h", "help message");
 
         variables_map vm;
@@ -94,6 +98,12 @@ std::unordered_map<std::string, std::string > generateProteinDict(std::string ab
     std::vector<std::string> proteinNames;
 
     std::ifstream abFileStream(abFile);
+    if (!abFileStream.is_open()) 
+    {
+        std::cerr << "Error: Failed to open antibody file" << abFile << ". Please double check if the file exists.\n";
+        exit(EXIT_FAILURE);
+    }
+
     for(std::string line; std::getline(abFileStream, line);)
     {
         std::string delimiter = ",";
@@ -128,6 +138,12 @@ std::unordered_map<std::string, std::string > generateTreatmentDict(std::string 
     std::vector<std::string> treatmentNames;
 
     std::ifstream treatmentFileStream(treatmentFile);
+    if (!treatmentFileStream.is_open()) 
+    {
+        std::cerr << "Error: Failed to open cell-grouping file" << treatmentFile << ". Please double check if the file exists.\n";
+        exit(EXIT_FAILURE);
+    }
+
     for(std::string line; std::getline(treatmentFileStream, line);)
     {
         std::string delimiter = ",";
@@ -174,9 +190,10 @@ int main(int argc, char** argv)
     int treatmentIdx = -1;
     std::vector<std::string> abBarcodes;
     std::vector<std::string> treatmentBarcodes;
+    std::string umiIdx;
 
     if(!parse_arguments(argv, argc, inFile, outFile, thread, 
-                        barcodeDir, barcodeIndices, umiMismatches, 
+                        barcodeDir, barcodeIndices, umiIdx, umiMismatches, 
                         abFile, featureIdx, treatmentFile, treatmentIdx,
                         umiThreshold, umiRemoval, scIdAsString))
     {
@@ -203,11 +220,11 @@ int main(int argc, char** argv)
     {  
         bool parseAbBarcodes = true;
         if(abFile.empty()){parseAbBarcodes = false;}
-        generateBarcodeDicts(firstLine, barcodeDir, barcodeIndices, barcodeIdData, abBarcodes, parseAbBarcodes, featureIdx, &treatmentBarcodes, treatmentIdx);
+        generateBarcodeDicts(firstLine, barcodeDir, barcodeIndices, barcodeIdData, abBarcodes, parseAbBarcodes, featureIdx, &treatmentBarcodes, treatmentIdx, umiIdx, umiMismatches);
     } 
     else 
     {
-        std::cerr << "Error reading input file or file is empty!" << std::endl;
+        std::cerr << "Error reading input file or file is empty! Please double check if the file exists:" << inFile << std::endl;
         exit(EXIT_FAILURE);
     }
     file.close();
@@ -239,7 +256,7 @@ int main(int argc, char** argv)
     dataParser.parse_barcode_file(inFile, thread);
 
     //further process the data (correct UMIs, collapse same UMIs, etc.)
-    dataParser.processBarcodeMapping(umiMismatches, thread);
+    dataParser.processBarcodeMapping(thread);
     dataParser.writeLog(outFile);
     dataParser.writeAbCountsPerSc(outFile);
 

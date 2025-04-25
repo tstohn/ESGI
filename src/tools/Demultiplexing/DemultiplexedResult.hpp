@@ -35,18 +35,18 @@ struct thread_id_hash {
   */
   // ONE FAiledFile per thread -> in the end combined into one
   // for every thread a map of pattern (which contains DNA) to its DNA/BARCODE file
-  class OutputFileWriter
+  class DemultiplexedResult
   {
       public:
   
           //the final files are created upon initilization
           //HOWEVER, tmp files per thread need to be created when the thread-pool is set up
-          OutputFileWriter(const input& input, const MultipleBarcodePatternVectorPtr& barcodePatternList)
+          DemultiplexedResult(const input& input, const MultipleBarcodePatternVectorPtr& barcodePatternList)
           {
               //initialze the names/ headers of final output files for each pattern
               initialize(input, barcodePatternList);
               //thread-dependent tmp files are initialized later
-              //but initialyze the mutax for the htread initialization, which has to be shared for copy-construction of the outputFilewriter
+              //but initialyze the mutax for the htread initialization, which has to be shared for copy-construction of the DemultiplexedResult
               threadFileOpenerMutex = std::make_unique<std::mutex>();
               threadWaitingMutex = std::make_unique<std::mutex>();
   
@@ -107,21 +107,32 @@ struct thread_id_hash {
           // 4.) for every thread, fo every pattern (with DNA) close the tmp-files, write to a final
           // DNa(fastq)&barcode(TSV) file, and delete tmp files (file per thread per dna-pattern)
           void write_output(const input& input);
+
+          void update_stats(OneLineDemultiplexingStatsPtr lineStatsPtr, bool result, std::string& foundPatternName, std::vector<std::string>& barcodeList);
   
+          unsigned long long get_perfect_matches() const
+          {
+            return(dxStat.get_perfect_matches());
+          }
+          unsigned long long get_moderat_matches() const
+          {
+            return(dxStat.get_moderat_matches());
+          }
+          unsigned long long get_failed_matches() const
+          {
+            return(dxStat.get_failed_matches());
+          }
+
       private:
   
-          void initialize_additional_output(const input& input);
+          void initialize_additional_output(const input& input, const MultipleBarcodePatternVectorPtr& barcodePatternList);
           void initialize_output_for_pattern(std::string output, const BarcodePatternPtr pattern);
           //initializes the files for output
           void initialize(const input& input, const MultipleBarcodePatternVectorPtr& barcodePatternList);
           void initialize_tmp_file(const int i);
-          
+
           //maps a patternName to a list of all demultipelx-reads found for this pattern
           std::unordered_map<std::string, DemultiplexedReadsPtr> demultiplexedReads;
-  
-          //names of final files
-          std::string barcodeMismatches; //stored and written in the end
-          std::string patternMismatches; // stored and written in the end
   
           //map of patternName to FinalPattern file struct 
           // the struct stores the names of the files per pattern: a demultiplexed barcode file or
@@ -134,6 +145,10 @@ struct thread_id_hash {
           std::unordered_map<boost::thread::id, std::unordered_map<std::string, TmpPatternStream>, thread_id_hash> tmpStreamMap;
           std::unordered_map<boost::thread::id, std::pair<std::shared_ptr<std::ofstream>,std::shared_ptr<std::ofstream>>, thread_id_hash> failedStreamMap;
          
+          //data structures storing statistics: this is filled in DemultiplexerResult after reads have been mapped
+          //in the mapping (BarcodeMapping.cpp) we fill a temporary object for one line
+          DemultiplexingStats dxStat;
+  
           //data structures for initialization of thread-specific temporary files
           std::unique_ptr<std::mutex> threadFileOpenerMutex;  //locking writing access to the above tmpStreamMap
           std::unique_ptr<std::mutex> threadWaitingMutex;  //locking the waiting locks to call every thread once
@@ -144,4 +159,4 @@ struct thread_id_hash {
           std::unique_ptr<std::condition_variable> cvPtr;
   
   };
-  typedef std::shared_ptr<OutputFileWriter> OutputFileWriterPtr; 
+  typedef std::shared_ptr<DemultiplexedResult> DemultiplexedResultPtr; 

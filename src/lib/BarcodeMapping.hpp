@@ -19,10 +19,10 @@
 #include <unordered_map>
 #include <filesystem>
 
-#include "Barcode.hpp"
 #include "seqtk/kseq.h"
 #include "dataTypes.hpp"
 #include "DemultiplexedLine.hpp"
+#include "DemultiplexedStatistics.hpp"
 
 KSEQ_INIT(gzFile, gzread)
 
@@ -35,7 +35,7 @@ class MapEachBarcodeSequentiallyPolicy
         bool split_line_into_barcode_patterns(
             const std::pair<fastqLine, fastqLine>& seq, 
             DemultiplexedLine& demultiplexedLine, const input& input,
-            BarcodePatternPtr barcodePatterns, fastqStats& stats);
+            BarcodePatternPtr barcodePatterns, OneLineDemultiplexingStatsPtr stats);
 };
 
 /** @brief like the sequential barcode mapping policy, for paired-end reads
@@ -45,13 +45,13 @@ class MapEachBarcodeSequentiallyPolicyPairwise
     private:
         bool map_forward(const fastqLine& seq, const input& input, 
                         BarcodePatternPtr barcodePatterns,
-                        fastqStats& stats,
+                        OneLineDemultiplexingStatsPtr stats,
                         DemultiplexedLine& demultiplexedLine,
                         uint& barcodePosition,
                         int& score_sum);
         bool map_reverse(const fastqLine& seq, const input& input, 
                         BarcodePatternPtr barcodePatterns,
-                        fastqStats& stats,
+                        OneLineDemultiplexingStatsPtr stats,
                         DemultiplexedLine& demultiplexedLine,
                         uint& barcodePosition,
                         int& score_sum);
@@ -60,14 +60,14 @@ class MapEachBarcodeSequentiallyPolicyPairwise
                              const uint& barcodePositionFw,
                              const DemultiplexedLine& demultiplexedLineRv,
                              const uint& barcodePositionRv,
-                             fastqStats& stats,
+                             OneLineDemultiplexingStatsPtr stats,
                              int& score_sum);
     public:
         bool split_line_into_barcode_patterns(
             const std::pair<fastqLine, fastqLine>& seq,  
             DemultiplexedLine& demultiplexedLine,
             const input& input, 
-            BarcodePatternPtr barcodePatterns, fastqStats& stats);
+            BarcodePatternPtr barcodePatterns, OneLineDemultiplexingStatsPtr stats);
 };
 
 /**
@@ -81,7 +81,7 @@ class MapAroundConstantBarcodesAsAnchorPolicy
             const std::pair<fastqLine, fastqLine>& seq, 
             DemultiplexedLine& demultiplexedLine,
             const input& input,
-            BarcodePatternPtr barcodePatterns, fastqStats& stats);
+            BarcodePatternPtr barcodePatterns, OneLineDemultiplexingStatsPtr stats);
         void map_pattern_between_linker(const std::string& seq, const int& oldEnd, const int& start, 
                                         BarcodePatternPtr barcodePatterns, std::vector<std::string>& barcodeList,
                                         int& barcodePosition, int& skippedBarcodes);
@@ -272,30 +272,7 @@ class Mapping : protected MappingPolicy, protected FilePolicy
 
             //lock to write progress in terminal
             printProgressLock = std::make_unique<std::mutex>();
-            stats.statsLock = std::make_unique<std::mutex>();
-
             barcodePatternList = std::make_shared<std::vector<BarcodePatternPtr>>();
-        }
-
-        ///number of perfect matches
-        const unsigned long long get_perfect_matches()
-        {
-            return stats.perfectMatches;
-        }
-        ///number of matches with mismatches
-        const unsigned long long get_moderat_matches()
-        {
-            return stats.moderateMatches;
-        }
-        ///number of failed matches
-        const unsigned long long get_failed_matches()
-        {
-            return stats.noMatches;
-        }
-        ///the dictionary of mismatches per barcode
-        const std::map<std::string, std::vector<int> > get_mismatch_dict()
-        {
-            return stats.mapping_dict;
         }
 
     private:
@@ -304,21 +281,16 @@ class Mapping : protected MappingPolicy, protected FilePolicy
         void parse_barcode_data(const input& input, std::vector<std::pair<std::string, char> >& patterns, std::vector<int>& mismatches, 
                                 std::vector<std::vector<std::string> >& varyingBarcodes);
 
-        //statistics of the mapping
-        fastqStats stats;
         //lock for update bar
         std::unique_ptr<std::mutex> printProgressLock;  
 
     protected:
 
-        //list of all the possible barcode patterns (this is supposed to replace the above two)
+        //list of all the possible barcode patterns
         MultipleBarcodePatternVectorPtr barcodePatternList;
         //dictionary mapping the barcodePattern-name to its list of succesfully demultiplexed reads
         std::vector<DemultiplexedReads> demultiplexReadsList;
 
-
-        //initialize the stats dictionary of mismatches per barcode
-        void initializeStats();
         //process all the input information and check for validity
         //e.g. delete old output files if present, parse barcode from barcodeFile, match them to their
         //number of mismatches etc.
@@ -353,6 +325,6 @@ class Mapping : protected MappingPolicy, protected FilePolicy
                               BarcodePatternPtr pattern,
                               const input& input, 
                               const unsigned long long& count, const unsigned long long& totalReadCount,
-                              bool guideMapping);
+                              OneLineDemultiplexingStatsPtr stats);
 
 };

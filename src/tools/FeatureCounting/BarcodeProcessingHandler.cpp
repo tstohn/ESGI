@@ -102,8 +102,29 @@ std::vector<std::string> parseFeatureNames(const std::string& featureFile) {
 
 void generateBarcodeDicts(const std::string& headerLine, const std::string& barcodeDir, std::string barcodeIndices, BarcodeInformation& barcodeIdData, 
                           std::vector<std::string>& proteinNamelist, bool parseAbBarcodes, const int& featureIdx, 
-                          std::vector<std::string>* treatmentDict, const int& treatmentIdx)
+                          std::vector<std::string>* treatmentDict, const int& treatmentIdx, std::string umiIdx,
+                          int umiMismatches)
 {
+
+    //parse UMI columns into temporary vector, when parsing header below check if the 
+    //index that we parsed here is indeed a umI col (e.g., 10X)
+    std::vector<int> tmpUmiIdices;
+    if(umiIdx != "")
+    {
+        std::stringstream ssUmi;
+        ssUmi.str(umiIdx);
+        // parse all the indices that r used for the UMI (can be several)
+        //when parsing the header make sure the umiIdices are indeed a random sequence
+        while(ssUmi.good())
+        {
+            std::string umiSubstr;
+            getline(ssUmi, umiSubstr, ',' );
+            tmpUmiIdices.push_back(stoi(umiSubstr));
+        }
+    }
+    //assign number of UMI mismatches
+    barcodeIdData.umiMismatches = umiMismatches;
+
     //parse barcode file into a vector of a vector of all sequences
     std::vector<std::string> barcodeHeader;
 
@@ -129,7 +150,14 @@ void generateBarcodeDicts(const std::string& headerLine, const std::string& barc
         {
             //MAP OF COLIDX to UMI, UMILENGTH
             int umiLen = isUMICol(colName);
-            if(umiLen)
+            bool isAssignedUmi;
+            if(umiIdx == ""){isAssignedUmi = true;}
+            else
+            {
+                isAssignedUmi = std::find(tmpUmiIdices.begin(), tmpUmiIdices.end(), colIdx) != tmpUmiIdices.end();
+            }
+            //the returned UMILEN is the length of the umi sequence, in case it is a UMI
+            if(umiLen && isAssignedUmi)
             {
                 barcodeIdData.umiIdx.push_back(colIdx);
                 barcodeIdData.umiLength += umiLen;
@@ -177,15 +205,27 @@ void generateBarcodeDicts(const std::string& headerLine, const std::string& barc
         }
     }
 
+    //print assigned grouping index
     if(treatmentIdx!=-1)
     {
         std::cout << "Assigning treatment to column: " << barcodeHeader.at(treatmentIdx) << "\n";
         barcodeIdData.treatmentIdx = treatmentIdx;    
     }
 
+    //print the used feature index
     std::cout << "Assigning feature to column: " << barcodeHeader.at(featureIdx) << "\n";
     barcodeIdData.featureIdx = featureIdx;
 
+    //print the used UMI indices
+    std::cout << "Using following columns as UMIs: ";
+    for(int colIdxForUMI : barcodeIdData.umiIdx)
+    {
+        std::cout << barcodeHeader.at(colIdxForUMI) << ",";
+    }
+    std::cout << "\n";
+    std::cout << "Aligning all UMI-sequences with" << std::to_string(barcodeIdData.umiMismatches) << " mismatches.\n";
+
+    //assign the final dictionaries of variable barcodes
     if(parseAbBarcodes)
     {
         proteinNamelist = barcodeList.at(featureIdx);
@@ -222,7 +262,6 @@ void BarcodeProcessingHandler::parseBarcodeLines(std::istream* instream, const u
 {
     std::string line;
     std::cout << "STEP[1/3]\t(READING ALL LINES INTO MEMORY)\n";
-    int count = 0;
     int elements = 0; //check that each row has the correct number of barcodes
     unsigned long long readCount = 0;
     while(std::getline(*instream, line))
@@ -438,7 +477,6 @@ void BarcodeProcessingHandler::markReadsWithNoUniqueUmi(const std::vector<umiDat
 void BarcodeProcessingHandler::count_umi_occurence(std::vector<int>& positionsOfSameUmi, 
                                                    umiCount& umiLineTmp,
                                                    const std::vector<dataLinePtr>& allScAbCounts,
-                                                   const int& umiMismatches,
                                                    const int& lastIdx)
 {
     unsigned long long numberAlignedUmis = 0;
@@ -451,14 +489,13 @@ void BarcodeProcessingHandler::count_umi_occurence(std::vector<int>& positionsOf
         const char* umia = allScAbCounts.at(lastIdx)->umiSeq;
         const char* umib = allScAbCounts.at(j)->umiSeq;
         int dist = INT_MAX;
-        int start = 0;
-        int end = 0;
-        bool similar = outputSense(umia, umib, umiMismatches, dist);
+        bool similar = outputSense(umia, umib, barcodeInformation.umiMismatches, dist);
 
         //if mismatches are within range, change UMI seq
         //the new 'correct' UMI sequence is the one of umiLength, if both r of
         //same length, its the first occuring UMI
-        if(dist <= umiMismatches)
+        //similar only if dist <= barcodeInformation.umiMismatches
+        if(similar)
         {
             if(dist > 0)
             {
@@ -474,7 +511,7 @@ void BarcodeProcessingHandler::count_umi_occurence(std::vector<int>& positionsOf
     result.add_umi_mismatches(numberAlignedUmis);
 }
 
-void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatches, const std::vector<dataLinePtr>& uniqueAbSc,
+void BarcodeProcessingHandler::count_abs_per_single_cell(const std::vector<dataLinePtr>& uniqueAbSc,
                                                         std::atomic<unsigned long long>& count,
                                                         const unsigned long long& totalCount,
                                                         std::shared_ptr<std::unordered_map<const char*, std::vector<umiDataLinePtr>, 
@@ -510,14 +547,14 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
             sort(scAbCounts.rbegin(), scAbCounts.rend(), less_than_umi(barcodeInformation.umiLength, umiMap));
         }
         //we take always last element in vector of read of same AB and SC ID
-        //then store all reads wwhere UMIs are within distance, and delete those line, and sum up the AB count by one
+        //then store all reads where UMIs are within distance, and delete those line, and sum up the AB count by one
         while(!scAbCounts.empty())
         {
             dataLinePtr lastAbSc = scAbCounts.back();
             int lastIdx = scAbCounts.size() - 1;
 
             //check if we have to delete element anyways, bcs umi is too long
-            if( std::abs(int( strlen(lastAbSc->umiSeq) - barcodeInformation.umiLength )) >  umiMismatches)
+            if( std::abs(int( strlen(lastAbSc->umiSeq) - barcodeInformation.umiLength )) >  barcodeInformation.umiMismatches)
             {
                 //scAbCounts.pop_back();
                 //continue;
@@ -543,9 +580,9 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
             //count all occurences of the last UMI for this AB-SC:
             // store the positions of other UMIs within umiMismatches to delete and not count
             //those to final sc AB count
-            if(umiMismatches > 0)
+            if(barcodeInformation.umiMismatches > 0)
             {
-                count_umi_occurence(deletePositions, umiLineTmp, scAbCounts, umiMismatches, lastIdx);
+                count_umi_occurence(deletePositions, umiLineTmp, scAbCounts, lastIdx);
             }
             deletePositions.push_back(lastIdx);
 
@@ -585,7 +622,7 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const int& umiMismatche
         ++count;
 }
 
-void BarcodeProcessingHandler::processBarcodeMapping(const int& umiMismatches, const int& thread)
+void BarcodeProcessingHandler::processBarcodeMapping(const int& thread)
 {
 
     //implement thread safe update functions for the data
@@ -632,8 +669,8 @@ void BarcodeProcessingHandler::processBarcodeMapping(const int& umiMismatches, c
     {
         //as above: abSc is copied only
         boost::asio::post(pool_3, std::bind(&BarcodeProcessingHandler::count_abs_per_single_cell, this, 
-                                          std::ref(umiMismatches), std::cref(it->second), 
-                                          std::ref(umiCount), std::cref(totalCount), std::ref(uniqueUmiMap) ));
+                                            std::cref(it->second), std::ref(umiCount), std::cref(totalCount), 
+                                            std::ref(uniqueUmiMap) ));
     }
     pool_3.join();
     printProgress(1);
