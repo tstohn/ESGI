@@ -106,6 +106,7 @@ std::pair<std::string, std::vector<std::string> > Mapping<MappingPolicy, FilePol
         {
             name = "PATTERN_" + std::to_string(number);
         }
+        name = '\'' + name + '\'';
 
         // parse one pattern line: e.g.: [ACGTTCAG][15X][file1.txt]
         std::string delimiter = "]";
@@ -405,29 +406,28 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
                                         OneLineDemultiplexingStatsPtr stats)
 {
 
-    //iterate over BarcodeMappingVector
-    int offset = 0;
-    int score_sum = 0;
+    //fastq-read specific variables
+    int positionInFastqLine = 0;
+    int totalEdits = 0;
 
-    int old_offset = offset;
-    unsigned int wildCardToFill = 0;
-    int wildCardLength = 0, differenceInBarcodeLength = 0;
+    //std::cout << "\n_____ \n";
     for(BarcodeVector::iterator patternItr = barcodePatterns->begin(); 
         patternItr < barcodePatterns->end(); 
         ++patternItr)
     {
 
-        //if we have a wildcard skip this matching, we match again the next sequence
+        //barcode-specific variables
+        std::string barcode = ""; //the actual real barcode that we find (mismatch corrected)
+        int del = 0; 
+        int ins = 0;
+        int subst = 0;
+        int targetEnd = 0;
+
+        //if we have a wildcard, just extract the necessary barcodes
         if((*patternItr)->is_wildcard())
         {
-            if(!wildCardToFill)
-            {
-                old_offset = offset;
-            }
-            wildCardLength = (*patternItr)->length;
-            offset += wildCardLength;
-            wildCardToFill += 1;
-            continue;
+            (*patternItr)->align(barcode, seq.first.line, positionInFastqLine, targetEnd, del, ins, subst);
+            positionInFastqLine += (targetEnd);
         }
         else if((*patternItr)->is_stop())
         {
@@ -447,8 +447,8 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
             }
 
             //set dna, quality (name was already set when getting next line to the name of forward read ONLY)
-            demultiplexedLine.dna = seq.first.line.substr(offset, seq.first.line.length()); //extract DNA fragment
-            demultiplexedLine.dnaQuality = seq.first.quality.substr(offset, seq.first.line.length()); //extract DNA fragment
+            demultiplexedLine.dna = seq.first.line.substr(positionInFastqLine, seq.first.line.length()); //extract DNA fragment
+            demultiplexedLine.dnaQuality = seq.first.quality.substr(positionInFastqLine, seq.first.line.length()); //extract DNA fragment
             demultiplexedLine.containsDNA = true;
         }
         else if((*patternItr)->is_read_end())
@@ -457,28 +457,27 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
             break;
         }
 
-        //for every barcodeMapping element find a match
-        std::string barcode = ""; //the actual real barcode that we find (mismatch corrected)
-        int start=0, end=0, score = 0;
-        bool startCorrection = false;
-        if(wildCardToFill){startCorrection = true;} // sart correction checks if we have to move our mapping window to the 5' direction
         // could happen in the case of deletions in the UMI sequence...
-        bool seqToShort = check_if_seq_too_short(offset, seq.first.line);
+        bool seqToShort = check_if_seq_too_short(positionInFastqLine, seq.first.line);
         if(seqToShort)
         {
+            //std::cout << "too short: " << positionInFastqLine << " " << seq.first.line.length() << "\n";
             //++stats->noMatches;
             return false;
         }
 
-        if(!(*patternItr)->match_pattern(seq.first.line, offset, start, end, score, barcode, differenceInBarcodeLength, startCorrection, false))
+        //std::cout << " trying " << seq.first.line << "\n";
+        if(!(*patternItr)->align(barcode, seq.first.line, positionInFastqLine, targetEnd, del, ins, subst))
         {
-            //++stats->noMatches;
+            //std::cout << '\t' << "FAIL at pos " << positionInFastqLine << "\n";
             return false;
         }
-        
-        std::string sequence = seq.first.line.substr(offset + start, end-start);
-        offset += end;
-        score_sum += score;
+
+        //std::cout << "ALIGN: found " << barcode << " at start " << positionInFastqLine << " with new end " << targetEnd << "\n";
+
+        totalEdits = totalEdits + del + ins + subst;
+        positionInFastqLine += targetEnd; //targetEnd is zero indexed alst position in target-sequence that maps to pattern
+        //positionInFastqLine is the first position to INCLUDE in next alignment
 
         assert(barcode != "");
         if(input.writeStats)
@@ -491,60 +490,23 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
             //++stats.mapping_dict[barcode].at(dictvectorIndex);
         }
         
-        //squeeze in the last wildcard match if there was one 
-        //(we needed both matches of neighboring barcodes to define wildcard boundaries)
-        if(wildCardToFill)
-        {
-            startCorrection = false;
-            std::string oldWildcardMappedBarcode = seq.first.line.substr(old_offset, (offset+start-end) - old_offset);
-            //barcodeMap.emplace_back(uniqueChars.  (oldWildcardMappedBarcode));
-            unsigned int lastWildcardEnd = 0; //in case we have several wildcards and need to know old offset
-            // to subset new string
-            while(wildCardToFill != 0)
-            {
-                BarcodeVector::iterator wildCardIt = patternItr;
-                int pos = -1 * wildCardToFill;
-                std::advance(wildCardIt, pos);
-                int currentWildcardLength = (*wildCardIt)->length;
-                //in case of deletions in UMI, we remove nucleotides from the last wildcard sequence
-                //for the last UMI sequence, we take the whole sequence (in case of insertions)
-
-                if( (lastWildcardEnd + currentWildcardLength) > oldWildcardMappedBarcode.length() || wildCardToFill == 1) 
-                {
-                    currentWildcardLength = oldWildcardMappedBarcode.length() - lastWildcardEnd;
-                }
-
-                std::string wildCardString = oldWildcardMappedBarcode.substr(lastWildcardEnd, currentWildcardLength);
-
-                demultiplexedLine.barcodeList.push_back(wildCardString);
-                wildCardToFill -= 1;
-
-                lastWildcardEnd += currentWildcardLength; // add the lengths of barcodes to the next offset position
-            }
-        }
         //add this match to the BarcodeMapping
         //barcodeMap.emplace_back(std::make_shared<std::string>(mappedBarcode));
         demultiplexedLine.barcodeList.push_back(barcode);
     }
-    //if the last barcode was a WIldcard that still has to be added:
-    //BE CAREFUL: for now this means there can be ONLY ONE UMI at the end of a sequence
-    if(wildCardToFill)
+
+    if(stats != nullptr)
     {
-        assert(wildCardToFill <= 1);
-        wildCardToFill = 0; // unnecessary, still left to explicitely set to false
-        std::string oldWildcardMappedBarcode = seq.first.line.substr(old_offset, seq.first.line.length() - old_offset);
-        //barcodeMap.emplace_back(std::make_shared<std::string>(oldWildcardMappedBarcode));
-        demultiplexedLine.barcodeList.push_back(oldWildcardMappedBarcode);
+        if(totalEdits == 0)
+        {
+            ++stats->perfectMatches;
+        }
+        else
+        {
+            ++stats->moderateMatches;
+        }
     }
 
-    if(score_sum == 0)
-    {
-        ++stats->perfectMatches;
-    }
-    else
-    {
-        ++stats->moderateMatches;
-    }
 
     return true;
 }
@@ -934,13 +896,16 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(const BarcodePatt
         }
     }
 
-    if(score_sum == 0)
+    if(stats != nullptr)
     {
-        ++stats->perfectMatches;
-    }
-    else
-    {
-        ++stats->moderateMatches;
+        if(score_sum == 0)
+        {
+            ++stats->perfectMatches;
+        }
+        else
+        {
+            ++stats->moderateMatches;
+        }
     }
 
     return true;
@@ -1103,7 +1068,10 @@ bool MapAroundConstantBarcodesAsAnchorPolicy::split_line_into_barcode_patterns(c
         //barcodeList.push_back(skippedBarcodeString);
     }
 
-    ++stats->perfectMatches;
+    if(stats != nullptr)
+    {
+        ++stats->perfectMatches;
+    }
 
     return true;
 }

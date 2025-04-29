@@ -165,13 +165,13 @@ void DemultiplexedResult::write_output(const input& input)
     //write all barcode-only files (data is still in memory at this point)
     for (const auto& [patternName, demultiplexedReadsPtrTmp] : demultiplexedReads) 
     {
-        write_demultiplexed_barcodes(input, demultiplexedReadsPtrTmp->get_all_reads(), patternName);
+        write_demultiplexed_barcodes(input, demultiplexedReadsPtrTmp->get_all_reads(), stripQuotes(patternName));
     }
     
     //write the results
     if(input.writeStats)
     {
-        dxStat.write(input.outPath);
+        dxStat.write(input.outPath, input.prefix);
     }
 }
 
@@ -184,7 +184,12 @@ void DemultiplexedResult::initialize_additional_output(const input& input,
     //we need to initialize 1 or 2 files for failed lines - depending on paired/ single read
     if(input.reverseFile == "")
     {
-        failedLines.first = input.outPath + "/FailedLines.txt";
+        std::string failedLinesName = "FailedLines.txt";
+        if(input.prefix != "")
+        {
+            failedLinesName = input.prefix + "_" + failedLinesName;
+        }
+        failedLines.first = input.outPath + "/" + failedLinesName;
         failedLines.second = "";
 
         std::remove(failedLines.first.c_str());
@@ -197,7 +202,12 @@ void DemultiplexedResult::initialize_additional_output(const input& input,
     }
     else
     {
-        failedLines.first = input.outPath + "/FailedLines_FW.txt";
+        std::string failedLinesFWName = "FailedLines_FW.txt";
+        if(input.prefix != "")
+        {
+            failedLinesFWName = input.prefix + "_" + failedLinesFWName;
+        }
+        failedLines.first = input.outPath + "/" + failedLinesFWName;
         std::remove(failedLines.first.c_str());
         std::ofstream failedLineFileFW(failedLines.first.c_str());
         if (!failedLineFileFW) 
@@ -206,7 +216,12 @@ void DemultiplexedResult::initialize_additional_output(const input& input,
         }
         failedLineFileFW.close();  // Close the file
 
-        failedLines.second = input.outPath + "/FailedLines_RV.txt";
+        std::string failedLinesRVName = "FailedLines_RV.txt";
+        if(input.prefix != "")
+        {
+            failedLinesRVName = input.prefix + "_" + failedLinesRVName;
+        }
+        failedLines.second = input.outPath + "/" + failedLinesRVName;
         std::remove(failedLines.second.c_str());
         std::ofstream failedLineFileRV(failedLines.second.c_str());
         if (!failedLineFileRV) 
@@ -228,7 +243,7 @@ void DemultiplexedResult::initialize_additional_output(const input& input,
 
 //this function only initialized the output files that are needed for a specific pattern
 //like fastq, demultiplexed-read files
-void DemultiplexedResult::initialize_output_for_pattern(std::string output, const BarcodePatternPtr pattern)
+void DemultiplexedResult::initialize_output_for_pattern(const std::string& output, const std::string& prefix, const BarcodePatternPtr pattern)
 {
     // 1.) INITIALIZE TWO FILES
     FinalPatternFiles patternOutputs;
@@ -238,12 +253,22 @@ void DemultiplexedResult::initialize_output_for_pattern(std::string output, cons
     //if pattern contains DNA we write a tsv and FASTQ file
     if(pattern->containsDNA)
     {
-         //tsv-file with barcodes
-        patternOutputs.barcodeFile = output + "/" + pattern->patternName + ".tsv";
+        //tsv-file with barcodes
+        std::string barcodeTsvFileName = stripQuotes(pattern->patternName) + ".tsv";
+        if(prefix != "")
+        {
+            barcodeTsvFileName = prefix + "_" + barcodeTsvFileName;
+        }
+        patternOutputs.barcodeFile = output + "/" + barcodeTsvFileName;
         std::remove(patternOutputs.barcodeFile.c_str());
 
         //fastq file
-        patternOutputs.dnaFile = output + "/" + pattern->patternName + ".fastq";
+        std::string fastqFileName = stripQuotes(pattern->patternName) + ".fastq";
+        if(prefix != "")
+        {
+            fastqFileName = prefix + "_" + fastqFileName;
+        }
+        patternOutputs.dnaFile = output + "/" + fastqFileName;
         std::remove(patternOutputs.dnaFile.c_str());
 
         //STORE OUTPUT-FILE NAMES IN LIST
@@ -251,7 +276,12 @@ void DemultiplexedResult::initialize_output_for_pattern(std::string output, cons
     }
     else //otherwise we write ONLY a tsv file of barcodes and initialize the DemultiplexedReads structure to store found reads
     {
-        patternOutputs.barcodeFile = output + "/" + pattern->patternName + ".tsv";
+        std::string barcodeTsvFileName = stripQuotes(pattern->patternName) + ".tsv";
+        if(prefix != "")
+        {
+            barcodeTsvFileName = prefix + "_" + barcodeTsvFileName;
+        }
+        patternOutputs.barcodeFile = output + "/" + barcodeTsvFileName;
         std::remove(patternOutputs.barcodeFile.c_str());
 
         //for every pattern create a sharedPtr of DemultiplexedReads
@@ -312,7 +342,7 @@ void DemultiplexedResult::initialize(const input& input, const MultipleBarcodePa
     //parse through the barcodePatterns, make file of pattern name
     for(const BarcodePatternPtr& barcodePattern : *barcodePatternList)
     {
-        initialize_output_for_pattern(input.outPath, barcodePattern);
+        initialize_output_for_pattern(input.outPath, input.prefix, barcodePattern);
     }
 
     //create universal output files
@@ -439,38 +469,6 @@ void DemultiplexedResult::initialize_thread_streams(boost::asio::thread_pool& po
 
 }
 
-
-/// write mismatches per barcode to file
-void write_stats(const input& input, const std::map<std::string, std::vector<int> >& statsMismatchDict)
-{
-    std::string output = input.outPath;
-    std::ofstream outputFile;
-    std::size_t found = output.find_last_of("/");
-    if(found == std::string::npos)
-    {
-        output = "StatsMismatches_" + output;
-    }
-    else
-    {
-        output = output.substr(0,found) + "/" + "StatsMismatches_" + output.substr(found+1);
-    }
-    std::remove(output.c_str());
-    outputFile.open (output, std::ofstream::app);
-
-    for(std::pair<std::string, std::vector<int> > mismatchDictEntry : statsMismatchDict)
-    {
-        outputFile << mismatchDictEntry.first << "\t";
-        for(int mismatchCountIdx = 0; mismatchCountIdx < mismatchDictEntry.second.size(); ++mismatchCountIdx)
-        {
-            outputFile << mismatchDictEntry.second.at(mismatchCountIdx);
-            if(mismatchCountIdx!=mismatchDictEntry.second.size()-1){outputFile << "\t";}
-        }
-        outputFile << "\n";
-    }
-
-    outputFile.close();
-}
-
 /// write failed lines into a txt file
 void DemultiplexedResult::write_failed_line(std::pair<std::shared_ptr<std::ofstream>, std::shared_ptr<std::ofstream>>& failedFileStream, const std::pair<fastqLine, fastqLine>& failedLine)
 {
@@ -493,7 +491,12 @@ void DemultiplexedResult::write_demultiplexed_barcodes(const input& input, Barco
     std::string output = input.outPath;
     std::ofstream outputFile;
 
-    std::string demultiplexedBarcodesOutput = output + "/" + patternName + ".tsv";
+    std::string demultiplexedBarcodesFileName = patternName + ".tsv";
+    if(input.prefix != "")
+    {
+        demultiplexedBarcodesFileName = input.prefix + "_" + demultiplexedBarcodesFileName;
+    }
+    std::string demultiplexedBarcodesOutput = output + "/" + demultiplexedBarcodesFileName;
 
     //write the barcodes we mapped
     outputFile.open (demultiplexedBarcodesOutput, std::ofstream::app);

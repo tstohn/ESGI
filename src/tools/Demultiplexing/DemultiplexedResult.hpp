@@ -126,7 +126,7 @@ struct thread_id_hash {
       private:
   
           void initialize_additional_output(const input& input, const MultipleBarcodePatternVectorPtr& barcodePatternList);
-          void initialize_output_for_pattern(std::string output, const BarcodePatternPtr pattern);
+          void initialize_output_for_pattern(const std::string& output, const std::string& prefix, const BarcodePatternPtr pattern);
           //initializes the files for output
           void initialize(const input& input, const MultipleBarcodePatternVectorPtr& barcodePatternList);
           void initialize_tmp_file(const int i);

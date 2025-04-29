@@ -79,12 +79,408 @@ void DemultiplexingStats::update(OneLineDemultiplexingStatsPtr lineStatsPtr, boo
 
 }
 
-void DemultiplexingStats::write(const std::string& directory)
+void DemultiplexingStats::write_mm_types(const std::string& outputFile) 
 {
+    std::ofstream out(outputFile);
+    if (!out) {
+        std::cerr << "Could not open file for writing number of insertions: " << outputFile << "\n";
+        return;
+    }
+
+    // Write header
+    out << "PATTERN\tPOSITION\tBARCODE\tMISMATCH_TYPE\tCOUNT\n";
+
+    //write insertions
+    for (const auto& [key, value] : insertions) {
+        std::stringstream ss(key);
+        std::string segment;
+        std::vector<std::string> parts;
+
+        bool elementIsInBrackets = false;
+        std::string bracketString = "";
+        while (std::getline(ss, segment, '_')) 
+        {
+            if(!elementIsInBrackets && segment.at(0) == '\'')
+            {
+                if(segment.back() == '\'')
+                {
+                    parts.push_back(segment);
+                }
+                else
+                {
+                    elementIsInBrackets = true;
+                    bracketString += segment + "_";
+                }
+            }
+            else if(elementIsInBrackets && segment.back() == '\'')
+            {
+                assert(elementIsInBrackets);
+                elementIsInBrackets = false;
+                bracketString += segment;
+                parts.push_back(bracketString);
+                bracketString = "";
+            }
+            else if(elementIsInBrackets)
+            {
+                bracketString += segment;
+            }
+            else if(!elementIsInBrackets)
+            {
+                parts.push_back(segment);
+            }
+        }
+
+        if (parts.size() == 3) {
+            // Handle cases where barcode might contain underscores
+            std::string pattern = parts[0];
+            std::string position = parts[1];
+            std::string barcode  = parts[2];
+
+            out << stripQuotes(pattern) << '\t' << position << '\t' << barcode << '\t' << "INSERTION" << '\t' << value << '\n';
+        } else {
+            std::cerr << "Invalid key format for statistics: " << key << '\n';
+        }
+    }
+     //write deletions
+     for (const auto& [key, value] : deletions) {
+        std::stringstream ss(key);
+        std::string segment;
+        std::vector<std::string> parts;
+
+        bool elementIsInBrackets = false;
+        std::string bracketString = "";
+        while (std::getline(ss, segment, '_')) 
+        {
+            if(!elementIsInBrackets && segment.at(0) == '\'')
+            {
+                if(segment.back() == '\'')
+                {
+                    parts.push_back(segment);
+                }
+                else
+                {
+                    elementIsInBrackets = true;
+                    bracketString += segment + "_";
+                }
+            }
+            else if(elementIsInBrackets && segment.back() == '\'')
+            {
+                assert(elementIsInBrackets);
+                elementIsInBrackets = false;
+                bracketString += segment;
+                parts.push_back(bracketString);
+                bracketString = "";
+            }
+            else if(elementIsInBrackets)
+            {
+                bracketString += segment;
+            }
+            else if(!elementIsInBrackets)
+            {
+                parts.push_back(segment);
+            }
+        }
+
+        if (parts.size() == 3) {
+            // Handle cases where barcode might contain underscores
+            std::string pattern = parts[0];
+            std::string position = parts[1];
+            std::string barcode = parts[2];
+
+            out << stripQuotes(pattern) << '\t' << position << '\t' << barcode << '\t' << "DELETION" << '\t' << value << '\n';
+        } else {
+            std::cerr << "Invalid key format: " << key << '\n';
+        }
+    }
+     //write substitutions
+     for (const auto& [key, value] : substitutions) {
+        std::stringstream ss(key);
+        std::string segment;
+        std::vector<std::string> parts;
+
+        bool elementIsInBrackets = false;
+        std::string bracketString = "";
+        while (std::getline(ss, segment, '_')) 
+        {
+            if(!elementIsInBrackets && segment.at(0) == '\'')
+            {
+                if(segment.back() == '\'')
+                {
+                    parts.push_back(segment);
+                }
+                else
+                {
+                    elementIsInBrackets = true;
+                    bracketString += segment + "_";
+                }
+            }
+            else if(elementIsInBrackets && segment.back() == '\'')
+            {
+                assert(elementIsInBrackets);
+                elementIsInBrackets = false;
+                bracketString += segment;
+                parts.push_back(bracketString);
+                bracketString = "";
+            }
+            else if(elementIsInBrackets)
+            {
+                bracketString += segment;
+            }
+            else if(!elementIsInBrackets)
+            {
+                parts.push_back(segment);
+            }
+        }
+
+        if (parts.size() == 3) {
+            // Handle cases where barcode might contain underscores
+            std::string pattern = parts[0];
+            std::string position = parts[1];
+            std::string barcode = parts[2];
+
+            out << stripQuotes(pattern) << '\t' << position << '\t' << barcode << '\t' << "SUBSTITUTION" << '\t' << value << '\n';
+        } else {
+            std::cerr << "Invalid key format: " << key << '\n';
+        }
+    }
+
+    out.close();
+}
+
+void DemultiplexingStats::write_mm_number(const std::string& outputFile)
+{
+    //Find the maximum vector size (max number of mismatches)
+    size_t maxMismatches = 0;
+    for (const auto& [key, vec] : mismatchNumber) 
+    {
+        if (vec.size() > maxMismatches) {
+            maxMismatches = vec.size();
+        }
+    }
+
+    std::ofstream out(outputFile);
+    if (!out) {
+        std::cerr << "Could not open barcode-mismatche file for writing: " << outputFile << "\n";
+        return;
+    }
+
+    //Write header
+    out << "PATTERN\tPOSITION\tBARCODE";
+    for (size_t i = 0; i < maxMismatches; ++i) {
+        out << "\t" << i << "MM";
+    }
+    out << "\n";
+
+    //Write each line
+    for (const auto& [key, vec] : mismatchNumber) 
+    {
+        std::stringstream ss(key);
+        std::string segment;
+        std::vector<std::string> parts;
+
+        bool elementIsInBrackets = false;
+        std::string bracketString = "";
+        while (std::getline(ss, segment, '_')) 
+        {
+            if(!elementIsInBrackets && segment.at(0) == '\'')
+            {
+                if(segment.back() == '\'')
+                {
+                    parts.push_back(segment);
+                }
+                else
+                {
+                    elementIsInBrackets = true;
+                    bracketString += segment + "_";
+                }
+            }
+            else if(elementIsInBrackets && segment.back() == '\'')
+            {
+                assert(elementIsInBrackets);
+                elementIsInBrackets = false;
+                bracketString += segment;
+                parts.push_back(bracketString);
+                bracketString = "";
+            }
+            else if(elementIsInBrackets)
+            {
+                bracketString += segment;
+            }
+            else if(!elementIsInBrackets)
+            {
+                parts.push_back(segment);
+            }
+        }
+
+        if (parts.size() == 3) {
+            std::string pattern = parts[0];
+            std::string position = parts[1];
+            std::string barcode = parts[2];
+
+            out << stripQuotes(pattern) << '\t' << position << '\t' << barcode;
+
+            // Now write mismatch counts
+            for (size_t i = 0; i < maxMismatches; ++i) {
+                if (i < vec.size()) {
+                    out << '\t' << vec[i];
+                } else {
+                    out << "\t-";  // Fill missing values with -
+                }
+            }
+            out << "\n";
+        } else {
+            std::cerr << "Invalid key format: (" << key << ") in barcode-mismatche file for writing: " << outputFile << "\n";
+        }
+    }
+
+    out.close();
+}
+
+
+void DemultiplexingStats::write_last_mapped_position(const std::string& outputFile) 
+{
+    std::ofstream out(outputFile);
+    if (!out) {
+        std::cerr << "Could not open file for writing: " << outputFile << "\n";
+        return;
+    }
+
+    // Header
+    out << "PATTERN\tPOSITION\tREAD_DIRECTION\tCOUNT\n";
+
+    //WRITE FORWARD
+    for (const auto& [key, value] : failedLinesMappingFw) {
+        std::stringstream ss(key);
+        std::string pattern, position;
+
+        // Split into pattern and position
+        std::string segment;
+        std::vector<std::string> parts;
+
+        bool elementIsInBrackets = false;
+        std::string bracketString = "";
+        while (std::getline(ss, segment, '_')) 
+        {
+            if(!elementIsInBrackets && segment.at(0) == '\'')
+            {
+                if(segment.back() == '\'')
+                {
+                    parts.push_back(segment);
+                }
+                else
+                {
+                    elementIsInBrackets = true;
+                    bracketString += segment + "_";
+                }
+            }
+            else if(elementIsInBrackets && segment.back() == '\'')
+            {
+                assert(elementIsInBrackets);
+                elementIsInBrackets = false;
+                bracketString += segment;
+                parts.push_back(bracketString);
+                bracketString = "";
+            }
+            else if(elementIsInBrackets)
+            {
+                bracketString += segment;
+            }
+            else if(!elementIsInBrackets)
+            {
+                parts.push_back(segment);
+            }
+        }
+
+        if(parts.size() == 2)
+        {
+            pattern = parts[0];
+            position = parts[1];
+            out << stripQuotes(pattern) << '\t' << position << '\t' << "FORWARD_READ" << '\t' << value << '\n';
+        }
+        else
+        {
+            std::cerr << "Invalid key: " << key << " in statistics for last mapped barcode position\n";
+        }
+
+    }
+
+    //WRITE REVERSE
+    for (const auto& [key, value] : failedLinesMappingRv) {
+        std::stringstream ss(key);
+        std::string pattern, position;
+
+        // Split into pattern and position
+        std::string segment;
+        std::vector<std::string> parts;
+
+        bool elementIsInBrackets = false;
+        std::string bracketString = "";
+        while (std::getline(ss, segment, '_')) 
+        {
+            if(!elementIsInBrackets && segment.at(0) == '\'')
+            {
+                if(segment.back() == '\'')
+                {
+                    parts.push_back(segment);
+                }
+                else
+                {
+                    elementIsInBrackets = true;
+                    bracketString += segment + "_";
+                }
+            }
+            else if(elementIsInBrackets && segment.back() == '\'')
+            {
+                assert(elementIsInBrackets);
+                elementIsInBrackets = false;
+                bracketString += segment;
+                parts.push_back(bracketString);
+                bracketString = "";
+            }
+            else if(elementIsInBrackets)
+            {
+                bracketString += segment;
+            }
+            else if(!elementIsInBrackets)
+            {
+                parts.push_back(segment);
+            }
+        }
+
+        if(parts.size() == 2)
+        {
+            pattern = parts[0];
+            position = parts[1];
+            out << stripQuotes(pattern) << '\t' << position << '\t' << "REVERSE_READ" << '\t' << value << '\n';
+        }
+        else
+        {
+            std::cerr << "Invalid key: " << key << " in statistics for last mapped barcode position\n";
+        }
+
+    }
+
+    out.close();
+}
+
+void DemultiplexingStats::write(const std::string& directory, const std::string& prefix)
+{
+    //create file names (potentially with prefix)
+    std::string barcodeMismatchNumberFile = "Quality_numberMM.txt";
+    std::string barcodeMismatchTypeFile = "Quality_typeMM.txt";
+    std::string barcodeLastPosMappedFile = "Quality_lastPositionMapped.txt";
+
+    if(prefix != "")
+    {
+        barcodeMismatchNumberFile = prefix + '_' + barcodeMismatchNumberFile;
+        barcodeMismatchTypeFile = prefix + '_' + barcodeMismatchTypeFile;
+        barcodeLastPosMappedFile = prefix + '_' + barcodeLastPosMappedFile;
+    }
+
     //remove files if they already exist
-    std::string barcodeMismatchNumber = directory + "/Quality_numberMM.txt";
-    std::string barcodeMismatchType = directory + "/Quality_typeMM.txt";
-    std::string barcodeLastPosMapped = directory + "/Quality_lastPositionMapped.txt";
+    std::string barcodeMismatchNumber = directory + "/" + barcodeMismatchNumberFile;
+    std::string barcodeMismatchType = directory + "/" + barcodeMismatchTypeFile;
+    std::string barcodeLastPosMapped = directory + "/" + barcodeLastPosMappedFile;
 
     // remove outputfile if it exists
     std::remove(barcodeMismatchNumber.c_str());
@@ -92,9 +488,11 @@ void DemultiplexingStats::write(const std::string& directory)
     std::remove(barcodeLastPosMapped.c_str());
 
     //fill the number of MM
+    write_mm_number(barcodeMismatchNumber);
 
     //fill the type of MM
+    write_mm_types(barcodeMismatchType);
 
     //fill last mapped positions
-
+    write_last_mapped_position(barcodeLastPosMapped);
 }

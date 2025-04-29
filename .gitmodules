@@ -1,0 +1,6 @@
+[submodule "include/vendor/edlib"]
+	path = include/vendor/edlib
+	url = https://github.com/martinsos/edlib
+[submodule "include/edlib"]
+	path = include/edlib
+	url = https://github.com/martinsos/edlib

@@ -25,6 +25,7 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper(const std::pa
 
     for(BarcodePatternPtr pattern : *this->get_barcode_pattern())
     {
+
         //create result object in which we safe the result
         DemultiplexedLine tmpDemultiplexedLine;
 
@@ -43,6 +44,7 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper(const std::pa
             lineStatsPtr->deletions = std::vector<int>(pattern->barcodePattern->size(), 0);
             lineStatsPtr->substitutions = std::vector<int>(pattern->barcodePattern->size(), 0);
         }
+
         //write demultiplexed information into demultiplexedLine, this is passed by reference and can be accessed here
         if(this->demultiplex_read(line, tmpDemultiplexedLine, pattern, input, lineCount, totalReadCount, lineStatsPtr))
         {
@@ -119,7 +121,7 @@ void Demultiplexer<MappingPolicy, FilePolicy>::run_mapping(const input& input)
     pool.join();
 
     printProgress(1); std::cout << "\n"; // end the progress bar
-    if(totalReadCount != ULLONG_MAX)
+    if(totalReadCount != ULLONG_MAX && input.writeStats)
     {
       
         std::cout << "=>\tPERFECT MATCHES: " << std::to_string((unsigned long long)(100*(this->fileWriter->get_perfect_matches())/(double)totalReadCount)) 

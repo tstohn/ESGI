@@ -5,9 +5,10 @@
 #include <map>
 #include <unordered_map>
 #include <vector>
+#include <fstream>
+#include <sstream>
 
 #include "Barcode.hpp"
-
 
 //a class for temporary results of a single fastq-line
 //this information is then merged into the final statistic object
@@ -47,7 +48,11 @@ class DemultiplexingStats{
 
         void initializeStats(const MultipleBarcodePatternVectorPtr& barcodePatternList);
         void update(OneLineDemultiplexingStatsPtr lineStatsPtr, bool result, std::string& foundPatternName, std::vector<std::string>& barcodeList);
-        void write(const std::string& directory);
+        
+        void write_mm_number(const std::string& outputFile);
+        void write_last_mapped_position(const std::string& outputFile);
+        void write_mm_types(const std::string& outputFile);
+        void write(const std::string& directory, const std::string& prefix);
 
         //UPDATE FUNCTIONS
         void update_failedLinesMapping(std::map<std::string, int> failedFw, std::map<std::string, int> failedRv)

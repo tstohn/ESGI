@@ -8,17 +8,20 @@ LDFLAGS =
 install:
 	#download and compile kseq
 	mkdir include; cd ./include; git clone https://github.com/lh3/seqtk --branch v1.3; cd ./seqtk; make
+	git submodule add https://github.com/martinsos/edlib ./edlib;
+	cd ..
 	mkdir bin
 	sudo apt-get install libboost-all-dev
 
 #parse fastq lines and map abrcodes to each sequence
 ezgi:
+	g++ -c ./include/edlib/edlib/src/edlib.cpp -I ./include/edlib/edlib/include/ -I ./src/lib --std=c++17 $(CXXFLAGS)
 	g++ -c src/lib/DemultiplexedStatistics.cpp -I ./include/ -I ./src/lib --std=c++17 $(CXXFLAGS)
 	g++ -c src/lib/BarcodeMapping.cpp -I ./include/ -I ./src/lib --std=c++17 $(CXXFLAGS)
 	g++ -c src/tools/Demultiplexing/DemultiplexedResult.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
 	g++ -c src/tools/Demultiplexing/Demultiplexer.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
 	g++ -c src/tools/Demultiplexing/main.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
-	g++ main.o DemultiplexedResult.o Demultiplexer.o BarcodeMapping.o DemultiplexedStatistics.o -o ./bin/ezgi $(LDFLAGS) -lboost_iostreams -lboost_program_options -lpthread -lz
+	g++ main.o DemultiplexedResult.o Demultiplexer.o BarcodeMapping.o DemultiplexedStatistics.o edlib.o -o ./bin/ezgi $(LDFLAGS) -lboost_iostreams -lboost_program_options -lpthread -lz
 
 barcodeBedAnnotator:
 	g++ -o ./bin/barcodeBedAnn src/tools/BarcodefileBedAnnotator/BarcodeBedAnnotator.cpp src/tools/BarcodefileBedAnnotator/main.cpp $(LDFLAGS) -lboost_iostreams -lboost_program_options
@@ -112,7 +115,7 @@ testDemultiplexing:
 
 test_ezgi:
 	#test order on one thread
-	./bin/ezgi -i ./src/test/test_data/inFastqTest.fastq -o ./bin/ -p ./src/test/test_data/test1Pattern.txt -m ./src/test/test_data/test1MM.txt -t 1 -q true
+	./bin/ezgi -i ./src/test/test_data/inFastqTest.fastq -o ./bin/ -p ./src/test/test_data/test1Pattern.txt -m ./src/test/test_data/test1MM.txt -t 1 -n TEST -q 1
 	diff ./src/test/test_data/BarcodeMapping_output.tsv ./bin/TEST1.tsv
 	diff ./src/test/test_data/StatsBarcodeMappingErrors_output.tsv ./bin/StatsMismatches_output.tsv
 
@@ -211,14 +214,22 @@ testAnalysis:
 	diff ./bin/AnalysisTestOutput/ABFullAnalysis_ABCOUNT_RESULT_SORTED.tsv ./src/test/test_data/FullAnalysis_ABCOUNT_RESULT.tsv
 
 bigTest:
-	time ./bin/ezgi -i ./src/test/test_data/test_input/testBig.fastq.gz -o ./bin/ -p /DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_input/barcodePatternsBig.txt -m /DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_input/barcodeMismatchesBig.txt -t 10 -f 1
+	#time ./bin/ezgi -i tmp.fastq -o ./bin/ -p ./src/test/test_data/test_input/barcodePatternsBig.txt -m ./src/test/test_data/test_input/barcodeMismatchesBig.txt -t 1 -f 1 -q 1
+	time ./bin/ezgi -i ./src/test/test_data/test_input/testBig.fastq.gz -o ./bin/ -p ./src/test/test_data/test_input/barcodePatternsBig.txt -m ./src/test/test_data/test_input/barcodeMismatchesBig.txt -t 1 -f 1
+#before repalcing alignment_function on 1 thread: (31 + 61.4 + 0.25) // (31 + 61.8 + 0.3)
+#store a previously found solution in: 50 / 29 / 20
+#./src/test/test_data/bigTest_AB_PATTERN.tsvb
+
+
 bigTest2:
-	time ./bin/ezgi -i ./src/test/test_data/test_input/testBig2.fastq.gz -o ./bin/ -p /DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_input/barcodePatternsBig.txt -m /DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_input/barcodeMismatchesBig.txt -t 50 -f 1
+	time ./bin/ezgi -i ./src/test/test_data/test_input/testBig2.fastq.gz -o ./bin/ -p ./src/test/test_data/test_input/barcodePatternsBig.txt -m /DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_input/barcodeMismatchesBig.txt -t 50 -f 1
 bigTest3:
 	time ./bin/ezgi -i ./src/test/test_data/test_input/testBig3.fastq.gz -o ./bin/ -p /DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_input/barcodePatternsBig.txt -m /DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_input/barcodeMismatchesBig.txt -t 70 -f 1
 
+#makes no sense since we have only forward reads...
+#make a small test and use fw and rv files
 bigTestRNA:
-	time ./bin/ezgi -i ./src/test/test_data/test_input/testBig.fastq.gz -o ./bin/ -p /DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_input/barcodePatternsBigRNA.txt -m /DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_input/barcodeMismatchesBigRNA.txt -t 10 -f 1
+	time ./bin/ezgi -i ./src/test/test_data/test_input/testBig.fastq.gz -o ./bin/ -p ./src/test/test_data/test_input/barcodePatternsBigRNA.txt -m ./src/test/test_data/test_input/barcodeMismatchesBigRNA.txt -t 10 -f 1
 
 testGuideMapping:
 	./bin/ezgi -i ./src/test/test_data/guideTestInput.txt -o ./bin/output.tsv -p [NNNNNNN][GTTTAAA][XXXXXXXXXX][NNNNNNNNNN] -m 1,1,1,1 -t 1 -b ./src/test/test_data/barcodesGuideTest.txt -c ./src/test/test_data/guidesGuideTest.txt -e 1

@@ -71,7 +71,8 @@ bool parse_arguments(char** argv, int argc, input& input)
             ("reverse,r", value<std::string>(&(input.reverseFile))->default_value(""), "Use this parameter for paired-end analysis as the reverse read file. <-i> is the forward read in \
             this case.")
 
-            ("output,o", value<std::string>(&(input.outPath))->required(), "output file with all split barcodes")
+            ("output,o", value<std::string>(&(input.outPath))->required(), "output directory. All files including failed lines, statistics will be saved here.")
+            ("namePrefix,n", value<std::string>(&(input.prefix))->default_value(""), "a prefix for file names. Default uses no prefix.")
 
             //removed: old parameter for seuqence pattern: its now parsed directly form the demultiplexed output
             /*("sequencePattern,p", value<std::string>(&(input.patternLine))->required(), "pattern for the sequence to match, 
@@ -130,12 +131,76 @@ bool parse_arguments(char** argv, int argc, input& input)
 
 }
 
+void write_parameter_file(const input& input)
+{
+    std::string paramterFile = "paramter.ini";
+    if(input.prefix !="")
+    {
+        paramterFile = input.prefix + "_" + paramterFile;
+    }
+
+    std::ofstream outFile(input.outPath + "/" + paramterFile);
+    if (!outFile) {
+        std::cerr << "Could not open paramter file for writing.\n";
+        exit(EXIT_FAILURE);
+    }
+
+    outFile << "inFile = " << input.inFile << "\n";
+    outFile << "outPath = " << input.outPath << "\n";
+    outFile << "prefix = " << input.prefix << "\n";
+    outFile << "reverseFile = " << input.reverseFile << "\n";
+    outFile << "barcodeFile = " << input.barcodeFile << "\n";
+    outFile << "patternLine = " << input.patternLine << "\n";
+
+    outFile << "writeStats = " << (input.writeStats ? "true" : "false") << "\n";
+    outFile << "writeFailedLines = " << (input.writeFailedLines ? "true" : "false") << "\n";
+    outFile << "writeFilesOnTheFly = " << (input.writeFilesOnTheFly ? "true" : "false") << "\n";
+
+    outFile << "fastqReadBucketSize = " << input.fastqReadBucketSize << "\n";
+    outFile << "threads = " << input.threads << "\n";
+    
+    // Write mismatchFile path and its contents
+    outFile << "mismatchFile = " << input.mismatchFile << "\n";
+    std::ifstream mismatchIn(input.mismatchFile);
+    if (mismatchIn) {
+        std::string line;
+        while (std::getline(mismatchIn, line)) {
+            outFile << "  " << line << "\n";
+        }
+    } else {
+        outFile << "  [Could not read mismatchFile]\n";
+    }
+    
+    // Write patternLine path and its contents
+    outFile << "barcodePatternsFile = " << input.barcodePatternsFile << "\n";
+    std::ifstream patternIn(input.barcodePatternsFile);
+    if (patternIn) {
+        std::string line;
+        while (std::getline(patternIn, line)) {
+            outFile << "  " << line << "\n";
+        }
+    } else {
+        outFile << "  [Could not read barcodePatternsFile file]\n";
+    }
+
+    outFile.close();
+}
+
 int main(int argc, char** argv)
 {
 
     input input;
     if(parse_arguments(argv, argc, input))
     {
+        //check output is a valid directory
+        if(! (std::filesystem::exists(input.outPath) && std::filesystem::is_directory(input.outPath)))
+        {
+            fprintf(stderr,"The output directory (-o) must exist! Please provide a valid directory.\n Fail to find directory: %s\n", input.outPath.c_str());
+            exit(EXIT_FAILURE);
+        }
+        //write paramters to a parameter file
+        write_parameter_file(input);
+
         //set the number of reads in the processing queue by default to 10X number of threads
         if(input.fastqReadBucketSize == -1)
         {
@@ -173,12 +238,6 @@ int main(int argc, char** argv)
         else
         {
             fprintf(stderr,"Input file must be of format: <.fastq> | <.fastq.gz> | <.txt>!!!\nFail to open file: %s\n", input.inFile.c_str());
-            exit(EXIT_FAILURE);
-        }
-        //check output is a valid directory
-        if(! (std::filesystem::exists(input.outPath) && std::filesystem::is_directory(input.outPath)))
-        {
-            fprintf(stderr,"The output directory (-o) must exist! Please provide a valid directory.\n Fail to find directory: %s\n", input.outPath.c_str());
             exit(EXIT_FAILURE);
         }
     }

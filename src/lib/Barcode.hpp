@@ -131,6 +131,9 @@ class Barcode
         return newSeq;
     }
     //overwritten function to match sequence pattern(s)
+    virtual bool align(std::string& matchedBarcode, const std::string& fastqLine,const int targetOffset,
+                       int& targetEnd, int& delNum, int& insNum, int& substNum,
+                       bool reverse = false) = 0;
     virtual bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, std::string& realBarcode, 
                                int& differenceInBarcodeLength, bool startCorrection = false, bool reverse = false, bool fullLengthMapping = false) = 0;
     virtual std::vector<std::string> get_patterns() = 0;
@@ -149,6 +152,24 @@ class ConstantBarcode : public Barcode
     ConstantBarcode(std::string inPattern, int inMismatches) : Barcode(inPattern, inMismatches), pattern(inPattern)
     {
         revCompPattern = generate_reverse_complement(pattern);
+    }
+
+    bool align(std::string& matchedBarcode, const std::string& fastqLine,const int targetOffset,
+               int& targetEnd, int& delNum, int& insNum, int& substNum,
+               bool reverse = false)
+    {
+        bool foundAlignment = false;
+        std::string target = fastqLine.substr(targetOffset, pattern.length()+mismatches);
+
+        //set the pattern to use for reverse or forward mapping
+        std::string usedPattern = pattern;
+        if(reverse){usedPattern = revCompPattern;}
+
+        //map the pattern to the target sequence
+        foundAlignment = run_alignment(usedPattern, target, targetEnd, mismatches, delNum,  insNum, substNum);
+        matchedBarcode = pattern;
+
+        return foundAlignment;
     }
 
     bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, std::string& realBarcode, 
@@ -299,6 +320,55 @@ class VariableBarcode : public Barcode
             revCompPatterns.push_back(revCompPattern);
         }
     }
+
+    bool align(std::string& matchedBarcode, const std::string& fastqLine, const int targetOffset,
+        int& targetEnd, int& delNum, int& insNum, int& substNum,
+        bool reverse = false)
+    {
+        std::vector<std::string> patternsToMap = patterns;
+        //get the reverse pattern list if we have reverse string
+        if(reverse){patternsToMap = revCompPatterns;}
+
+        std::string bestFoundPattern;
+        bool bestFoundAlignment = false;
+        int bestTargetEnd = -1;
+        int bestEditDist = mismatches+1;
+        for(int patternIdx = 0; patternIdx!= patternsToMap.size(); ++patternIdx)
+        {
+            bool foundAlignment = false;
+
+            delNum=insNum=substNum=targetEnd=0;
+            //get pattern, its length can vary
+            std::string usedPattern = patternsToMap.at(patternIdx);
+
+            //define target sequence (can differ for every barcode due to its length)
+            std::string target = fastqLine.substr(targetOffset, usedPattern.length()+mismatches);
+
+            //std::cout << " in barcode trying barcode: " << usedPattern << " with target sequ " << target<< "\n";
+
+            //map the pattern to the target sequence
+            foundAlignment = run_alignment(usedPattern, target, targetEnd, mismatches, delNum,  insNum, substNum);
+            
+            if(foundAlignment && (delNum+insNum+substNum)<bestEditDist)
+            {
+                bestFoundAlignment = foundAlignment;
+                bestFoundPattern = usedPattern;
+                bestTargetEnd = targetEnd;
+                bestEditDist = (delNum+insNum+substNum);
+            }
+
+            if(bestEditDist==0)
+            {
+                break;
+            }
+        }
+
+        targetEnd = bestTargetEnd;
+        matchedBarcode = bestFoundPattern;
+
+        return bestFoundAlignment;
+    }
+
     bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, std::string& realBarcode, 
                        int& differenceInBarcodeLength, bool startCorrection = false,  bool reverse = false, bool fullLengthMapping = false)
     {
@@ -514,6 +584,18 @@ class WildcardBarcode : public Barcode
         realBarcode = sequence;
         return true;
     }
+    bool align(std::string& matchedBarcode, const std::string& target, const int targetOffset,
+        int& targetEnd, int& delNum, int& insNum, int& substNum,
+        bool reverse = false)
+
+        {
+            matchedBarcode = target.substr(0, length);
+            targetEnd = (target.length() < length) ? target.length()-1 : length-1;
+            // e.g.: [AGTAGT]cccc: start=0 end=6 end is first not included idx
+
+            return true;
+        }
+
     std::vector<std::string> get_patterns()
     {
         std::vector<std::string> patterns = {std::string(length, 'X')};
@@ -538,6 +620,13 @@ class StopBarcode : public Barcode
     {
         return false;
     }
+    bool align(std::string& matchedBarcode, const std::string& target, const int targetOffset,
+        int& targetEnd, int& delNum, int& insNum, int& substNum,
+        bool reverse = false)
+
+        {
+            return false;
+        }
     std::vector<std::string> get_patterns()
     {
         std::vector<std::string> patterns = {pattern};
@@ -564,6 +653,13 @@ class ReadSeperatorBarcode : public Barcode
     {
         return false;
     }
+    bool align(std::string& matchedBarcode, const std::string& target, const int targetOffset,
+        int& targetEnd, int& delNum, int& insNum, int& substNum,
+        bool reverse = false)
+
+        {
+            return false;
+        }
     std::vector<std::string> get_patterns()
     {
         std::vector<std::string> patterns = {pattern};
@@ -591,6 +687,13 @@ class DNABarcode : public Barcode
     {
         return false;
     }
+    bool align(std::string& matchedBarcode, const std::string& target, const int targetOffset,
+        int& targetEnd, int& delNum, int& insNum, int& substNum,
+        bool reverse = false)
+
+        {
+            return false;
+        }
     std::vector<std::string> get_patterns()
     {
         std::vector<std::string> patterns = {pattern};
