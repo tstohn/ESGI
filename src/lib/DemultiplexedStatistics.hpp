@@ -7,6 +7,8 @@
 #include <vector>
 #include <fstream>
 #include <sstream>
+#include <memory>
+#include <algorithm>
 
 #include "Barcode.hpp"
 
