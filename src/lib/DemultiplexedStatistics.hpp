@@ -76,7 +76,7 @@ class DemultiplexingStats{
 
         //update mapping statistics: perfect/ moderate mapping is only set when mapped
         //if not mapped both are zero
-        void update_global_parameters(bool result, OneLineDemultiplexingStatsPtr lineStatsPtr, std::string& patternName)
+        void update_global_parameters(bool result, OneLineDemultiplexingStatsPtr lineStatsPtr)
         {
             if(!result)
             {
@@ -91,6 +91,7 @@ class DemultiplexingStats{
 
         void update_mismatch_types(OneLineDemultiplexingStatsPtr lineStatsPtr, std::string& foundPatternName, std::vector<std::string>& barcodeList)
         {
+
             //key is a combinations of <PATTERN>_<POSITION>_<BARCODE>
             // temporary input (lineStatsPtr->insertions) is a vector of e.g., insertions at every barcode position
             //update insertions
@@ -99,6 +100,7 @@ class DemultiplexingStats{
                 std::string key = foundPatternName + "_" + std::to_string(validBarcodePos) + "_" + barcodeList.at(validBarcodePos);
                 insertions.at(key) += lineStatsPtr->insertions.at(validBarcodePos);
             }
+            
 
             //update deletions
             for (int validBarcodePos : validPositions.at(foundPatternName)) 
@@ -113,6 +115,7 @@ class DemultiplexingStats{
                 std::string key = foundPatternName + "_" + std::to_string(validBarcodePos) + "_" + barcodeList.at(validBarcodePos);
                 substitutions.at(key) += lineStatsPtr->substitutions.at(validBarcodePos);
             }
+
         }
 
         void update_mismatch_numbers(OneLineDemultiplexingStatsPtr lineStatsPtr, std::string& foundPatternName, std::vector<std::string>& barcodeList)

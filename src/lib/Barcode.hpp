@@ -5,6 +5,7 @@
 #include <string>
 #include <zlib.h>
 #include <thread>
+#include <unordered_set>
 
 #include "helper.hpp"
 
@@ -152,6 +153,14 @@ class ConstantBarcode : public Barcode
     ConstantBarcode(std::string inPattern, int inMismatches) : Barcode(inPattern, inMismatches), pattern(inPattern)
     {
         revCompPattern = generate_reverse_complement(pattern);
+        // Configure Edlib
+        config = edlibNewAlignConfig(
+            inMismatches,        // Maximum allowed edit distance
+            EDLIB_MODE_SHW,     // Semi-global alignment (deletions in the target at the end are not penalized), 
+                                // the developers refer to it also as 'Prefix method'
+            EDLIB_TASK_PATH,    // Request full alignment path (M, I, D, S)
+            NULL, 0             // No custom alphabet
+        );
     }
 
     bool align(std::string& matchedBarcode, const std::string& fastqLine,const int targetOffset,
@@ -166,7 +175,7 @@ class ConstantBarcode : public Barcode
         if(reverse){usedPattern = revCompPattern;}
 
         //map the pattern to the target sequence
-        foundAlignment = run_alignment(usedPattern, target, targetEnd, mismatches, delNum,  insNum, substNum);
+        foundAlignment = run_alignment(usedPattern, target, targetEnd, config, delNum,  insNum, substNum);
         matchedBarcode = pattern;
 
         return foundAlignment;
@@ -307,6 +316,7 @@ class ConstantBarcode : public Barcode
     }
     std::string pattern;
     std::string revCompPattern;
+    EdlibAlignConfig config;
 };
 class VariableBarcode : public Barcode
 {
@@ -319,12 +329,51 @@ class VariableBarcode : public Barcode
             std::string revCompPattern = generate_reverse_complement(pattern);
             revCompPatterns.push_back(revCompPattern);
         }
+
+        config = edlibNewAlignConfig(
+            inMismatches,        // Maximum allowed edit distance
+            EDLIB_MODE_SHW,     // Semi-global alignment (deletions in the target at the end are not penalized), 
+                                // the developers refer to it also as 'Prefix method'
+            EDLIB_TASK_PATH,    // Request full alignment path (M, I, D, S)
+            NULL, 0             // No custom alphabet
+        );
+
+        //instant look-up table for perfect barcodes
+        equalLengthBarcodes = true;
+        size_t lengthOne = patterns.at(0).size();
+        for (const std::string& pattern : patterns) 
+        {
+            if (pattern.size() != lengthOne) 
+            {
+                equalLengthBarcodes = false;
+                break;
+            }
+        }
+        if(equalLengthBarcodes)
+        {
+            barcodeSet.insert(patterns.begin(), patterns.end());
+        }
+
+        //calculate minimum conversion rates of barcodes
+
     }
 
     bool align(std::string& matchedBarcode, const std::string& fastqLine, const int targetOffset,
         int& targetEnd, int& delNum, int& insNum, int& substNum,
         bool reverse = false)
     {
+        //check if we can instantly match pattern
+        if(equalLengthBarcodes)
+        {
+            std::string target = fastqLine.substr(targetOffset, patterns.at(0).size());
+            if (barcodeSet.find(target) != barcodeSet.end()) 
+            {
+                targetEnd = patterns.at(0).size();
+                matchedBarcode = target;
+                return true;
+            }  
+        }
+
         std::vector<std::string> patternsToMap = patterns;
         //get the reverse pattern list if we have reverse string
         if(reverse){patternsToMap = revCompPatterns;}
@@ -347,17 +396,17 @@ class VariableBarcode : public Barcode
             //std::cout << " in barcode trying barcode: " << usedPattern << " with target sequ " << target<< "\n";
 
             //map the pattern to the target sequence
-            foundAlignment = run_alignment(usedPattern, target, targetEnd, mismatches, delNum,  insNum, substNum);
+            foundAlignment = run_alignment(usedPattern, target, targetEnd, config, delNum,  insNum, substNum);
             
             if(foundAlignment && (delNum+insNum+substNum)<bestEditDist)
             {
                 bestFoundAlignment = foundAlignment;
-                bestFoundPattern = usedPattern;
+                bestFoundPattern = patterns.at(patternIdx); //the barcode is the TRUE forward barcode, not the reverse complement
                 bestTargetEnd = targetEnd;
                 bestEditDist = (delNum+insNum+substNum);
             }
 
-            if(bestEditDist==0)
+            if(bestEditDist<=1)
             {
                 break;
             }
@@ -562,7 +611,10 @@ class VariableBarcode : public Barcode
     }
     std::vector<std::string> patterns;
     std::vector<std::string> revCompPatterns;
+    std::unordered_set<std::string> barcodeSet;
+    bool equalLengthBarcodes;
 
+    EdlibAlignConfig config;
 };
 
 class WildcardBarcode : public Barcode

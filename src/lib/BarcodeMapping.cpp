@@ -428,6 +428,8 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
         {
             (*patternItr)->align(barcode, seq.first.line, positionInFastqLine, targetEnd, del, ins, subst);
             positionInFastqLine += (targetEnd);
+            demultiplexedLine.barcodeList.push_back(barcode);
+            continue;
         }
         else if((*patternItr)->is_stop())
         {
@@ -450,6 +452,7 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
             demultiplexedLine.dna = seq.first.line.substr(positionInFastqLine, seq.first.line.length()); //extract DNA fragment
             demultiplexedLine.dnaQuality = seq.first.quality.substr(positionInFastqLine, seq.first.line.length()); //extract DNA fragment
             demultiplexedLine.containsDNA = true;
+            continue;
         }
         else if((*patternItr)->is_read_end())
         {
@@ -516,29 +519,31 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const fastqLine& seq,
                                                            OneLineDemultiplexingStatsPtr stats,
                                                            DemultiplexedLine& demultiplexedLine,
                                                            uint& barcodePosition,
-                                                           int& score_sum)
+                                                           int& totalEdits)
 {
 
-    //iterate over BarcodeMappingVector
-    int offset = 0;
+    //fastq-read specific variables
+    int positionInFastqLine = 0;
 
-    int old_offset = offset;
-    unsigned int wildCardToFill = 0;
-    int wildCardLength = 0, differenceInBarcodeLength = 0;
     for(BarcodeVector::iterator patternItr = barcodePatterns->begin(); 
         patternItr < barcodePatterns->end(); 
         ++patternItr)
     {
+
+        //barcode-specific variables
+        std::string barcode = ""; //the actual real barcode that we find (mismatch corrected)
+        int del = 0; 
+        int ins = 0;
+        int subst = 0;
+        int targetEnd = 0;
+
         //if we have a wildcard skip this matching, we match again the next sequence
         if((*patternItr)->is_wildcard())
         {
-            if(!wildCardToFill)
-            {
-                old_offset = offset;
-            }
-            wildCardLength = (*patternItr)->length;
-            offset += wildCardLength;
-            wildCardToFill += 1;
+            (*patternItr)->align(barcode, seq.line, positionInFastqLine, targetEnd, del, ins, subst);
+            positionInFastqLine += (targetEnd);
+            ++barcodePosition; //increase the count of found positions
+            demultiplexedLine.barcodeList.push_back(barcode);
             continue;
         }
         else if((*patternItr)->is_stop())
@@ -546,6 +551,124 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const fastqLine& seq,
             //the stop positions is also a found position (count only for fw)
             ++barcodePosition; //increase the count of found positions
             //stop here: we do not continue mapping after stop barcode [*]
+            //stop here: we do not continue mapping after stop barcode [*]
+            break;
+        }
+        else if((*patternItr)->is_dna())
+        {
+            //make sure DNA is the last part of a sequence
+            // (we do not know length of DNA and can not map barcodes on both sides of the DNA)
+            if(!(*(patternItr+1))->is_read_end())
+            {
+                std::cerr << "After a DNA pattern a read-end pattern [-] must follow, since we do not know the length of the DNA pattern.\n\
+                 Therefore a valid pattern would be ether ... [DNA][-]... or ...[-][DNA]...\n\
+                Please adjust pattern file accordingly.";
+                exit(EXIT_FAILURE);
+            }
+            ++barcodePosition; //increase the count of found positions for DNA
+
+            //set dna, quality (name was already set when getting next line to the name of forward read ONLY)
+            demultiplexedLine.dna = seq.line.substr(positionInFastqLine, seq.line.length()); //extract DNA fragment
+            demultiplexedLine.dnaQuality = seq.quality.substr(positionInFastqLine, seq.line.length()); //extract DNA fragment
+            demultiplexedLine.containsDNA = true;
+            continue;
+        }
+        else if((*patternItr)->is_read_end())
+        {
+            ++barcodePosition; //read-end is a valid found barcode
+            //stop here: we do not continue mapping when the read ends
+            return true;
+        }
+
+        // in case the sequence ends in the middle of the next barcode
+        bool seqToShort = check_if_seq_too_short(positionInFastqLine, seq.line);
+        if(seqToShort)
+        {
+            return true;
+        }
+
+        //IF NON OF THE ABOVE - TRY TO MAP PATTERN
+
+        //if we did not match a pattern
+        if(!(*patternItr)->align(barcode,seq.line, positionInFastqLine,targetEnd, del, ins, subst))
+        {
+            return false;
+        }
+
+        totalEdits = totalEdits + del + ins + subst;
+        positionInFastqLine += targetEnd; //targetEnd is zero indexed alst position in target-sequence that maps to pattern
+        //positionInFastqLine is the first position to INCLUDE in next alignment
+
+    //    std::cout << "\t" << " aligned: " << barcode << " pos: " << positionInFastqLine << "\n";
+
+        assert(barcode != "");
+        if(input.writeStats)
+        {
+            //add barcode data to statistics dictionary
+            
+            //TODO: add mismatches and types into vector
+            //std::lock_guard<std::mutex> guard(*stats.statsLock);
+            //int dictvectorIndex = ( (score <= (*patternItr)->mismatches) ? (score) : ( ((*patternItr)->mismatches) + 1) );
+            //++stats.mapping_dict[barcode].at(dictvectorIndex);
+        }
+        
+
+        //add this match to the BarcodeMapping
+        //barcodeMap.emplace_back(std::make_shared<std::string>(mappedBarcode));
+        demultiplexedLine.barcodeList.push_back(barcode);
+        ++barcodePosition; //increase the count of found positions
+    }
+
+    if(stats != nullptr)
+    {
+        if(totalEdits == 0)
+        {
+            ++stats->perfectMatches;
+        }
+        else
+        {
+            ++stats->moderateMatches;
+        }
+    }
+
+    return true;
+}
+
+bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const fastqLine& seq, const input& input, 
+                                                           BarcodePatternPtr barcodePatterns,
+                                                           OneLineDemultiplexingStatsPtr stats,
+                                                           DemultiplexedLine& demultiplexedLine,
+                                                           uint& barcodePosition,
+                                                           int& totalEdits)
+{
+    //fastq-read specific variables
+    int positionInFastqLine = 0;
+
+    //iterate reverse through patterns
+    for(BarcodeVector::reverse_iterator patternItr = barcodePatterns->rbegin(); 
+        patternItr < barcodePatterns->rend(); 
+        ++patternItr)
+    {
+        //barcode-specific variables
+        std::string barcode = ""; //the actual real barcode that we find (mismatch corrected)
+        int del = 0; 
+        int ins = 0;
+        int subst = 0;
+        int targetEnd = 0;
+
+        //if we have a wildcard skip this matching, we match again the next sequence
+        if((*patternItr)->is_wildcard())
+        {
+            (*patternItr)->align(barcode, seq.line, positionInFastqLine, targetEnd, del, ins, subst);
+            positionInFastqLine += (targetEnd);
+            ++barcodePosition; //increase the count of found positions
+            demultiplexedLine.barcodeList.push_back(barcode);
+            continue;
+        }
+        else if((*patternItr)->is_stop())
+        {
+            //stop here: we do not continue mapping after stop barcode [*]
+            ++barcodePosition; //increase the count of found positions
             return true;
         }
         else if((*patternItr)->is_dna())
@@ -562,8 +685,8 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const fastqLine& seq,
             ++barcodePosition; //increase the count of found positions for DNA
 
             //set dna, quality (name was already set when getting next line to the name of forward read ONLY)
-            demultiplexedLine.dna = seq.line.substr(offset, seq.line.length()); //extract DNA fragment
-            demultiplexedLine.dnaQuality = seq.quality.substr(offset, seq.line.length()); //extract DNA fragment
+            demultiplexedLine.dna = seq.line.substr(positionInFastqLine, seq.line.length()); //extract DNA fragment
+            demultiplexedLine.dnaQuality = seq.quality.substr(positionInFastqLine, seq.line.length()); //extract DNA fragment
             demultiplexedLine.containsDNA = true;
             continue;
         }
@@ -571,183 +694,26 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const fastqLine& seq,
         {
             ++barcodePosition; //read-end is a valid found barcode
             //stop here: we do not continue mapping when the read ends
-            return true;
-        }
-
-        //for every barcodeMapping element find a match
-        std::string barcode = ""; //the actual real barcode that we find (mismatch corrected)
-        int start=0, end=0, score = 0;
-        bool startCorrection = false;
-        if(wildCardToFill){startCorrection = true;} // sart correction checks if we have to move our mapping window to the 5' direction
-        
-        // in case the sequence ends in the middle of the next barcode
-        bool seqToShort = check_if_seq_too_short(offset, seq.line);
-        if(seqToShort)
-        {
-            return true;
-        }
-
-        //if we did not match a pattern
-        if(!(*patternItr)->match_pattern(seq.line, offset, start, end, score, barcode, differenceInBarcodeLength, startCorrection, false))
-        {
-            return false;
-        }
-
-        //set the length difference after barcode mapping
-        //for the case of insertions inside the barcode sequence set the difference explicitely to zero 
-        //(we only focus on deletions that we can not distinguish from substitutions)
-        //differenceInBarcodeLength = barcode.length() - (end);
-        if(differenceInBarcodeLength<0){differenceInBarcodeLength=0;}
-        std::string sequence = seq.line.substr(offset + start, end-start);
-        offset += end;
-        score_sum += score;
-
-        assert(barcode != "");
-        if(input.writeStats)
-        {
-            //add barcode data to statistics dictionary
-            
-            //TODO: add mismatches and types into vector
-            //std::lock_guard<std::mutex> guard(*stats.statsLock);
-            //int dictvectorIndex = ( (score <= (*patternItr)->mismatches) ? (score) : ( ((*patternItr)->mismatches) + 1) );
-            //++stats.mapping_dict[barcode].at(dictvectorIndex);
-        }
-        
-        //squeeze in the last wildcard match if there was one 
-        //(we needed both matches of neighboring barcodes to define wildcard boundaries)
-        if(wildCardToFill)
-        {
-            startCorrection = false;
-            std::string oldWildcardMappedBarcode = seq.line.substr(old_offset, (offset+start-end) - old_offset);
-            //barcodeMap.emplace_back(uniqueChars.  (oldWildcardMappedBarcode));
-            unsigned int lastWildcardEnd = 0; //in case we have several wildcards and need to know old offset
-            // to subset new string
-            while(wildCardToFill != 0)
-            {
-                BarcodeVector::iterator wildCardIt = patternItr;
-                int pos = -1 * wildCardToFill;
-                std::advance(wildCardIt, pos);
-                int currentWildcardLength = (*wildCardIt)->length;
-                //in case of deletions in UMI, we remove nucleotides from the last wildcard sequence
-                //for the last UMI sequence, we take the whole sequence (in case of insertions)
-                if( (lastWildcardEnd + currentWildcardLength) > oldWildcardMappedBarcode.length() || wildCardToFill == 1) 
-                {
-                    currentWildcardLength = oldWildcardMappedBarcode.length() - lastWildcardEnd;
-                }
-
-                std::string wildCardString = oldWildcardMappedBarcode.substr(lastWildcardEnd, currentWildcardLength);
-                demultiplexedLine.barcodeList.push_back(wildCardString);
-                wildCardToFill -= 1;
-
-                lastWildcardEnd += currentWildcardLength; // add the lengths of barcodes to the next offset position
-                ++barcodePosition; //increase the count of found positions
-            }
-        }
-
-        //add this match to the BarcodeMapping
-        //barcodeMap.emplace_back(std::make_shared<std::string>(mappedBarcode));
-        demultiplexedLine.barcodeList.push_back(barcode);
-        ++barcodePosition; //increase the count of found positions
-    }
-    //if the last barcode was a WIldcard that still has to be added
-    if(wildCardToFill)
-    {
-        wildCardToFill = 0; // unnecessary, still left to explicitely set to false
-        std::string oldWildcardMappedBarcode = seq.line.substr(old_offset, seq.line.length() - old_offset);
-        //barcodeMap.emplace_back(std::make_shared<std::string>(oldWildcardMappedBarcode));
-        demultiplexedLine.barcodeList.push_back(oldWildcardMappedBarcode);
-        ++barcodePosition; //increase the count of found positions
-    }
-
-    return true;
-}
-
-bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const fastqLine& seq, const input& input, 
-                                                           BarcodePatternPtr barcodePatterns,
-                                                           OneLineDemultiplexingStatsPtr stats,
-                                                           DemultiplexedLine& demultiplexedLine,
-                                                           uint& barcodePosition,
-                                                           int& score_sum)
-{
-    //iterate over BarcodeMappingVector
-    int offset = 0;
-
-    int old_offset = offset;
-    unsigned int wildCardToFill = 0;
-    int wildCardLength = 0, differenceInBarcodeLength = 0;
-    //iterate reverse through patterns
-    for(BarcodeVector::reverse_iterator patternItr = barcodePatterns->rbegin(); 
-        patternItr < barcodePatterns->rend(); 
-        ++patternItr)
-    {
-        //if we have a wildcard skip this matching, we match again the next sequence
-        if((*patternItr)->is_wildcard())
-        {
-            if(!wildCardToFill)
-            {
-                old_offset = offset;
-            }
-            wildCardLength = (*patternItr)->length;
-            offset += wildCardLength;
-            wildCardToFill += 1;
-            continue;
-        }
-        else if((*patternItr)->is_stop())
-        {
-            //stop here: we do not continue mapping after stop barcode [*]
-            return true;
-        }
-        else if((*patternItr)->is_dna())
-        {
-            //make sure DNA is the last part of a sequence
-            // (we do not know length of DNA and can not map barcodes on both sides of the DNA)
-            if(!(*(patternItr+1))->is_read_end())
-            {
-                std::cerr << "After a DNA pattern a read-end pattern [-] must follow, since we do not know the length of the DNA pattern.\n\
-                 Therefore a valid pattern would be ether ... [DNA][-]... or ...[-][DNA]...\n\
-                Please adjust pattern file accordingly.";
-                exit(EXIT_FAILURE);
-            }
-
-            //set dna, quality (name was already set when getting next line to the name of forward read ONLY)
-            demultiplexedLine.dna = seq.line.substr(offset, seq.line.length()); //extract DNA fragment
-            demultiplexedLine.dnaQuality = seq.quality.substr(offset, seq.line.length()); //extract DNA fragment
-            demultiplexedLine.containsDNA = true;
-        }
-        else if((*patternItr)->is_read_end())
-        {
-            //stop here: we do not continue mapping when the read ends
             break;
         }
 
-        //for every barcodeMapping element find a match
-        std::string barcode = ""; //the actual real barcode that we find (mismatch corrected)
-        int start=0, end=0, score = 0;
-        bool startCorrection = false;
-        if(wildCardToFill){startCorrection = true;} // sart correction checks if we have to move our mapping window to the 5' direction
-        
         // in case the sequence ends in the middle of the next barcode
-        bool seqToShort = check_if_seq_too_short(offset, seq.line);
+        bool seqToShort = check_if_seq_too_short(positionInFastqLine, seq.line);
         if(seqToShort)
         {
             return true;
         }
 
         //map each pattern with reverse complement
-        if(!(*patternItr)->match_pattern(seq.line, offset, start, end, score, barcode, differenceInBarcodeLength, startCorrection, true))
+        if(!(*patternItr)->align(barcode,seq.line, positionInFastqLine, targetEnd, del, ins, subst, true))
         {
             return false;
         }
 
-        //set the length difference after barcode mapping
-        //for the case of insertions inside the barcode sequence set the difference explicitely to zero 
-        //(we only focus on deletions that we can not distinguish from substitutions)
-        //we only substract the end, bcs we only consider barcode length differences at the end of the barcode
-        //differenceInBarcodeLength = barcode.length() - (end);
-        if(differenceInBarcodeLength<0){differenceInBarcodeLength=0;}
-        std::string sequence = seq.line.substr(offset + start, end-start);
-        offset += end;
-        score_sum += score;
+        totalEdits = totalEdits + del + ins + subst;
+        positionInFastqLine += targetEnd; //targetEnd is zero indexed alst position in target-sequence that maps to pattern
+        //positionInFastqLine is the first position to INCLUDE in next alignment
+
 
         assert(barcode != "");
         if(input.writeStats)
@@ -759,58 +725,23 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const fastqLine& seq,
             //int dictvectorIndex = ( (score <= (*patternItr)->mismatches) ? (score) : ( ((*patternItr)->mismatches) + 1) );
             //++stats.mapping_dict[barcode].at(dictvectorIndex);
         }
-        
-        //squeeze in the last wildcard match if there was one 
-        //(we needed both matches of neighboring barcodes to define wildcard boundaries)
-        if(wildCardToFill)
-        {
-            startCorrection = false;
-            std::string oldWildcardMappedBarcode = seq.line.substr(old_offset, (offset+start-end) - old_offset);
-
-            //barcodeMap.emplace_back(uniqueChars.  (oldWildcardMappedBarcode));
-            unsigned int lastWildcardEnd = 0; //in case we have several wildcards and need to know old offset
-            // to subset new string
-            while(wildCardToFill != 0)
-            {
-                BarcodeVector::reverse_iterator wildCardIt = patternItr;
-                int pos = -1 * wildCardToFill;
-                std::advance(wildCardIt, pos);
-                int currentWildcardLength = (*wildCardIt)->length;
-                //in case of deletions in UMI, we remove nucleotides from the last wildcard sequence
-                //for the last UMI sequence, we take the whole sequence (in case of insertions)
-                if( (lastWildcardEnd + currentWildcardLength) > oldWildcardMappedBarcode.length() || wildCardToFill == 1) 
-                {
-                    currentWildcardLength = oldWildcardMappedBarcode.length() - lastWildcardEnd;
-                }
-
-                std::string wildCardString = oldWildcardMappedBarcode.substr(lastWildcardEnd, currentWildcardLength);
-
-                //in reverse mapping we have to make reverse complement of wildcard sequence
-                std::string reverseComplimentbarcode = Barcode::generate_reverse_complement(wildCardString);
-
-                demultiplexedLine.barcodeList.push_back(reverseComplimentbarcode);
-                wildCardToFill -= 1;
-
-                lastWildcardEnd += currentWildcardLength; // add the lengths of barcodes to the next offset position
-                ++barcodePosition; //increase the count of found positions
-            }
-        }
-
-
-
+      
         //add this match to the BarcodeMapping
         //barcodeMap.emplace_back(std::make_shared<std::string>(mappedBarcode));
         demultiplexedLine.barcodeList.push_back(barcode);
         ++barcodePosition; //increase the count of found positions
     }
-    //if the last barcode was a WIldcard that still has to be added
-    if(wildCardToFill)
+
+    if(stats != nullptr)
     {
-        wildCardToFill = 0; // unnecessary, still left to explicitely set to false
-        std::string oldWildcardMappedBarcode = seq.line.substr(old_offset, seq.line.length() - old_offset);
-        //barcodeMap.emplace_back(std::make_shared<std::string>(oldWildcardMappedBarcode));
-        demultiplexedLine.barcodeList.push_back(oldWildcardMappedBarcode);
-        ++barcodePosition; //increase the count of found positions
+        if(totalEdits == 0)
+        {
+            ++stats->perfectMatches;
+        }
+        else
+        {
+            ++stats->moderateMatches;
+        }
     }
 
     return true;
@@ -922,20 +853,34 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::split_line_into_barcode_patterns(
     //map forward reads barcodeList contains the stored barcodes, 
     //barcodePosition is the psoiton of the last mapped barcode
     uint barcodePositionFw = 0;
+
     //for forward read we immediately add barcodes to demultiplexedLine.barcodeList, which is then extended in combine pattern, IF we find all patterns
     bool fwBool = map_forward(seq.first, input, barcodePatterns, stats, demultiplexedLine, barcodePositionFw, score_sum);
-
     DemultiplexedLine demultiplexedLineRv;
     uint barcodePositionRv = 0;
 
+  //  std::cout << "FOUND FOWARD: ";
+  //  for(auto el : demultiplexedLine.barcodeList)
+  //  {
+  //      std::cout << el << "\t";
+  //  }
+  //  std::cout << "\n";
+
     bool rvBool = map_reverse(seq.second, input, barcodePatterns, stats, demultiplexedLineRv,barcodePositionRv, score_sum);
+
+   // std::cout << "FOUND REVERSE: ";
+   // for(auto el : demultiplexedLineRv.barcodeList)
+   // {
+   //     std::cout << el << "\t";
+   // }
+   // std::cout << "\n";
 
     //passing demultiplexedLine.barcodeList as the barcodeList in forward pattern
     bool pairwiseMappingSuccess = false;
-    if(fwBool && rvBool)
-    {
-        pairwiseMappingSuccess = combine_mapping(barcodePatterns, demultiplexedLine, barcodePositionFw, demultiplexedLineRv, barcodePositionRv, stats, score_sum);
-    }
+
+    //todo: better check if fw and rv mapped: at the moment they returna  fail if e.g. a half-constant barcode does not map
+    pairwiseMappingSuccess = combine_mapping(barcodePatterns, demultiplexedLine, barcodePositionFw, demultiplexedLineRv, barcodePositionRv, stats, score_sum);
+
 
     return (pairwiseMappingSuccess);
 }
@@ -954,7 +899,7 @@ bool Mapping<MappingPolicy, FilePolicy>::demultiplex_read(const std::pair<fastqL
 
     //demultipelxed barcodes are stored in barcodeMap
     result = this->split_line_into_barcode_patterns(seq, demultiplexedLine, input, pattern, stats);
-
+    
     //update status bar
     if(count%1000==0 && totalReadCount!=ULLONG_MAX && count<totalReadCount) //update at every 1,000th entry
     {

@@ -272,18 +272,9 @@ inline std::string stripQuotes(const std::string& input)
     //and running time is more important
 inline bool run_alignment(std::string pattern, const std::string target, 
                           int& targetEnd,
-                          const int maxEditDist,
+                          EdlibAlignConfig config,
                           int& delNum, int& insNum, int& substNum)
 {
-    // Configure Edlib
-    EdlibAlignConfig config = edlibNewAlignConfig(
-        maxEditDist,        // Maximum allowed edit distance
-        EDLIB_MODE_SHW,     // Semi-global alignment (deletions in the target at the end are not penalized), 
-                            // the developers refer to it also as 'Prefix method'
-        //EDLIB_TASK_DISTANCE,
-        EDLIB_TASK_PATH,    // Request full alignment path (M, I, D, S)
-        NULL, 0             // No custom alphabet
-    );
     // bool to check if we found a result
     bool alignmentFound = false;
 
@@ -344,11 +335,6 @@ inline bool run_alignment(std::string pattern, const std::string target,
     }
 
     edlibFreeAlignResult(result);
-
-    //delete this for backtracking
-    //targetEnd = *result.endLocations;
-    //delNum = result.editDistance;
-    //if(result.status == EDLIB_STATUS_OK){alignmentFound = true;}
 
    // std::cout << "operaitons: ";
    // for(auto el : alignmentPath)

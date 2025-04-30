@@ -55,11 +55,10 @@ void DemultiplexingStats::initializeStats(const MultipleBarcodePatternVectorPtr&
 
 void DemultiplexingStats::update(OneLineDemultiplexingStatsPtr lineStatsPtr, bool result, std::string& foundPatternName, std::vector<std::string>& barcodeList)
 {
-
     //lock statistics and update, this object is updated across all threads in one shared instance
     std::lock_guard<std::mutex> guard(*statsLock);
     //update weather the line was mapped perfectly, moderately, or not at all
-    update_global_parameters(result, lineStatsPtr, foundPatternName);
+    update_global_parameters(result, lineStatsPtr);
     
     //result dependent updates:
     // 1.) for mapped lines the mismatch types and numbers
