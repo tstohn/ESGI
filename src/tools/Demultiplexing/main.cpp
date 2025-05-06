@@ -25,12 +25,14 @@
  * possible barcodes
  * 
  * HOW TO ALGORITHM:
-    iterate over patterns and match it to substring plus/minus mismatches on both sides
-    allow mismatches at beginning and end (plus/minus those mismatches, bcs imagine a barcode match with a mismatch in the end,
-    we then donnt know if its  really a msimatch, or a deletion of the barcode and already part of the next barcode...)
-    each matched barcodes is described by the first and last match of the sequence (therefore can be shorter, than real sequence, but not longer)
-    UMI or WildcardBarcodes are matched according to the two last matches in the neighboring sequences
-    aligning by semi global alignment, bcs it could be that our pattern matches beyond the sequence, that is checked afterwards
+    using edlib (bit-parallel algorithm) with maximum MM number and semi-global alignment (allowed deletions in the read-sequence without punishment).
+    map pattern-elements one after the other and hand over sub-sequences of length (pattern-element-length + allowed number MM) to
+    edlib-align function, then cut the pattern-element at the alignment end before the start of unpunished deletions. The last edit-operations
+    are forced to be substitutions in the case where it can be deletions or substitutions. UMIs are just 'cut-out' at the expected length.
+    Before aligning we check a hash-map if read-sequence contains a perfect barcode match. Additionally, we end aligning variables barcodes early
+    when we fin a match that is below a threshold (e.g., minimum conversion rate/2, bcs. the read-sequence can be in the middle between two
+    barcodes, so the conversion rate divided by two is the threshoold where this number of mismatches could define non-unique barcodes).
+
  * @param <input> input fastq file (gzipped), considers only full length fastq reads, FW/RV must be stitched together in advance
  * @param <output> output extension, that will be added to the output files, see return
  * @param <sequencePattern> a string with all the barcode patterns, each pattern is enclosed by suqare brackets, valid chars are AGTC ofr bases, N for a sequences

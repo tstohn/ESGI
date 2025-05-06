@@ -181,6 +181,15 @@ class ConstantBarcode : public Barcode
         return foundAlignment;
     }
 
+    /*
+    ALGORITHM:
+        iterate over patterns and match it to substring plus/minus mismatches on both sides
+    allow mismatches at beginning and end (plus/minus those mismatches, bcs imagine a barcode match with a mismatch in the end,
+    we then donnt know if its  really a msimatch, or a deletion of the barcode and already part of the next barcode...)
+    each matched barcodes is described by the first and last match of the sequence (therefore can be shorter, than real sequence, but not longer)
+    UMI or WildcardBarcodes are matched according to the two last matches in the neighboring sequences
+    aligning by semi global alignment, bcs it could be that our pattern matches beyond the sequence, that is checked afterwards
+    */
     bool match_pattern(std::string sequence, const int& offset, int& seq_start, int& seq_end, int& score, std::string& realBarcode, 
                        int& differenceInBarcodeLength, bool startCorrection = false, bool reverse = false,
                        bool fullLengthMapping = false)
@@ -636,17 +645,15 @@ class WildcardBarcode : public Barcode
         realBarcode = sequence;
         return true;
     }
-    bool align(std::string& matchedBarcode, const std::string& target, const int targetOffset,
+    bool align(std::string& matchedBarcode, const std::string& target, const int positionInFastqLine,
         int& targetEnd, int& delNum, int& insNum, int& substNum,
         bool reverse = false)
-
-        {
-            matchedBarcode = target.substr(0, length);
-            targetEnd = (target.length() < length) ? target.length()-1 : length-1;
-            // e.g.: [AGTAGT]cccc: start=0 end=6 end is first not included idx
-
-            return true;
-        }
+    {
+        matchedBarcode = target.substr(positionInFastqLine, length);
+        targetEnd = (target.length() < length) ? target.length() : length;
+        // e.g.: [AGTAGT]cccc: start=0 end=6 end is first not included idx
+        return true;
+    }
 
     std::vector<std::string> get_patterns()
     {

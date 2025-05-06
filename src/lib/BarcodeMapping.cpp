@@ -590,7 +590,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const fastqLine& seq,
         //IF NON OF THE ABOVE - TRY TO MAP PATTERN
 
         //if we did not match a pattern
-        if(!(*patternItr)->align(barcode,seq.line, positionInFastqLine,targetEnd, del, ins, subst))
+        if(!(*patternItr)->align(barcode,seq.line, positionInFastqLine, targetEnd, del, ins, subst))
         {
             return false;
         }
@@ -598,8 +598,6 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const fastqLine& seq,
         totalEdits = totalEdits + del + ins + subst;
         positionInFastqLine += targetEnd; //targetEnd is zero indexed alst position in target-sequence that maps to pattern
         //positionInFastqLine is the first position to INCLUDE in next alignment
-
-    //    std::cout << "\t" << " aligned: " << barcode << " pos: " << positionInFastqLine << "\n";
 
         assert(barcode != "");
         if(input.writeStats)
