@@ -537,6 +537,9 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const fastqLine& seq,
         int subst = 0;
         int targetEnd = 0;
 
+        //if we have mapped to the end of the sequence (but barcodes of the pattern are still missing)
+        if(seq.line.size() <= positionInFastqLine){return false;}
+
         //if we have a wildcard skip this matching, we match again the next sequence
         if((*patternItr)->is_wildcard())
         {
@@ -594,6 +597,8 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const fastqLine& seq,
         {
             return false;
         }
+        
+        //std::cout << "ALIGN FW: found " << barcode << " at start " << positionInFastqLine << " with new end " << targetEnd << "\n";
 
         totalEdits = totalEdits + del + ins + subst;
         positionInFastqLine += targetEnd; //targetEnd is zero indexed alst position in target-sequence that maps to pattern
@@ -647,12 +652,16 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const fastqLine& seq,
         patternItr < barcodePatterns->rend(); 
         ++patternItr)
     {
+
         //barcode-specific variables
         std::string barcode = ""; //the actual real barcode that we find (mismatch corrected)
         int del = 0; 
         int ins = 0;
         int subst = 0;
         int targetEnd = 0;
+
+        //if we have mapped to the end of the sequence (but barcodes of the pattern are still missing)
+        if(seq.line.size() <= positionInFastqLine){return false;}
 
         //if we have a wildcard skip this matching, we match again the next sequence
         if((*patternItr)->is_wildcard())
@@ -707,6 +716,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const fastqLine& seq,
         {
             return false;
         }
+        //std::cout << "ALIGN RV: found " << barcode << " at start " << positionInFastqLine << " with new end " << targetEnd << "\n";
 
         totalEdits = totalEdits + del + ins + subst;
         positionInFastqLine += targetEnd; //targetEnd is zero indexed alst position in target-sequence that maps to pattern

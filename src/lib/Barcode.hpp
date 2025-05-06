@@ -168,7 +168,13 @@ class ConstantBarcode : public Barcode
                bool reverse = false)
     {
         bool foundAlignment = false;
-        std::string target = fastqLine.substr(targetOffset, pattern.length()+mismatches);
+
+        //get length of substring, length does not depend on reverse/ forward pattern
+        std::string target;
+        int substringLength = pattern.length()+mismatches;
+        if(targetOffset + substringLength > fastqLine.size()){substringLength = fastqLine.size()-targetOffset;};
+        //std::cout << "\t LENGTH: " <<substringLength << " seq: " << fastqLine.size()<< "\n";
+        target = fastqLine.substr(targetOffset, substringLength);
 
         //set the pattern to use for reverse or forward mapping
         std::string usedPattern = pattern;
@@ -372,7 +378,7 @@ class VariableBarcode : public Barcode
         bool reverse = false)
     {
         //check if we can instantly match pattern
-        if(equalLengthBarcodes)
+        if(equalLengthBarcodes && (fastqLine.size() >= (targetOffset + patterns.at(0).size())))
         {
             std::string target = fastqLine.substr(targetOffset, patterns.at(0).size());
             if (barcodeSet.find(target) != barcodeSet.end()) 
@@ -400,7 +406,11 @@ class VariableBarcode : public Barcode
             std::string usedPattern = patternsToMap.at(patternIdx);
 
             //define target sequence (can differ for every barcode due to its length)
-            std::string target = fastqLine.substr(targetOffset, usedPattern.length()+mismatches);
+            std::string target;
+            int substringLength = usedPattern.length()+mismatches;
+            //std::cout << "\t LENGTH: " <<substringLength << " seq: " << fastqLine.size()<< "\n";
+            if(targetOffset + substringLength > fastqLine.size()){substringLength = fastqLine.size()-targetOffset;};
+            target = fastqLine.substr(targetOffset, substringLength);
 
             //std::cout << " in barcode trying barcode: " << usedPattern << " with target sequ " << target<< "\n";
 
