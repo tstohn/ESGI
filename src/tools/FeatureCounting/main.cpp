@@ -33,7 +33,7 @@ using namespace boost::program_options;
 
 bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& outFile, int& threats, 
                      std::string& barcodeDir, std::string& barcodeIndices, 
-                     std::string umiIdx, int& umiMismatches,
+                     std::string& umiIdx, int& umiMismatches,
                      std::string& abFile, int& featureIdx, std::string& treatmentFile, int& treatmentIdx,
                      double& umiThreshold, bool& umiRemoval,  bool& scIdString)
 {
@@ -53,14 +53,14 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             If this argument is given, you must also add the index of barcodes used for grouping")
             ("groupingIndex,y", value<int>(&treatmentIdx), "Index used to group cells(e.g. by treatment). This is the x-th barcode from the barcodeFile (0 indexed).")
 
-            ("singleCellIndices,s", value<std::string>(&(barcodeIndices))->default_value(""), "comma seperated list of indexes, that are used for \
+            ("singleCellIndices,c", value<std::string>(&(barcodeIndices))->default_value(""), "comma seperated list of indexes, that are used for \
             single-cell assignment (e.g., combinatorial indexing) and should distinguish a unique cell. Be aware that this is the index of the line inside the barcodeList file (see above). \
             This file ONLY includes lines for the varying sequences (except UMI). Therefore the index is not the same as the position in the whole sequence \
             if constant or UMI-seq are present. Index starts with zero.")
 
             ("umiIndex,u", value<std::string>(&umiIdx)->default_value(""), "list of indices used as unique molecular identifier (UMI). This can be several columns. indices are 0-indexed. \
             If this parameter is not given all columns with an X from the pattern-input-file (e.g., [10X]) are used as UMI.")
-            ("mismatches,z", value<int>(&umiMismatches)->default_value(1), "number of allowed mismatches in a UMI. If there are several UMI-barcodes in one sequence\
+            ("mismatches,m", value<int>(&umiMismatches)->default_value(1), "number of allowed mismatches in a UMI. If there are several UMI-barcodes in one sequence\
             the sequences are concatenated and the whole sequence is aligned to other UMI-seuqences by THIS ONE MISMATCH NUMBER.")
             ("umiThreshold,f", value<double>(&umiThreshold)->default_value(0.0), "threshold for filtering UMIs. E.g. if set to 0.9 we only retain reads of a UMI, if more \
             than 90percent of them have the same SC-AB combination. All other reads are deleted. Keep at 0 if UMIs should not be removed.")

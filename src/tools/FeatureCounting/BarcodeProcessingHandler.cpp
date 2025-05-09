@@ -122,6 +122,7 @@ void generateBarcodeDicts(const std::string& headerLine, const std::string& barc
             tmpUmiIdices.push_back(stoi(umiSubstr));
         }
     }
+
     //assign number of UMI mismatches
     barcodeIdData.umiMismatches = umiMismatches;
 
@@ -223,7 +224,7 @@ void generateBarcodeDicts(const std::string& headerLine, const std::string& barc
         std::cout << barcodeHeader.at(colIdxForUMI) << ",";
     }
     std::cout << "\n";
-    std::cout << "Aligning all UMI-sequences with" << std::to_string(barcodeIdData.umiMismatches) << " mismatches.\n";
+    std::cout << "Aligning all UMI-sequences with " << std::to_string(barcodeIdData.umiMismatches) << " mismatches.\n";
 
     //assign the final dictionaries of variable barcodes
     if(parseAbBarcodes)
