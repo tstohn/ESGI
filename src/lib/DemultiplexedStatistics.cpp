@@ -15,8 +15,12 @@ void DemultiplexingStats::initializeStats(const MultipleBarcodePatternVectorPtr&
     for(BarcodePatternPtr patternPtr : *barcodePatternList)
     {
         //for barcode within this pattern
+        int actualPatternPos = 0; //when demultiplexing the line we only push certain barcodes inot the demultiplexed list
+        //we DO NOT push stop/ read-end or DNA patterns in there, and therefore also CAN NOT count these indices as indices
+        //that store patterns with potential DEL/INS/MIS
         for(int barcodePos = 0; barcodePos < patternPtr->barcodePattern->size(); ++barcodePos)
         {
+
             //initialize the failed line positions for fW and rv reads
             std::string pattern_position = patternPtr->patternName + "_" + std::to_string(barcodePos);
             failedLinesMappingFw.insert(std::make_pair(pattern_position, 0));
@@ -25,19 +29,22 @@ void DemultiplexingStats::initializeStats(const MultipleBarcodePatternVectorPtr&
             int mismatches = patternPtr->barcodePattern->at(barcodePos)->mismatches;
             const std::vector<std::string> variableBarcodesVec = patternPtr->barcodePattern->at(barcodePos)->get_patterns();
 
-            if(!patternPtr->barcodePattern->at(barcodePos)->is_wildcard() && 
-               !patternPtr->barcodePattern->at(barcodePos)->is_stop() && 
+            //if pattern is a wildcard, then this pattern WILL BE in the demultiplexed barcode list, therefore the actualPatternPos
+            //has to increase, however, we do not store this as a valid abrcode position with IN/DEL/MIS
+            if(patternPtr->barcodePattern->at(barcodePos)->is_wildcard()){++actualPatternPos;}
+            else if(!patternPtr->barcodePattern->at(barcodePos)->is_stop() && 
                !patternPtr->barcodePattern->at(barcodePos)->is_dna() && 
                !patternPtr->barcodePattern->at(barcodePos)->is_read_end())
                 {
+
                     //this is a valid position in this pattern, safe it so we can fill it later on
-                    validPositions[patternPtr->patternName].push_back(barcodePos);
+                    validPositions[patternPtr->patternName].push_back(actualPatternPos);
 
                     //for variable barcodes // (or single constant one)
                     for(const std::string& barcodeString : variableBarcodesVec)
                     {
                         //create key for dictionaries: <pattern=name>_<barcodePosition>_<actual Barcode>
-                        std::string pattern_position_barcode = patternPtr->patternName + "_" + std::to_string(barcodePos) + "_" + barcodeString;
+                        std::string pattern_position_barcode = patternPtr->patternName + "_" + std::to_string(actualPatternPos) + "_" + barcodeString;
 
                         //INITIALiZE THE MISMATCH TYPE DICTIONARY
                         insertions.insert(std::make_pair(pattern_position_barcode, 0));
@@ -48,6 +55,8 @@ void DemultiplexingStats::initializeStats(const MultipleBarcodePatternVectorPtr&
                         std::vector<int> mismatchVector(mismatches + 1, 0);
                         mismatchNumber.insert(std::make_pair(pattern_position_barcode, mismatchVector));
                     }
+
+                    ++actualPatternPos;
                 }
         }   
     }
@@ -55,11 +64,12 @@ void DemultiplexingStats::initializeStats(const MultipleBarcodePatternVectorPtr&
 
 void DemultiplexingStats::update(OneLineDemultiplexingStatsPtr lineStatsPtr, bool result, std::string& foundPatternName, std::vector<std::string>& barcodeList)
 {
+
     //lock statistics and update, this object is updated across all threads in one shared instance
     std::lock_guard<std::mutex> guard(*statsLock);
     //update weather the line was mapped perfectly, moderately, or not at all
     update_global_parameters(result, lineStatsPtr);
-    
+
     //result dependent updates:
     // 1.) for mapped lines the mismatch types and numbers
     // 2.) for failed lines until where we mapped

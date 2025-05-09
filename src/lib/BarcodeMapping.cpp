@@ -410,7 +410,6 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
     int positionInFastqLine = 0;
     int totalEdits = 0;
 
-    //std::cout << "\n_____ \n";
     for(BarcodeVector::iterator patternItr = barcodePatterns->begin(); 
         patternItr < barcodePatterns->end(); 
         ++patternItr)
@@ -551,7 +550,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const fastqLine& seq,
         }
         else if((*patternItr)->is_stop())
         {
-            //the stop positions is also a found position (count only for fw)
+            //the stop positions is also a found position (count only for fw - otherwise sequences could wrongfully overlap)
             ++barcodePosition; //increase the count of found positions
             //stop here: we do not continue mapping after stop barcode [*]
             //stop here: we do not continue mapping after stop barcode [*]
@@ -578,7 +577,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const fastqLine& seq,
         }
         else if((*patternItr)->is_read_end())
         {
-            ++barcodePosition; //read-end is a valid found barcode
+            ++barcodePosition; //read-end is a valid found barcode (count only for forward - otherwise sequences could wrongfully overlap)
             //stop here: we do not continue mapping when the read ends
             return true;
         }
@@ -675,7 +674,8 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const fastqLine& seq,
         else if((*patternItr)->is_stop())
         {
             //stop here: we do not continue mapping after stop barcode [*]
-            ++barcodePosition; //increase the count of found positions
+            // DO NOT increase the count of found positions (++barcodePosition;),
+            //it is ONLY counted in the forward read
             return true;
         }
         else if((*patternItr)->is_dna())
@@ -699,7 +699,8 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const fastqLine& seq,
         }
         else if((*patternItr)->is_read_end())
         {
-            ++barcodePosition; //read-end is a valid found barcode
+            // DO NOT increase the count of found positions (++barcodePosition;), 
+            //it is ONLY counted in the forward read
             //stop here: we do not continue mapping when the read ends
             break;
         }
@@ -780,14 +781,17 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(const BarcodePatt
     //in case of a stop pattern [*], we added +1 to the barcodePositionFw, so that barcodePositionFw+barcodePositionRv should be euqual to patternNum
     if(patternNum == (barcodePositionFw + barcodePositionRv))
     {
+
         for(std::vector<std::string>::const_reverse_iterator rvBarcodeIt = demultiplexedLineRv.barcodeList.crbegin(); rvBarcodeIt != demultiplexedLineRv.barcodeList.crend(); ++rvBarcodeIt)
         {
             demultiplexedLineFw.barcodeList.push_back({*rvBarcodeIt});
         }
     }
     //if they r overlapping, check all overlapping ones are the same
+
     if(patternNum < (barcodePositionFw + barcodePositionRv))
     {
+
         //assert all overlapping barcodes r the same
         int start = (patternNum - barcodePositionRv); // this is the idx of the first shared barcode
         int end = barcodePositionFw - 1; //this is the idnex of the last shared barcode
@@ -810,6 +814,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(const BarcodePatt
             demultiplexedLineFw.barcodeList.push_back(demultiplexedLineRv.barcodeList.at(i));
         }
     }
+
     //if there r barcodePatterns missing in the middle, check they r only constant and add any
     //non-found-constant barcode
     if(patternNum > (barcodePositionFw + barcodePositionRv))

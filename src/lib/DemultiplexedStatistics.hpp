@@ -59,6 +59,7 @@ class DemultiplexingStats{
         //UPDATE FUNCTIONS
         void update_failedLinesMapping(std::map<std::string, int> failedFw, std::map<std::string, int> failedRv)
         {
+
             //update the last mapped position on FW read
             for (std::map<std::string, int>::iterator it = failedFw.begin(); it != failedFw.end(); ++it) 
             {
@@ -103,7 +104,6 @@ class DemultiplexingStats{
                 insertions.at(key) += lineStatsPtr->insertions.at(validBarcodePos);
             }
             
-
             //update deletions
             for (int validBarcodePos : validPositions.at(foundPatternName)) 
             {
