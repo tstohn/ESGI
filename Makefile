@@ -6,9 +6,10 @@ CXXFLAGS = -g -Wall
 LDFLAGS = 
 
 install:
-	#download and compile kseq, download edlib (no need to compile)
+	#download and compile kseq, download edlib (no need to compile, we just add libraries and then compile with them)
 	mkdir include; cd ./include; git clone https://github.com/lh3/seqtk --branch v1.3; cd ./seqtk; make
 	git submodule add https://github.com/martinsos/edlib ./edlib;
+	git submodule update --init --recursive
 	cd ..
 	mkdir bin
 	sudo apt-get install libboost-all-dev
