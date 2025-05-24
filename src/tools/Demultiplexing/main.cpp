@@ -7,7 +7,7 @@
 #include <thread>
 
 #include "Barcode.hpp"
-#include "DemultiplexedLinesWriter.hpp"
+#include "Demultiplexer.hpp"
 
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/positional_options.hpp>
@@ -25,12 +25,14 @@
  * possible barcodes
  * 
  * HOW TO ALGORITHM:
-    iterate over patterns and match it to substring plus/minus mismatches on both sides
-    allow mismatches at beginning and end (plus/minus those mismatches, bcs imagine a barcode match with a mismatch in the end,
-    we then donnt know if its  really a msimatch, or a deletion of the barcode and already part of the next barcode...)
-    each matched barcodes is described by the first and last match of the sequence (therefore can be shorter, than real sequence, but not longer)
-    UMI or WildcardBarcodes are matched according to the two last matches in the neighboring sequences
-    aligning by semi global alignment, bcs it could be that our pattern matches beyond the sequence, that is checked afterwards
+    using edlib (bit-parallel algorithm) with maximum MM number and semi-global alignment (allowed deletions in the read-sequence without punishment).
+    map pattern-elements one after the other and hand over sub-sequences of length (pattern-element-length + allowed number MM) to
+    edlib-align function, then cut the pattern-element at the alignment end before the start of unpunished deletions. The last edit-operations
+    are forced to be substitutions in the case where it can be deletions or substitutions. UMIs are just 'cut-out' at the expected length.
+    Before aligning we check a hash-map if read-sequence contains a perfect barcode match. Additionally, we end aligning variables barcodes early
+    when we fin a match that is below a threshold (e.g., minimum conversion rate/2, bcs. the read-sequence can be in the middle between two
+    barcodes, so the conversion rate divided by two is the threshoold where this number of mismatches could define non-unique barcodes).
+
  * @param <input> input fastq file (gzipped), considers only full length fastq reads, FW/RV must be stitched together in advance
  * @param <output> output extension, that will be added to the output files, see return
  * @param <sequencePattern> a string with all the barcode patterns, each pattern is enclosed by suqare brackets, valid chars are AGTC ofr bases, N for a sequences
@@ -68,27 +70,31 @@ bool parse_arguments(char** argv, int argc, input& input)
             ("input,i", value<std::string>(&(input.inFile))->required(), "single file in fastq(.gz) format or the forward read file, if <-r> is also set for the\
             reverse reads. If the file contains only sequences as strings the file must be stored in txt format (with no fastq-quality lines)")
             //optional for reverse mapping: no recommended, join reads first
-            ("reverse,r", value<std::string>(&(input.reverseFile)), "Use this parameter for paired-end analysis as the reverse read file. <-i> is the forward read in \
+            ("reverse,r", value<std::string>(&(input.reverseFile))->default_value(""), "Use this parameter for paired-end analysis as the reverse read file. <-i> is the forward read in \
             this case.")
 
-            ("output,o", value<std::string>(&(input.outFile))->required(), "output file with all split barcodes")
-            
-            ("sequencePattern,p", value<std::string>(&(input.patternLine))->required(), "pattern for the sequence to match, \
-            every substring that should be matched is enclosed with square brackets. N is a barcode match, X is a wild card match \
-            and D is a transcriptome read (e.g. cDNA), * is a stop sign (must be enclosed in brackets [*] and then mapping stops at this position \
-            on both sides from FW and RV read): [AGCTATCACGTAGC][XXXXXXXXXX][NNNNNN][AGAGCATGCCTTCAG][NNNNNN]")
-            ("barcodeList,b", value<std::string>(&(input.barcodeFile)), "file with a list of all allowed well barcodes (comma seperated barcodes across several rows)\
-            the row refers to the correponding bracket enclosed sequence substring. E.g. for two bracket enclosed substrings in out sequence a possible list could be:\
-            AGCTTCGAG,ACGTTCAGG\nACGTCTAGACT,ATCGGCATACG,ATCGCGATC,ATCGCGCATAC")
-            ("guideList,c", value<std::string>(&(input.guideFile))->default_value(""), "file with only one line with all guides - comma seperated. Those guides can be found in reads \
-            instead of the AB barcode. By default guide reads have also no UMI. If guide reads also contain a UMI set the flag guideUMI.")
-            ("mismatches,m", value<std::string>(&(input.mismatchLine))->default_value("1"), "list of mismatches allowed for each bracket enclosed sequence substring. \
-            This should be a comma seperated list of numbers for each substring of the sequence enclosed in squared brackets. E.g.: 2,1,2,1,2. (Also add the STOP, UMI mismatch -  \
-            this number is not used however, UMIs are aligned in BarcodeProcessing.)")
-            ("guideUMI,d", value<bool>(&(input.guideUMI))->default_value(false), "set this flag to true if the guide reads have a UMI as well - only for demultiplexing \
-            guide and AB reads simultaniously.")
-            ("guidePosition,e", value<int>(&(input.guidePos))->default_value(-1), "position of all variable barcodes (in other words line in the barcodeFile), where the guide should be (0-indexed). This parameter needs\
-            to be set if we also want to map guides.")
+            ("output,o", value<std::string>(&(input.outPath))->required(), "output directory. All files including failed lines, statistics will be saved here.")
+            ("namePrefix,n", value<std::string>(&(input.prefix))->default_value(""), "a prefix for file names. Default uses no prefix.")
+
+            //removed: old parameter for seuqence pattern: its now parsed directly form the demultiplexed output
+            /*("sequencePattern,p", value<std::string>(&(input.patternLine))->required(), "pattern for the sequence to match, 
+            every substring that should be matched is enclosed with square brackets. N is a barcode match, X is a wild card match 
+            and D is a transcriptome read (e.g. cDNA), * is a stop sign (must be enclosed in brackets [*] and then mapping stops at this position 
+            on both sides from FW and RV read): [AGCTATCACGTAGC][XXXXXXXXXX][NNNNNN][AGAGCATGCCTTCAG][NNNNNN]")*/
+
+            ("barcodePatternsFile,p", value<std::string>(&(input.barcodePatternsFile))->required(), "patterns for the sequences to match, every substring that should be matched is enclosed with square brackets. \
+            Linker sequences of known barcodes can be 'hard-coded', e.g. [ACGTCAG], for variable barcodes one can add a file path, e.g.[data/barcodes.txt] with comma seperated possible barcodes that can be found at this position(the barcodes can be of variable lengths), [10X] is a wild card match with 10 random bases (e.g., for UMIs) and [DNA] is a transcriptome read (e.g. cDNA), [*] is a stop sign/random sequence part that will also not be mapped, and [-] seperates forward and reverse read. ALL signs (also [*] and [-] must be enclosed in brackets). \
+            You can supply several rows with various patterns that might all exist in the input fastq.\
+            \nSIGN DETAILS: \
+            \n[*]: mapping stops at this position on both sides from FW and RV read, completely disregarding any sequence that follows from FW/ RV read. This sign can only be used ONCE in a pattern). E.g.: [AGCTATCACGTAGC][XXXXXXXXXX][BC1.txt][*][AGAGCATGCCTTCAG][BC1.txt]. in the FW read we map only [AGCTATCACGTAGC][XXXXXXXXXX][BC1.txt] and in the reverse read only [AGAGCATGCCTTCAG][BC1.txt].\
+            \n[-]: seperates FW and RV reads. Useful if one read contains DNA and (after mapping a barcode in the beginning) the rest of the read should be assign to DNA. E.g.: [BC1.txt][DNA][-][15X][BC1.txt]: extracts BC1 in FW read and assigns the rest of the read to DNA that can be mapped to a reference. \
+            \n[DNA]: DNA can only be at the end of a read (we map the FW and RV read from the 5' to the 3' end), this mean that we can have any barcodes before a DNA pattern, but we can not have barcodes after. In other words the DNA pattern must always be at the end of a read and valid patterns must look like this (where ... can be any pattern except [*],[-]): ...[DNA][-][DNA]... \
+            \nvalid structures: [BC1.txt][DNA][-][15X][BC1.txt], [BC1.txt][-][DNA][15X][BC1.txt], [DNA][-][15X][BC1.txt], [15X][BC1.txt][-][DNA], [BC1.txt][15X][BC1.txt][DNA] \
+            \nNOT valid structures: [BC1.txt][DNA][BC2.txt][-][15X][BC1.txt], [BC1.txt][DNA][15X][BC1.txt]")
+
+            ("mismatchFile,m", value<std::string>(&(input.mismatchFile))->default_value(""), "File with lists of mismatches allowed for each bracket enclosed sequence substring. \
+            This should be a comma seperated list of numbers for each substring of the sequence enclosed in squared brackets. E.g.: 2,1,2,1,2. (Also add mismatches for the STOP[*], UMI[X], READSEPERATOR[-] -  \
+            this number is not used however, UMIs are aligned in BarcodeProcessing.) We need one line for every line in the barcodePatternsFile.")
 
             ("threat,t", value<int>(&(input.threads))->default_value(5), "number of threads")
             ("fastqReadBucketSize,s", value<long long int>(&(input.fastqReadBucketSize))->default_value(-1), "number of lines of the fastQ file that should be read into RAM \
@@ -107,7 +113,7 @@ bool parse_arguments(char** argv, int argc, input& input)
             std::cout << desc << "\n";
 
             std::cout << "###########################################\n";
-            std::cout << "EXAMPLE CALL:\n ./bin/parser -i ./inFile -o ./outFile -p [AGTCAGTC][NNNN] -b ./barcodeFile.txt -m 2,1 -t 5\n";
+            std::cout << "EXAMPLE CALL:\n ./bin/parser -i ./inFile -o ./outPath -p [AGTCAGTC][NNNN] -b ./barcodeFile.txt -m 2,1 -t 5\n";
             std::cout << "Calling the Tool, mapping each line to a pattern, that starts with a constant sequence of <AGTCAGTC> in which up to two mismatches\n\
             are allowed. After that the reads should contain a four base long sequence with a maximum of one mismatch. All sequences that are allowed are in the text file barcodeFile.txt.\n\
             This file should have in its first row, all comma seperated sequences that could map, and they should be all only four bases long, allowed chars are only A,C,G,T.\n";
@@ -127,29 +133,80 @@ bool parse_arguments(char** argv, int argc, input& input)
 
 }
 
+void write_parameter_file(const input& input)
+{
+    std::string paramterFile = "paramter.ini";
+    if(input.prefix !="")
+    {
+        paramterFile = input.prefix + "_" + paramterFile;
+    }
+
+    std::ofstream outFile(input.outPath + "/" + paramterFile);
+    if (!outFile) {
+        std::cerr << "Could not open paramter file for writing.\n";
+        exit(EXIT_FAILURE);
+    }
+
+    outFile << "inFile = " << input.inFile << "\n";
+    outFile << "outPath = " << input.outPath << "\n";
+    outFile << "prefix = " << input.prefix << "\n";
+    outFile << "reverseFile = " << input.reverseFile << "\n";
+    outFile << "barcodeFile = " << input.barcodeFile << "\n";
+    outFile << "patternLine = " << input.patternLine << "\n";
+
+    outFile << "writeStats = " << (input.writeStats ? "true" : "false") << "\n";
+    outFile << "writeFailedLines = " << (input.writeFailedLines ? "true" : "false") << "\n";
+    outFile << "writeFilesOnTheFly = " << (input.writeFilesOnTheFly ? "true" : "false") << "\n";
+
+    outFile << "fastqReadBucketSize = " << input.fastqReadBucketSize << "\n";
+    outFile << "threads = " << input.threads << "\n";
+    
+    // Write mismatchFile path and its contents
+    outFile << "mismatchFile = " << input.mismatchFile << "\n";
+    std::ifstream mismatchIn(input.mismatchFile);
+    if (mismatchIn) {
+        std::string line;
+        while (std::getline(mismatchIn, line)) {
+            outFile << "  " << line << "\n";
+        }
+    } else {
+        outFile << "  [Could not read mismatchFile]\n";
+    }
+    
+    // Write patternLine path and its contents
+    outFile << "barcodePatternsFile = " << input.barcodePatternsFile << "\n";
+    std::ifstream patternIn(input.barcodePatternsFile);
+    if (patternIn) {
+        std::string line;
+        while (std::getline(patternIn, line)) {
+            outFile << "  " << line << "\n";
+        }
+    } else {
+        outFile << "  [Could not read barcodePatternsFile file]\n";
+    }
+
+    outFile.close();
+}
+
 int main(int argc, char** argv)
 {
 
     input input;
     if(parse_arguments(argv, argc, input))
     {
+        //check output is a valid directory
+        if(! (std::filesystem::exists(input.outPath) && std::filesystem::is_directory(input.outPath)))
+        {
+            fprintf(stderr,"The output directory (-o) must exist! Please provide a valid directory.\n Fail to find directory: %s\n", input.outPath.c_str());
+            exit(EXIT_FAILURE);
+        }
+        //write paramters to a parameter file
+        write_parameter_file(input);
+
         //set the number of reads in the processing queue by default to 10X number of threads
         if(input.fastqReadBucketSize == -1)
         {
             input.fastqReadBucketSize = input.threads * 10;
-        }
-        //check that we have the necessary parameters in case we also perform simultaniously guide mapping
-        if( (input.guideFile != "" && input.guidePos == -1) || (input.guideFile == "" && input.guidePos != -1))
-        {            
-            std::cerr << "Parameter Error: When performing simultanious guide mapping, the position where the guide sits needs to be given by\
-            <guidePosition> paramter -e and the possible guide sequences need to be given by the <guideFile> parameter -c!";
-            exit(1);
-        }
-        if( input.writeStats && (input.guideFile != ""))
-        {
-            std::cerr << "Parameter Error: Please run the tool without writeStats in case of additional guide mapping. If you r interested\
-            in statistics run the tool twice once only mapping AB-reads and once mapping guide reads.\n";
-            exit(1);
         }
 
         // run demultiplexing
@@ -167,17 +224,17 @@ int main(int argc, char** argv)
                 exit(EXIT_FAILURE);
             }
 
-            DemultiplexedLinesWriter<MapEachBarcodeSequentiallyPolicyPairwise, ExtractLinesFromFastqFilePolicyPairedEnd> mapping;
+            Demultiplexer<MapEachBarcodeSequentiallyPolicyPairwise, ExtractLinesFromFastqFilePolicyPairedEnd> mapping;
             mapping.run(input);
         }
         else if(endWith(input.inFile, "fastq") || endWith(input.inFile, "fastq.gz"))
         {
-            DemultiplexedLinesWriter<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromFastqFilePolicy> mapping;
+            Demultiplexer<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromFastqFilePolicy> mapping;
             mapping.run(input);
         }
         else if(endWith(input.inFile, "txt"))
         {
-            DemultiplexedLinesWriter<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromTxtFilesPolicy> mapping;
+            Demultiplexer<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromTxtFilesPolicy> mapping;
             mapping.run(input);
         }
         else
@@ -185,7 +242,6 @@ int main(int argc, char** argv)
             fprintf(stderr,"Input file must be of format: <.fastq> | <.fastq.gz> | <.txt>!!!\nFail to open file: %s\n", input.inFile.c_str());
             exit(EXIT_FAILURE);
         }
-
     }
     else
     {

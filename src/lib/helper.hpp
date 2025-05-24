@@ -10,6 +10,8 @@
 #include <atomic>
 #include <mutex>
 
+#include "edlib/edlib/include/edlib.h"
+
 #define PBSTR "||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
 #define PBWIDTH 60
 
@@ -39,7 +41,7 @@ inline unsigned long long totalNumberOfLines(std::string fileName)
     while(!gzeof(fp))
     {
         gzread(fp, buffer, 999);
-        for (const char &c : buffer) 
+        for (const unsigned char &c : buffer) 
         {
             if ( c == '\n' )
             {
@@ -92,35 +94,26 @@ inline void printProgress(double percentage)
 //stores all the input parameters for the mapping tools
 struct input{
     std::string inFile;
-    std::string outFile;
+
+    //this is the path to the output files
+    std::string outPath;
+    std::string prefix;
 
     std::string reverseFile = "";
 
     std::string barcodeFile; //file of all barcode-vectors, each line sequentially representing a barcode 
-    std::string mismatchLine; //coma seperated list of mismathces per barcode
+    std::string mismatchFile; //file withg several lines with coma seperated list of mismathces per barcode
     std::string patternLine; //list of patterns in abstract form
-    std::string guideFile = ""; // file with the guide barcodes, only necessary if alos guides r given
-    bool guideUMI = false;
-    int guidePos = -1;
+
+    std::string barcodePatternsFile;
 
     //additional informations
     bool writeStats = false; 
     bool writeFailedLines = false;
+    bool writeFilesOnTheFly = false;
+    
     long long int fastqReadBucketSize = 10000000;
     int threads = 5;
-};
-
-struct fastqStats{
-    //parameters that are evaluated over the whole fastq line
-    //e.g. perfect match occurs only if ALL barcodes match perfectly in a fastq line
-    std::atomic<unsigned long long> perfectMatches = 0;
-    std::atomic<unsigned long long> noMatches = 0;
-    std::atomic<unsigned long long> moderateMatches = 0;
-    //parameter stating how often a barcode sequence could be matched to several sequences, can occure more than once per line
-    //can only happen for vairable sequences
-    //a dictionary of the number of mismatches in a barcode, in the case of a match
-    std::map<std::string, std::vector<int> > mapping_dict;
-    std::unique_ptr<std::mutex> statsLock;
 };
 
 struct levenshtein_value{
@@ -257,6 +250,105 @@ inline void free_levenshtein(levenshtein_value** dist, int ls)
     delete[] dist;
 }
 
+inline std::string stripQuotes(const std::string& input) 
+{
+    if (input.size() >= 2 && input.front() == '\'' && input.back() == '\'') {
+        return input.substr(1, input.size() - 2); // cut first and last character
+    } else {
+        return input;
+    }
+}
+
+//running alingment with the myers bit-parallel algorithm implemented in the edlib
+//https://github.com/Martinsos/edlib published here: Bioinformatics 2017 btw753. doi: 10.1093/bioinformatics/btw753
+
+//we run the alignment in following mode:
+    //we map the pattern to a longer target (pattern + maxEditDist) in case we have deletions at the beginning
+    //and then map the pattern perfectly.
+    //we align with a semi-global strategy, allowing deletions at the end, in case we map the pattern perfectly at the 
+    //beginning
+
+    //TODO: add an alternative strategy without saving ins, del, subst for cases where the quality is not needed
+    //and running time is more important
+inline bool run_alignment(std::string pattern, const std::string target, 
+                          int& targetEnd,
+                          EdlibAlignConfig config,
+                          int& delNum, int& insNum, int& substNum)
+{
+    // bool to check if we found a result
+    bool alignmentFound = false;
+
+    // Run the alignment
+    EdlibAlignResult result = edlibAlign(
+        pattern.c_str(), pattern.length(),
+        target.c_str(), target.length(),
+        config
+    );
+
+    std::vector<char> alignmentPath;
+
+    if (result.status == EDLIB_STATUS_OK && result.editDistance != -1) {
+        // Translate Edlib codes (0 = M, 1 = I, 2 = D, 3 = X) into characters
+        for (int i = 0; i < result.alignmentLength; ++i) 
+        {
+            switch (result.alignment[i]) {
+                case 0: alignmentPath.push_back('M'); break; // Match
+                case 1: alignmentPath.push_back('D'); break; // Insertion to target = deletion in pattern
+                case 2: alignmentPath.push_back('I'); break; // Deletion in target = insertion in pattern
+                case 3: alignmentPath.push_back('S'); break; // Mismatch (substitution)
+            }
+        }
+
+        alignmentFound = true;
+
+        // replace edits at end with SUBS, we prefer SUBS instead of DEL,INS at the end
+        //edlib prefers DEL (or INS in target) at the end (e.g., ACGT maps to ACGAT with M-M-M-D instead of a S or I-M at the end)
+        //to cut the target seqeunce however, we need to also consider the last insertion and cut [ACGA]-T and continue from T for
+        //the next pattern alignment
+        // example:
+        // pattern:ACGT target:CACGATGTAA is I M M M D
+
+        // COUNT EDITS (and replace last edits with S)
+        bool replacinglastEdits = true; //this variables stores if we still replace last edits in alignment with substitutions
+        //as soon as we encouter a first match from back, we set it to false and count the true edits
+        for (int i = alignmentPath.size() - 1; i >= 0; --i) 
+        {
+            //stop replacing edits at end
+            if (replacinglastEdits && alignmentPath[i] == 'M') 
+            {
+                replacinglastEdits = false; // stop if we find 'M'
+            }
+
+            //repalce edits at end with substitutions (if the last edits are not a subst assume they are)
+            //e.g., the EDLIB finds deletions in the end, to find the shortest alignment, however, we do not know if those
+            //last edits were deletions/ subst, just store them as subst
+            if(replacinglastEdits){++substNum; ++targetEnd;}
+            //count edit types
+            else if (!replacinglastEdits && alignmentPath[i] == 'S') {++substNum; ++targetEnd;}
+            else if (!replacinglastEdits && alignmentPath[i] == 'I') {++insNum; ++targetEnd;}
+            //we do not count deletions in target end!!! As these are edits that are not present in the read
+            else if (!replacinglastEdits && alignmentPath[i] == 'D') {++delNum;}
+            else {++targetEnd;}
+        }
+    } 
+    else 
+    {
+        alignmentFound = false;
+    }
+
+    edlibFreeAlignResult(result);
+
+   // std::cout << "operaitons: ";
+   // for(auto el : alignmentPath)
+   // {
+   //     std::cout << el << " ";
+   // }
+   // std::cout << "Target end in alignment funct: " << targetEnd << "\n";
+
+    return alignmentFound;
+}
+
+/*
 //levenshtein distance, implemented with backtracking to get start and end of alingment, however slower than output sensitive algorithm:
 //used for parser so far: it has an additional flavor of unpunished deletions at the start and end of the alignment
 //start is 0 indexed, end are the first indices that arre not part of the match
@@ -402,6 +494,7 @@ inline bool levenshtein(const std::string sequence, std::string pattern, const i
     free_levenshtein(dist, ls);
     return false;
 }
+*/
 
 inline int backBarcodeMappingExtension(const std::string& sequence, const std::string& pattern, int seq_end, const int& patternEnd)
 {
