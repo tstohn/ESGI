@@ -19,8 +19,13 @@ struct OneLineDemultiplexingStats
 
         //for every pattern it saves until where we could map, only in case we could not map a line
         //do we transfer this information into the final structure;
-        std::map<std::string, int> failedLinesMappingFw;
-        std::map<std::string, int> failedLinesMappingRv;
+        //string == patternName, int = position within this pattern which was not mapped and where mapping failed
+        //it only saves the positions for failed lines or lines where we did not map all patterns (no missing patterns
+        //between fw and rv reads, we might still map perfectly if the overlap is a constant barcode)
+        //if the last few bases in a read are also shorter than the next barcode that has to be mapped we assign this read to be
+        //perfectly mapped (the seqToShort check does therefore not lead to failed reads)
+        std::pair<std::string, int> failedLinesMappingFw;
+        std::pair<std::string, int> failedLinesMappingRv;
 
         //GLOBAL PARAMETERS
         //parameters that are evaluated over the whole fastq line
@@ -33,6 +38,9 @@ struct OneLineDemultiplexingStats
         //IMPORTANT: fill this vector for every barcode positions (also UMIs and leave it at zero), 
         //we later 'pick' only the valid barcode positions
         //e.g.: [3,0,0,5,1] for a pattern like [BC1,UMI,DNA,LINKER,BC2]
+        //the last mismatches are always substitutions in case it can also be deletions
+        //in case the FW and RV reads do not overlap, and the missing sequence is only constant barcodes, we 
+        //do not count the MM in this barcode
         std::vector<int> insertions;
         std::vector<int> deletions;
         std::vector<int> substitutions;
@@ -57,23 +65,25 @@ class DemultiplexingStats{
         void write(const std::string& directory, const std::string& prefix);
 
         //UPDATE FUNCTIONS
-        void update_failedLinesMapping(std::map<std::string, int> failedFw, std::map<std::string, int> failedRv)
+        void update_failedLinesMapping(std::pair<std::string, int> failedFw, std::pair<std::string, int> failedRv)
         {
 
+            //if there was an error
             //update the last mapped position on FW read
-            for (std::map<std::string, int>::iterator it = failedFw.begin(); it != failedFw.end(); ++it) 
+            if(failedFw.first != "")
             {
                 //key is <PATTERN>_<LastMappedPosition>
-                std::string key = it->first + "_" + std::to_string(it->second);
-                ++failedLinesMappingFw.at(key);
+                std::string keyFw = failedFw.first + "_" + std::to_string(failedFw.second);
+                ++failedLinesMappingFw.at(keyFw);
             }
 
+            //if there was an error
             //update the last mapped position on RV read
-            for (std::map<std::string, int>::iterator it = failedRv.begin(); it != failedRv.end(); ++it) 
+            if(failedRv.first != "")
             {
                 //key is <PATTERN>_<LastMappedPosition>
-                std::string key = it->first + "_" + std::to_string(it->second);
-                ++failedLinesMappingRv.at(key);
+                std::string keyRv = failedRv.first + "_" + std::to_string(failedRv.second);
+                ++failedLinesMappingRv.at(keyRv);
             }
         }
 
@@ -130,7 +140,7 @@ class DemultiplexingStats{
             {
                 //generate key
                 std::string key = foundPatternName + "_" + std::to_string(validBarcodePos) + "_" + barcodeList.at(validBarcodePos);
-                
+                                
                 //sum up insertions/ deletions/ substitutions at every positions
                 int mmSum = lineStatsPtr->insertions.at(validBarcodePos) + 
                             lineStatsPtr->deletions.at(validBarcodePos) + 
@@ -139,6 +149,7 @@ class DemultiplexingStats{
                 //the value of the map mismatchNumber is a vector of the length of potential mismatches +1
                 //we need to increment the count at the specific position for the number of mismatches
                 ++(mismatchNumber.at(key)).at(mmSum);
+
             }
         }
 
@@ -184,6 +195,7 @@ class DemultiplexingStats{
         //not for all barcodes can we store mismatches, etc.
         //therefore we need to keep track of the barcode positions that can actually contain MM (exclude all UMI, STOP, DNA, ETC. pos)
         //key <PATTERN> -> value vector of valid positions
+        //the valid barcode positions are positions within the vector of barcode (so already excluding all stop, dna, read end barcodes)
         std::map<std::string, std::vector<int>> validPositions;
         
         //MISMATCH TYPE PARAMETERS

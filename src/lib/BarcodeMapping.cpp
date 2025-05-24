@@ -409,6 +409,7 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
     //fastq-read specific variables
     int positionInFastqLine = 0;
     int totalEdits = 0;
+    int position = -1;
 
     for(BarcodeVector::iterator patternItr = barcodePatterns->begin(); 
         patternItr < barcodePatterns->end(); 
@@ -421,6 +422,7 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
         int ins = 0;
         int subst = 0;
         int targetEnd = 0;
+        ++position;
 
         //if we have a wildcard, just extract the necessary barcodes
         if((*patternItr)->is_wildcard())
@@ -428,6 +430,14 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
             (*patternItr)->align(barcode, seq.first.line, positionInFastqLine, targetEnd, del, ins, subst);
             positionInFastqLine += (targetEnd);
             demultiplexedLine.barcodeList.push_back(barcode);
+
+            if(stats != nullptr)
+            {
+                stats->insertions.push_back(0);
+                stats->deletions.push_back(0);
+                stats->substitutions.push_back(0);
+            }
+
             continue;
         }
         else if((*patternItr)->is_stop())
@@ -472,24 +482,28 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
         if(!(*patternItr)->align(barcode, seq.first.line, positionInFastqLine, targetEnd, del, ins, subst))
         {
             //std::cout << '\t' << "FAIL at pos " << positionInFastqLine << "\n";
+            
+            //save until where we mapped
+            if(stats != nullptr)
+            {
+                stats->failedLinesMappingFw.first = barcodePatterns->patternName;
+                stats->failedLinesMappingFw.second = position;
+            }
             return false;
         }
 
-        //std::cout << "ALIGN: found " << barcode << " at start " << positionInFastqLine << " with new end " << targetEnd << "\n";
+        //std::cout << "ALIGN: found " << barcode << " within " << seq.first.line.substr(positionInFastqLine,targetEnd) << " with D: " << del << ", I: " << ins << " and S: " << subst << "\n";
 
         totalEdits = totalEdits + del + ins + subst;
         positionInFastqLine += targetEnd; //targetEnd is zero indexed alst position in target-sequence that maps to pattern
         //positionInFastqLine is the first position to INCLUDE in next alignment
 
         assert(barcode != "");
-        if(input.writeStats)
+        if(stats != nullptr)
         {
-            //add barcode data to statistics dictionary
-            
-            //TODO: add the number of mismatches and the types into vector
-            //std::lock_guard<std::mutex> guard(*stats.statsLock);
-            //int dictvectorIndex = ( (score <= (*patternItr)->mismatches) ? (score) : ( ((*patternItr)->mismatches) + 1) );
-            //++stats.mapping_dict[barcode].at(dictvectorIndex);
+            stats->insertions.push_back(ins);
+            stats->deletions.push_back(del);
+            stats->substitutions.push_back(subst);
         }
         
         //add this match to the BarcodeMapping
@@ -499,6 +513,7 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
 
     if(stats != nullptr)
     {
+
         if(totalEdits == 0)
         {
             ++stats->perfectMatches;
@@ -523,6 +538,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const fastqLine& seq,
 
     //fastq-read specific variables
     int positionInFastqLine = 0;
+    int position = -1;
 
     for(BarcodeVector::iterator patternItr = barcodePatterns->begin(); 
         patternItr < barcodePatterns->end(); 
@@ -535,6 +551,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const fastqLine& seq,
         int ins = 0;
         int subst = 0;
         int targetEnd = 0;
+        ++position;
 
         //if we have mapped to the end of the sequence (but barcodes of the pattern are still missing)
         if(seq.line.size() <= positionInFastqLine){return false;}
@@ -546,6 +563,13 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const fastqLine& seq,
             positionInFastqLine += (targetEnd);
             ++barcodePosition; //increase the count of found positions
             demultiplexedLine.barcodeList.push_back(barcode);
+
+            if(stats != nullptr)
+            {       
+                stats->insertions.push_back(0);
+                stats->deletions.push_back(0);
+                stats->substitutions.push_back(0);
+            }
             continue;
         }
         else if((*patternItr)->is_stop())
@@ -594,6 +618,12 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const fastqLine& seq,
         //if we did not match a pattern
         if(!(*patternItr)->align(barcode,seq.line, positionInFastqLine, targetEnd, del, ins, subst))
         {
+            //save until where we mapped
+            if(stats != nullptr)
+            {
+                stats->failedLinesMappingFw.first = barcodePatterns->patternName;
+                stats->failedLinesMappingFw.second = position;
+            }
             return false;
         }
         
@@ -604,17 +634,13 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const fastqLine& seq,
         //positionInFastqLine is the first position to INCLUDE in next alignment
 
         assert(barcode != "");
-        if(input.writeStats)
+        if(stats != nullptr)
         {
-            //add barcode data to statistics dictionary
-            
-            //TODO: add mismatches and types into vector
-            //std::lock_guard<std::mutex> guard(*stats.statsLock);
-            //int dictvectorIndex = ( (score <= (*patternItr)->mismatches) ? (score) : ( ((*patternItr)->mismatches) + 1) );
-            //++stats.mapping_dict[barcode].at(dictvectorIndex);
+            stats->insertions.push_back(ins);
+            stats->deletions.push_back(del);
+            stats->substitutions.push_back(subst);
         }
         
-
         //add this match to the BarcodeMapping
         //barcodeMap.emplace_back(std::make_shared<std::string>(mappedBarcode));
         demultiplexedLine.barcodeList.push_back(barcode);
@@ -645,6 +671,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const fastqLine& seq,
 {
     //fastq-read specific variables
     int positionInFastqLine = 0;
+    int position = -1;
 
     //iterate reverse through patterns
     for(BarcodeVector::reverse_iterator patternItr = barcodePatterns->rbegin(); 
@@ -658,6 +685,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const fastqLine& seq,
         int ins = 0;
         int subst = 0;
         int targetEnd = 0;
+        ++position;
 
         //if we have mapped to the end of the sequence (but barcodes of the pattern are still missing)
         if(seq.line.size() <= positionInFastqLine){return false;}
@@ -669,6 +697,13 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const fastqLine& seq,
             positionInFastqLine += (targetEnd);
             ++barcodePosition; //increase the count of found positions
             demultiplexedLine.barcodeList.push_back(barcode);
+
+            if(stats != nullptr)
+            {
+                stats->insertions.push_back(0);
+                stats->deletions.push_back(0);
+                stats->substitutions.push_back(0);
+            }
             continue;
         }
         else if((*patternItr)->is_stop())
@@ -715,6 +750,12 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const fastqLine& seq,
         //map each pattern with reverse complement
         if(!(*patternItr)->align(barcode,seq.line, positionInFastqLine, targetEnd, del, ins, subst, true))
         {
+            //save until where we mapped
+            if(stats != nullptr)
+            {
+                stats->failedLinesMappingRv.first = barcodePatterns->patternName;
+                stats->failedLinesMappingRv.second = position;
+            }
             return false;
         }
         //std::cout << "ALIGN RV: found " << barcode << " at start " << positionInFastqLine << " with new end " << targetEnd << "\n";
@@ -723,16 +764,12 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const fastqLine& seq,
         positionInFastqLine += targetEnd; //targetEnd is zero indexed alst position in target-sequence that maps to pattern
         //positionInFastqLine is the first position to INCLUDE in next alignment
 
-
         assert(barcode != "");
-        if(input.writeStats)
+        if(stats != nullptr)
         {
-            //add barcode data to statistics dictionary
-            
-            //TODO: add Mm and types into vector
-            //std::lock_guard<std::mutex> guard(*stats.statsLock);
-            //int dictvectorIndex = ( (score <= (*patternItr)->mismatches) ? (score) : ( ((*patternItr)->mismatches) + 1) );
-            //++stats.mapping_dict[barcode].at(dictvectorIndex);
+            stats->insertions.push_back(ins);
+            stats->deletions.push_back(del);
+            stats->substitutions.push_back(subst);
         }
       
         //add this match to the BarcodeMapping
@@ -764,6 +801,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(const BarcodePatt
                                                                const DemultiplexedLine& demultiplexedLineRv,
                                                                const uint& barcodePositionRv,
                                                                OneLineDemultiplexingStatsPtr stats,
+                                                               OneLineDemultiplexingStatsPtr statsRv,
                                                                int& score_sum)
 {
     //check that we span the whole sequence (except constant regions)
@@ -781,17 +819,29 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(const BarcodePatt
     //in case of a stop pattern [*], we added +1 to the barcodePositionFw, so that barcodePositionFw+barcodePositionRv should be euqual to patternNum
     if(patternNum == (barcodePositionFw + barcodePositionRv))
     {
-
-        for(std::vector<std::string>::const_reverse_iterator rvBarcodeIt = demultiplexedLineRv.barcodeList.crbegin(); rvBarcodeIt != demultiplexedLineRv.barcodeList.crend(); ++rvBarcodeIt)
+        for (int i = static_cast<int>(demultiplexedLineRv.barcodeList.size()) - 1; i >= 0; --i)
         {
-            demultiplexedLineFw.barcodeList.push_back({*rvBarcodeIt});
+            demultiplexedLineFw.barcodeList.push_back({demultiplexedLineRv.barcodeList.at(i)});
+            if(stats != nullptr)
+            {
+                stats->insertions.push_back(statsRv->insertions.at(i));
+                stats->deletions.push_back(statsRv->deletions.at(i));
+                stats->substitutions.push_back(statsRv->substitutions.at(i));
+
+                //reset values for failed barcode mapping positions if we mapped perfectly
+                //it could be that in, e.g. the forward read we did not map a last barcode but it was mapped in
+                // the reverse read...
+                stats->failedLinesMappingFw.first = "";
+                stats->failedLinesMappingFw.second = 0;
+                stats->failedLinesMappingRv.first = "";
+                stats->failedLinesMappingRv.second = 0;
+            }
         }
     }
-    //if they r overlapping, check all overlapping ones are the same
 
+    //if they r overlapping, check all overlapping ones are the same
     if(patternNum < (barcodePositionFw + barcodePositionRv))
     {
-
         //assert all overlapping barcodes r the same
         int start = (patternNum - barcodePositionRv); // this is the idx of the first shared barcode
         int end = barcodePositionFw - 1; //this is the idnex of the last shared barcode
@@ -812,6 +862,12 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(const BarcodePatt
         for(int i = missingPatternStartIdx; i >= 0; --i)
         {
             demultiplexedLineFw.barcodeList.push_back(demultiplexedLineRv.barcodeList.at(i));
+            if(stats != nullptr)
+            {
+                stats->insertions.push_back(statsRv->insertions.at(i));
+                stats->deletions.push_back(statsRv->deletions.at(i));
+                stats->substitutions.push_back(statsRv->substitutions.at(i));
+            }
         }
     }
 
@@ -831,12 +887,35 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(const BarcodePatt
                 return false;
             }
             demultiplexedLineFw.barcodeList.push_back(barcodePatterns->barcodePattern->at(i)->get_patterns().at(0));
+
+            //in the statistics save this as zero MM, since we can not accurately count the number of MM
+            if(stats != nullptr)
+            {
+                stats->insertions.push_back(0);
+                stats->deletions.push_back(0);
+                stats->substitutions.push_back(0);
+            }
         }
 
-        //add reverse patterns
-        for(std::vector<std::string>::const_reverse_iterator rvBarcodeIt = demultiplexedLineRv.barcodeList.crbegin(); rvBarcodeIt != demultiplexedLineRv.barcodeList.crend(); ++rvBarcodeIt)
+        //add reverse patterns        
+        for (int i = static_cast<int>(demultiplexedLineRv.barcodeList.size()) - 1; i >= 0; --i)
         {
-            demultiplexedLineFw.barcodeList.push_back({*rvBarcodeIt});
+            demultiplexedLineFw.barcodeList.push_back({demultiplexedLineRv.barcodeList.at(i)});
+            if(stats != nullptr)
+            {
+                stats->insertions.push_back(statsRv->insertions.at(i));
+                stats->deletions.push_back(statsRv->deletions.at(i));
+                stats->substitutions.push_back(statsRv->substitutions.at(i));
+            }
+        }
+
+        //reset values for failed barcode mapping positions, we assume we correctly mapped this one
+        if(stats != nullptr)
+        {
+            stats->failedLinesMappingFw.first = "";
+            stats->failedLinesMappingFw.second = 0;
+            stats->failedLinesMappingRv.first = "";
+            stats->failedLinesMappingRv.second = 0;
         }
     }
 
@@ -879,7 +958,15 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::split_line_into_barcode_patterns(
   //  }
   //  std::cout << "\n";
 
-    bool rvBool = map_reverse(seq.second, input, barcodePatterns, stats, demultiplexedLineRv,barcodePositionRv, score_sum);
+    //statistics result for the reverse line
+    //the forward line is saved in the final result stat object, this object is then later
+    //updated with the reverse read information
+    OneLineDemultiplexingStatsPtr statsRvPtr;
+    //if we save stats initialize the temporary one here
+    if(stats != nullptr){statsRvPtr = std::make_shared<OneLineDemultiplexingStats>();}
+    else{statsRvPtr = nullptr;}
+    
+    bool rvBool = map_reverse(seq.second, input, barcodePatterns, statsRvPtr, demultiplexedLineRv,barcodePositionRv, score_sum);
 
    // std::cout << "FOUND REVERSE: ";
    // for(auto el : demultiplexedLineRv.barcodeList)
@@ -892,7 +979,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::split_line_into_barcode_patterns(
     bool pairwiseMappingSuccess = false;
 
     //todo: better check if fw and rv mapped: at the moment they returna  fail if e.g. a half-constant barcode does not map
-    pairwiseMappingSuccess = combine_mapping(barcodePatterns, demultiplexedLine, barcodePositionFw, demultiplexedLineRv, barcodePositionRv, stats, score_sum);
+    pairwiseMappingSuccess = combine_mapping(barcodePatterns, demultiplexedLine, barcodePositionFw, demultiplexedLineRv, barcodePositionRv, stats, statsRvPtr, score_sum);
 
 
     return (pairwiseMappingSuccess);
@@ -924,6 +1011,9 @@ bool Mapping<MappingPolicy, FilePolicy>::demultiplex_read(const std::pair<fastqL
     return(result);
 }
 
+
+//THIS POLICY IS FOR NOW DISABLED, IT NEEEDS MAYOR CHANGES AFTER USING NEW ALIGNER AND IS NO LONGER SUPPORTED
+/*
 void MapAroundConstantBarcodesAsAnchorPolicy::map_pattern_between_linker(const std::string& seq, const int& oldEnd, 
                                                                          const int& start,
                                                                          BarcodePatternPtr barcodePatterns,
@@ -1033,9 +1123,12 @@ bool MapAroundConstantBarcodesAsAnchorPolicy::split_line_into_barcode_patterns(c
 
     return true;
 }
+*/
 
 template class Mapping<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromFastqFilePolicy>;
 template class Mapping<MapEachBarcodeSequentiallyPolicyPairwise, ExtractLinesFromFastqFilePolicyPairedEnd>;
 template class Mapping<MapEachBarcodeSequentiallyPolicy, ExtractLinesFromTxtFilesPolicy>;
-template class Mapping<MapAroundConstantBarcodesAsAnchorPolicy, ExtractLinesFromTxtFilesPolicy>;
-template class Mapping<MapAroundConstantBarcodesAsAnchorPolicy, ExtractLinesFromFastqFilePolicy>;
+
+//ANCHOR POLICIES ARE NOT LONGER SUPPORTED, LAST WORKING COMMIT IS BEFORE MERGE OF MULTIPATTERN BRANCH
+//template class Mapping<MapAroundConstantBarcodesAsAnchorPolicy, ExtractLinesFromTxtFilesPolicy>;
+//template class Mapping<MapAroundConstantBarcodesAsAnchorPolicy, ExtractLinesFromFastqFilePolicy>;

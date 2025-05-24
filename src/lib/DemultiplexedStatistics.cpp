@@ -18,6 +18,7 @@ void DemultiplexingStats::initializeStats(const MultipleBarcodePatternVectorPtr&
         int actualPatternPos = 0; //when demultiplexing the line we only push certain barcodes inot the demultiplexed list
         //we DO NOT push stop/ read-end or DNA patterns in there, and therefore also CAN NOT count these indices as indices
         //that store patterns with potential DEL/INS/MIS
+
         for(int barcodePos = 0; barcodePos < patternPtr->barcodePattern->size(); ++barcodePos)
         {
 

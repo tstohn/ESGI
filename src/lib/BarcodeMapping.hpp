@@ -61,6 +61,7 @@ class MapEachBarcodeSequentiallyPolicyPairwise
                              const DemultiplexedLine& demultiplexedLineRv,
                              const uint& barcodePositionRv,
                              OneLineDemultiplexingStatsPtr stats,
+                             OneLineDemultiplexingStatsPtr statsRv,
                              int& score_sum);
     public:
         bool split_line_into_barcode_patterns(

@@ -319,7 +319,9 @@ inline bool run_alignment(std::string pattern, const std::string target,
                 replacinglastEdits = false; // stop if we find 'M'
             }
 
-            //repalce edits at end
+            //repalce edits at end with substitutions (if the last edits are not a subst assume they are)
+            //e.g., the EDLIB finds deletions in the end, to find the shortest alignment, however, we do not know if those
+            //last edits were deletions/ subst, just store them as subst
             if(replacinglastEdits){++substNum; ++targetEnd;}
             //count edit types
             else if (!replacinglastEdits && alignmentPath[i] == 'S') {++substNum; ++targetEnd;}
@@ -346,7 +348,7 @@ inline bool run_alignment(std::string pattern, const std::string target,
     return alignmentFound;
 }
 
-
+/*
 //levenshtein distance, implemented with backtracking to get start and end of alingment, however slower than output sensitive algorithm:
 //used for parser so far: it has an additional flavor of unpunished deletions at the start and end of the alignment
 //start is 0 indexed, end are the first indices that arre not part of the match
@@ -492,6 +494,7 @@ inline bool levenshtein(const std::string sequence, std::string pattern, const i
     free_levenshtein(dist, ls);
     return false;
 }
+*/
 
 inline int backBarcodeMappingExtension(const std::string& sequence, const std::string& pattern, int seq_end, const int& patternEnd)
 {

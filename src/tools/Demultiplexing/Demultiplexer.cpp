@@ -19,12 +19,13 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper(const std::pa
     std::string foundPatternName;
     DemultiplexedLine finalDemultiplexedLine;
     OneLineDemultiplexingStatsPtr lineStatsPtr; //result for a single line
-    //if we save stats initialize the temporary ones here
-    if(input.writeStats){lineStatsPtr = std::make_shared<OneLineDemultiplexingStats>();}
-    else{lineStatsPtr = nullptr;}
 
     for(BarcodePatternPtr pattern : *this->get_barcode_pattern())
     {
+
+        //if we save stats initialize the temporary ones here
+        if(input.writeStats){lineStatsPtr = std::make_shared<OneLineDemultiplexingStats>();}
+        else{lineStatsPtr = nullptr;}
 
         //create result object in which we safe the result
         DemultiplexedLine tmpDemultiplexedLine;
@@ -34,15 +35,6 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper(const std::pa
         {
             //use ONLY the forward read name (in the DNA/barcode file later we also add threadID and a readID within thread for unique names)
             tmpDemultiplexedLine.dnaName = line.first.name;
-        }
-
-        if(input.writeStats)
-        {
-            //TODO: only clear this once we fill the vectors, we had to here create it empty bcs
-            //we do not yet push elements into those vector in barcdeoMapping
-            lineStatsPtr->insertions = std::vector<int>(pattern->barcodePattern->size(), 0);
-            lineStatsPtr->deletions = std::vector<int>(pattern->barcodePattern->size(), 0);
-            lineStatsPtr->substitutions = std::vector<int>(pattern->barcodePattern->size(), 0);
         }
 
         //write demultiplexed information into demultiplexedLine, this is passed by reference and can be accessed here
@@ -80,6 +72,7 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper(const std::pa
     if(input.writeStats)
     {
         //if we mapped the line store mapping information
+        
         fileWriter->update_stats(lineStatsPtr, result, foundPatternName, finalDemultiplexedLine.barcodeList);
     }
 
