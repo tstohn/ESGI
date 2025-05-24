@@ -6,6 +6,7 @@
 #include <zlib.h>
 #include <thread>
 #include <unordered_set>
+#include <unordered_map>
 
 #include "helper.hpp"
 
@@ -238,7 +239,61 @@ class VariableBarcode : public Barcode
         }
 
         //calculate minimum conversion rates of barcodes
+        calculate_barcode_conversionRates();
+    }
 
+    void calculate_barcode_conversionRates()
+    {
+        EdlibAlignConfig barcodeConversionConfig = edlibNewAlignConfig(
+            -1,                 // no limit for edit distancve
+            EDLIB_MODE_SHW,     // Semi-global alignment (deletions in the target at the end are not penalized), 
+                                // the developers refer to it also as 'Prefix method', e.g. one barcode is ATC and another ATCATC
+                                //this distance should still be zero...
+            EDLIB_TASK_PATH,    // Request full alignment path (M, I, D, S)
+            NULL, 0);             // No custom alphabet
+
+        for (int i = 0; i < patterns.size(); ++i) 
+        {
+            const std::string a = patterns.at(i);
+            int min_rate = std::numeric_limits<int>::max();
+            int minElement = std::numeric_limits<int>::max();
+
+            for (int j = 0; j < patterns.size(); ++j) 
+            {
+                if(i == j){continue;}
+
+                const std::string b = patterns.at(j);
+                int del = 0;
+                int ins = 0;
+                int subst = 0;
+                int targetEnd;
+
+                //for stagger barcode the first barcode has to be pattern, the secone the target, bcs. we do not cound deletions on the target
+                // e.g.: barcode A and AGT should have a conversion rate of 0! So for staggered barcodes we need to test ALL barcodes and then take
+                //the best match with the longest matching sequence...
+                if (a.length() > b.length()) 
+                {
+                    run_alignment(b, a, targetEnd, barcodeConversionConfig, del, ins, subst);
+                } else 
+                {
+                    run_alignment(a, b, targetEnd, barcodeConversionConfig, del, ins, subst);
+                }
+
+                int rate = del + ins + subst;
+                if (rate < min_rate) 
+                {
+                    min_rate = rate;
+                    minElement = j;
+                }
+            }
+
+            if(min_rate == 0)
+            {
+                std::cout << "WARNING: The data contains barcodes with a mismatch distance of 0!!! Barcodes: " << patterns.at(i) << ", "<< patterns.at(minElement) << "\n" <<
+                "In case these are barcodes of variable length, we map the longest barcode mapping with no errors!!\n";
+            }
+            pattern_conversionrates[a] = min_rate;
+        }
     }
 
     bool align(std::string& matchedBarcode, const std::string& fastqLine, const int targetOffset,
@@ -288,8 +343,17 @@ class VariableBarcode : public Barcode
             //map the pattern to the target sequence
             foundAlignment = run_alignment(usedPattern, target, targetEnd, config, delNumTmp,  insNumTmp, substNumTmp);
             
-            if(foundAlignment && (delNum+insNum+substNum)<bestEditDist)
+            if(foundAlignment && (delNum+insNum+substNum)<=bestEditDist)
             {
+                //if we have variable length barcodes, and two barcodes map equally well, 
+                //we store the barcode of a longer sequence
+                //example: barcodes = ["ATC", "ATCATC"], if we find the barcode ATCATC we store that one and not ATC...
+                //this if clause checks if the new match is shorter than odl one, if so do not store it
+                if(!equalLengthBarcodes && targetEnd < bestTargetEnd)
+                {
+                    continue;
+                }
+
                 bestFoundAlignment = foundAlignment;
                 bestFoundPattern = patterns.at(patternIdx); //the barcode is the TRUE forward barcode, not the reverse complement
                 bestTargetEnd = targetEnd;
@@ -297,12 +361,15 @@ class VariableBarcode : public Barcode
                 delNum = delNumTmp;
                 insNum = insNumTmp;
                 substNum = substNumTmp;
+
+                //if we found a new best match, check if this is already the best match we can ever get (minimal conversion dist between barcodes)
+                int minConversion = pattern_conversionrates.at(patterns.at(patternIdx));
+                if(bestEditDist < minConversion)
+                {
+                    break;
+                }
             }
 
-            if(bestEditDist<=1)
-            {
-                break;
-            }
         }
 
         targetEnd = bestTargetEnd;
@@ -326,6 +393,8 @@ class VariableBarcode : public Barcode
         std::vector<std::string> revCompPatterns;
         std::unordered_set<std::string> barcodeSet;
         bool equalLengthBarcodes;
+
+        std::unordered_map<std::string, int> pattern_conversionrates;
 
         EdlibAlignConfig config;
 };
