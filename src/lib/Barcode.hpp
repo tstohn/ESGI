@@ -240,6 +240,7 @@ class VariableBarcode : public Barcode
 
         //calculate minimum conversion rates of barcodes
         calculate_barcode_conversionRates();
+
     }
 
     void calculate_barcode_conversionRates()
@@ -287,12 +288,22 @@ class VariableBarcode : public Barcode
                 }
             }
 
+            //warning if barcodes are the same/ or one is suffix of the other
             if(min_rate == 0)
             {
                 std::cout << "WARNING: The data contains barcodes with a mismatch distance of 0!!! Barcodes: " << patterns.at(i) << ", "<< patterns.at(minElement) << "\n" <<
                 "In case these are barcodes of variable length, we map the longest barcode mapping with no errors!!\n";
             }
+
+            //warning if minimum conversion is lower than allowed mismatches
+            if(min_rate <= mismatches)
+            {
+                std::cout << "WARNING: \nFor barcodes in " << name << ": " << mismatches << " mismatches are allowed, but with " << min_rate <<
+                " mismatches we can already convert " << patterns.at(i)  << " into "<< patterns.at(minElement)  <<  " (semi-global alignment with un-punished deletions in target)!!! We can still find a best-fitting barcode, but you might reconsider the choice of allowed mistmaches!\n";
+            }
+
             pattern_conversionrates[a] = min_rate;
+
         }
     }
 
@@ -320,6 +331,9 @@ class VariableBarcode : public Barcode
         bool bestFoundAlignment = false;
         int bestTargetEnd = -1;
         int bestEditDist = mismatches+1;
+        bool severalMatches = false; //if there are several best-fitting solutions (only the case when the number of allowed mismatches
+        //is bigger than possible barcode-conversion numbers) we discard the solution
+
         for(int patternIdx = 0; patternIdx!= patternsToMap.size(); ++patternIdx)
         {
             bool foundAlignment = false;
@@ -354,6 +368,16 @@ class VariableBarcode : public Barcode
                     continue;
                 }
 
+                //check if we have several best solutions
+                if((delNum+insNum+substNum)==bestEditDist)
+                {
+                    severalMatches = true;
+                }
+                else
+                {
+                    severalMatches = false;
+                }
+
                 bestFoundAlignment = foundAlignment;
                 bestFoundPattern = patterns.at(patternIdx); //the barcode is the TRUE forward barcode, not the reverse complement
                 bestTargetEnd = targetEnd;
@@ -364,12 +388,24 @@ class VariableBarcode : public Barcode
 
                 //if we found a new best match, check if this is already the best match we can ever get (minimal conversion dist between barcodes)
                 int minConversion = pattern_conversionrates.at(patterns.at(patternIdx));
-                if(bestEditDist < minConversion)
+                //we can do this since levenshtein distance fullfills the triangle inequality is a distance metric
+                //imagine there is a second barcode that could fit better: this second barcode must have a shorter distance to target sequence
+                //than our pattern. Now there r two options 1.) while converting pattern to target we would 'go through' the second barcode. In this
+                //case minConversion/2 is always bigger than the editDist and we don t break
+                //2.) the minconversion is the maximum conversion from pattern to second barcode and target is inbetween converting these two
+                //now if the current barcode is however closer to target (minConversion/2), then this is the best match we cna ever find...
+                if(bestEditDist < (minConversion/2))
                 {
                     break;
                 }
             }
 
+        }
+
+        //if we have several best matches we have to return false
+        if(severalMatches)
+        {
+            return false;
         }
 
         targetEnd = bestTargetEnd;
