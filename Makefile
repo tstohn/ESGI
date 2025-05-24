@@ -59,16 +59,11 @@ umiqual:
 	g++ main.o UmiQualityHelper.o BarcodeProcessingHandler.o -o ./bin/umiqual -lpthread -lz -lboost_program_options -lboost_iostreams
 
 test:
-	make demultiplexing
-	make processing
-	make demultiplexAroundLinker
-	make umiqual
+	make ezgi
+	make featureCounting
 
-	make testDemultiplexing
-	make testProcessing
-	make testAnalysis
-	make testDemultiplexAroundLinker
-	make testUmiqual
+	make test_ezgi
+	make bigTest
 
 testUmiqual:
 	./bin/umiqual -i ./src/test/test_data/testSet.txt.gz -o ./bin/processed_out.tsv -t 1 -b ./src/test/test_data/processingBarcodeFile.txt  -c 0,2,3,4 -a ./src/test/test_data/antibody.txt -x 1 -g ./src/test/test_data/treatment.txt -y 2 -u 2
