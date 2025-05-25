@@ -7,11 +7,11 @@ BINDIR=/usr/local/bin
 WIN_SHIM =
 
 ifeq ($(findstring MINGW, $(UNAME_S)),MINGW)
-	WIN_SHIM = lrand48_win.c
+	WIN_SHIM = rand_win.c
 endif
 
 ifeq ($(findstring MSYS, $(UNAME_S)),MSYS)
-	WIN_SHIM = lrand48_win.c
+	WIN_SHIM = rand_win.c
 endif
 
 all: seqtk
