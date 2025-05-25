@@ -45,20 +45,3 @@ jobs:
 
 #      run: make CXXFLAGS='-g -Wall -I ${{steps.install-boost.outputs.BOOST_ROOT}}' LDFLAGS='-L /home/runner/work/CombinatorialIndexingPipeline/CombinatorialIndexingPipeline/${{steps.install-boost.outputs.BOOST_ROOT}}/lib' test
 
-
-
-
-  #TEST UNDER WINDOWS
-  build-windows:
-    runs-on: windows-latest
-
-    steps:
-    - uses: actions/checkout@v3
-
-    - name: Install dependencies (Windows)
-      run: make install
-      shell: bash  # optional: if you want to run bash commands on Windows runners
-      
-    - name: Run tests (Windows)
-      run: make test
-      shell: bash  # or cmd / powershell depending on your makefile and environment
