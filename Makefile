@@ -16,13 +16,13 @@ install:
 	cd ..
 	mkdir bin
 
-	#install libboost differently for LINUX/ WINDOWS
+	#install libboost for various systems LINUX/ WINDOWS
 	@if [ "$(UNAME_S)" = "Linux" ]; then \
 		sudo apt-get update && sudo apt-get install -y libboost-all-dev; \
-	elif echo "$(UNAME_S)" | grep -q MINGW; then \
+	elif echo "$(UNAME_S)" | grep -E -q "MINGW|MSYS|CYGWIN"; then \
 		vcpkg install boost; \
-	elif echo "$(UNAME_S)" | grep -q MSYS; then \
-		vcpkg install boost; \
+	elif [ "$(UNAME_S)" = "Darwin" ]; then \
+		brew install boost; \
 	fi
 
 #parse fastq lines and map abrcodes to each sequence
