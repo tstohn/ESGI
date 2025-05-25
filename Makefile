@@ -17,17 +17,13 @@ install:
 	mkdir bin
 
 	#install libboost differently for LINUX/ WINDOWS
-	ifeq ($(findstring Linux,$(UNAME_S)),Linux)
+	@if [ "$(UNAME_S)" = "Linux" ]; then \
 		sudo apt-get update && sudo apt-get install -y libboost-all-dev
-	endif
-
-	ifeq ($(findstring MINGW,$(UNAME_S)),MINGW)
+	elif echo "$(UNAME_S)" | grep -q MINGW; then \
 		pacman -Sy --noconfirm mingw-w64-x86_64-boost
-	endif
-
-	ifeq ($(findstring MSYS,$(UNAME_S)),MSYS)
+	elif echo "$(UNAME_S)" | grep -q MSYS; then \
 		pacman -Sy --noconfirm mingw-w64-x86_64-boost
-	endif
+	fi
 
 #parse fastq lines and map abrcodes to each sequence
 ezgi:
