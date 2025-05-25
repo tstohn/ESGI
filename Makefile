@@ -6,8 +6,8 @@ CXXFLAGS = -g -Wall
 LDFLAGS = 
 
 install:
-	#download and compile kseq, download edlib (no need to compile, we just add libraries and then compile with them)
-	mkdir include; cd ./include; git clone https://github.com/lh3/seqtk --branch v1.3; cd ./seqtk; make
+	#download and compile kseq (we have a modified makefile to compile with rand on windows), download edlib (no need to compile, we just add libraries and then compile with them)
+	cd ./include; git clone https://github.com/lh3/seqtk seqtk --branch v1.3; mv Makefile seqtk/; cd ./seqtk; make
 	git submodule add https://github.com/martinsos/edlib ./edlib;
 	git submodule update --init --recursive
 	cd ..
