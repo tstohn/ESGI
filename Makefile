@@ -18,11 +18,11 @@ install:
 
 	#install libboost differently for LINUX/ WINDOWS
 	@if [ "$(UNAME_S)" = "Linux" ]; then \
-		sudo apt-get update && sudo apt-get install -y libboost-all-dev
+		sudo apt-get update && sudo apt-get install -y libboost-all-dev; \
 	elif echo "$(UNAME_S)" | grep -q MINGW; then \
-		pacman -Sy --noconfirm mingw-w64-x86_64-boost
+		pacman -Sy --noconfirm mingw-w64-x86_64-boost; \
 	elif echo "$(UNAME_S)" | grep -q MSYS; then \
-		pacman -Sy --noconfirm mingw-w64-x86_64-boost
+		pacman -Sy --noconfirm mingw-w64-x86_64-boost; \
 	fi
 
 #parse fastq lines and map abrcodes to each sequence
