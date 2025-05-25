@@ -6,13 +6,27 @@ CXXFLAGS = -g -Wall
 LDFLAGS = 
 
 install:
-	#download and compile kseq (we have a modified makefile to compile with rand on windows), download edlib (no need to compile, we just add libraries and then compile with them)
+	#download and compile kseq (we have a modified makefile to compile with rand on windows), 
+	# we have a submodule edlib (git submodule add https://github.com/martinsos/edlib ./edlib;
+	# no need to compile, we just add libraries and then compile with them), but we update it
+	
 	cd ./include; git clone https://github.com/lh3/seqtk --branch v1.3; mv Makefile ./seqtk/; mv rand_win.c ./seqtk/; cd ./seqtk; make
-	git submodule add https://github.com/martinsos/edlib ./edlib;
 	git submodule update --init --recursive
 	cd ..
 	mkdir bin
-	sudo apt-get install libboost-all-dev
+
+	#install libboost differently for LINUX/ WINDOWS
+	ifeq ($(findstring Linux,$(UNAME_S)),Linux)
+		sudo apt-get update && sudo apt-get install -y libboost-all-dev
+	endif
+
+	ifeq ($(findstring MINGW,$(UNAME_S)),MINGW)
+		pacman -Sy --noconfirm mingw-w64-x86_64-boost
+	endif
+
+	ifeq ($(findstring MSYS,$(UNAME_S)),MSYS)
+		pacman -Sy --noconfirm mingw-w64-x86_64-boost
+	endif
 
 #parse fastq lines and map abrcodes to each sequence
 ezgi:
