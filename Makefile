@@ -20,9 +20,9 @@ install:
 	@if [ "$(UNAME_S)" = "Linux" ]; then \
 		sudo apt-get update && sudo apt-get install -y libboost-all-dev; \
 	elif echo "$(UNAME_S)" | grep -q MINGW; then \
-		pacman -Sy --noconfirm mingw-w64-x86_64-boost; \
+		vcpkg install boost; \
 	elif echo "$(UNAME_S)" | grep -q MSYS; then \
-		pacman -Sy --noconfirm mingw-w64-x86_64-boost; \
+		vcpkg install boost; \
 	fi
 
 #parse fastq lines and map abrcodes to each sequence
