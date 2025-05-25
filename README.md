@@ -2,6 +2,8 @@
 # Efficient Splitting of Generic Indices
 
 [![LINUX BUILD (22.04)](https://github.com/tstohn/CombinatorialIndexingPipeline/actions/workflows/makefile.yml/badge.svg)](https://github.com/tstohn/CombinatorialIndexingPipeline/actions/workflows/makefile.yml)
+[![WINDOWS BUILD](https://github.com/tstohn/CombinatorialIndexingPipeline/actions/workflows/windows.yml/badge.svg)](https://github.com/tstohn/CombinatorialIndexingPipeline/actions/workflows/windows.yml)
+
 
 <img src=https://github.com/tstohn/CombinatorialIndexingPipeline/blob/master/docs/media/DemultiplexingLogo.png width="200" />
 
