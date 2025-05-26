@@ -47,19 +47,19 @@ class MapEachBarcodeSequentiallyPolicyPairwise
                         BarcodePatternPtr barcodePatterns,
                         OneLineDemultiplexingStatsPtr stats,
                         DemultiplexedLine& demultiplexedLine,
-                        uint& barcodePosition,
+                        unsigned int& barcodePosition,
                         int& score_sum);
         bool map_reverse(const fastqLine& seq, const input& input, 
                         BarcodePatternPtr barcodePatterns,
                         OneLineDemultiplexingStatsPtr stats,
                         DemultiplexedLine& demultiplexedLine,
-                        uint& barcodePosition,
+                        unsigned int& barcodePosition,
                         int& score_sum);
         bool combine_mapping(const BarcodePatternPtr& barcodePatterns,
                              DemultiplexedLine& demultiplexedLineFw, //this list is extended to real list
-                             const uint& barcodePositionFw,
+                             const unsigned int& barcodePositionFw,
                              const DemultiplexedLine& demultiplexedLineRv,
-                             const uint& barcodePositionRv,
+                             const unsigned int& barcodePositionRv,
                              OneLineDemultiplexingStatsPtr stats,
                              OneLineDemultiplexingStatsPtr statsRv,
                              int& score_sum);

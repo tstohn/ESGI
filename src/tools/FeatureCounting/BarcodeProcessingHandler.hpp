@@ -88,7 +88,7 @@ struct ProcessingLog
     
     //additional information about classes 
     unsigned long long removedSCDueToNoClass = 0; //equivalent for the reads with no class, but counting only unique cells that r removed
-    uint removedClasses = 0; //number of mappings [SingleCell => Class] that were removed bcs.for a single cell all reads with guide did
+    unsigned int removedClasses = 0; //number of mappings [SingleCell => Class] that were removed bcs.for a single cell all reads with guide did
                              // not represent to >=90% one unique Class
 
     //total number of raw reads, without the removed reads due to processing (the removed reads are removed from this full set of reads)
