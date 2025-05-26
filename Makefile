@@ -26,7 +26,7 @@ ifneq (,$(findstring MINGW,$(UNAME_S))$(findstring MSYS,$(UNAME_S))$(findstring 
     BOOST_INCLUDE = $(VCPKG_ROOT)/installed/x64-windows/include
     BOOST_LIB = $(VCPKG_ROOT)/installed/x64-windows/lib
     BOOST_FLAGS = -L$(BOOST_LIB) -I$(BOOST_INCLUDE) \
-    -lboost_system-mt -lboost_thread-mt -lboost_program_options-mt -lboost_iostreams-mt -lpthread -lz
+    -lboost_system -lboost_thread -lboost_program_options -lboost_iostreams -lpthread -lz
 endif
 
 #only include boost flags if needed
