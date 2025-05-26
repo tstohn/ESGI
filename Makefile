@@ -20,20 +20,26 @@ install:
 	@if [ "$(UNAME_S)" = "Linux" ]; then \
 		sudo apt-get update && sudo apt-get install -y libboost-all-dev; \
 	elif echo "$(UNAME_S)" | grep -E -q "MINGW|MSYS|CYGWIN"; then \
-		vcpkg install boost; \
+		vcpkg install boost-thread; \
 	elif [ "$(UNAME_S)" = "Darwin" ]; then \
 		brew install boost; \
 	fi
 
 #parse fastq lines and map abrcodes to each sequence
-ezgi:
+demultiplex:
 	g++ -c ./include/edlib/edlib/src/edlib.cpp -I ./include/edlib/edlib/include/ -I ./src/lib --std=c++17 $(CXXFLAGS)
 	g++ -c src/lib/DemultiplexedStatistics.cpp -I ./include/ -I ./src/lib --std=c++17 $(CXXFLAGS)
 	g++ -c src/lib/BarcodeMapping.cpp -I ./include/ -I ./src/lib --std=c++17 $(CXXFLAGS)
 	g++ -c src/tools/Demultiplexing/DemultiplexedResult.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
 	g++ -c src/tools/Demultiplexing/Demultiplexer.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
 	g++ -c src/tools/Demultiplexing/main.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
-	g++ main.o DemultiplexedResult.o Demultiplexer.o BarcodeMapping.o DemultiplexedStatistics.o edlib.o -o ./bin/ezgi $(LDFLAGS) -lboost_iostreams -lboost_program_options -lpthread -lz
+	g++ main.o DemultiplexedResult.o Demultiplexer.o BarcodeMapping.o DemultiplexedStatistics.o edlib.o -o ./bin/demultiplex $(LDFLAGS) -lboost_iostreams -lboost_program_options -lpthread -lz
+
+#process the mapped sequences: correct for UMI-mismatches, then map barcodes to Protein, treatment, SinglecellIDs
+count:
+	g++ -c src/tools/FeatureCounting/BarcodeProcessingHandler.cpp -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
+	g++ -c src/tools/FeatureCounting/main.cpp -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
+	g++ main.o BarcodeProcessingHandler.o -o ./bin/count -lpthread -lz -lboost_program_options -lboost_iostreams
 
 barcodeBedAnnotator:
 	g++ -o ./bin/barcodeBedAnn src/tools/BarcodefileBedAnnotator/BarcodeBedAnnotator.cpp src/tools/BarcodefileBedAnnotator/main.cpp $(LDFLAGS) -lboost_iostreams -lboost_program_options
@@ -56,12 +62,6 @@ testDemultiplexAroundLinker:
 	(head -n 1 ./bin/DemultiplexedAroundLinker_output.tsv && tail -n +2 ./bin/DemultiplexedAroundLinker_output.tsv | LC_ALL=c sort)  > ./bin/demultiplexAroundLinker_output2_sorted.tsv
 	diff ./src/test/test_data/demultiplexAroundLinker_output2_sorted.tsv ./bin/demultiplexAroundLinker_output2_sorted.tsv
 
-#process the mapped sequences: correct for UMI-mismatches, then map barcodes to Protein, treatment, SinglecellIDs
-featureCounting:
-	g++ -c src/tools/FeatureCounting/BarcodeProcessingHandler.cpp -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
-	g++ -c src/tools/FeatureCounting/main.cpp -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
-	g++ main.o BarcodeProcessingHandler.o -o ./bin/featureCounting -lpthread -lz -lboost_program_options -lboost_iostreams
-
 #Umiqual is a toll to analuze the quality of the CI reads based on the UMI. Imagine we have an explosion of barocode combinations
 # we can use this tool to see in which BC round those combinations occure (based on the UMI)
 umiqual:
@@ -71,7 +71,7 @@ umiqual:
 	g++ main.o UmiQualityHelper.o BarcodeProcessingHandler.o -o ./bin/umiqual -lpthread -lz -lboost_program_options -lboost_iostreams
 
 test:
-	make ezgi
+	make demultiplex
 	make featureCounting
 
 	make test_ezgi
@@ -122,7 +122,7 @@ testDemultiplexing:
 
 test_ezgi:
 	#test order on one thread
-	./bin/ezgi -i ./src/test/test_data/inFastqTest.fastq -o ./bin/ -p ./src/test/test_data/test1Pattern.txt -m ./src/test/test_data/test1MM.txt -t 1 -n TEST -q 1
+	./bin/demultiplex -i ./src/test/test_data/inFastqTest.fastq -o ./bin/ -p ./src/test/test_data/test1Pattern.txt -m ./src/test/test_data/test1MM.txt -t 1 -n TEST -q 1
 	diff ./src/test/test_data/BarcodeMapping_output.tsv ./bin/TEST_TEST1.tsv
 	
 	#statistics not imlemented yet for new alignment method ...
@@ -225,29 +225,29 @@ testAnalysis:
 
 
 debug:
-	time ./bin/ezgi -i ./test1.fastq.gz -r ./test2.fastq.gz -o ./bin/ -n debug -p ./CITestData/background_data/pattern.txt -m ./CITestData/background_data/mismatches.txt -t 1 -f 1 -q 1
+	time ./bin/demultiplex -i ./test1.fastq.gz -r ./test2.fastq.gz -o ./bin/ -n debug -p ./CITestData/background_data/pattern.txt -m ./CITestData/background_data/mismatches.txt -t 1 -f 1 -q 1
 
 
 #some of Kathys CI data with GUIDE and PROTEIN
 CITest:
-	./bin/ezgi -i ./CITestData/CITest_1.fastq.gz -r ./CITestData/CITest_2.fastq.gz -o ./bin/ -n CITEST -p ./CITestData/background_data/pattern.txt -m ./CITestData/background_data/mismatches.txt -t 10 -f 1 -q 1
+	./bin/demultiplex -i ./CITestData/CITest_1.fastq.gz -r ./CITestData/CITest_2.fastq.gz -o ./bin/ -n CITEST -p ./CITestData/background_data/pattern.txt -m ./CITestData/background_data/mismatches.txt -t 10 -f 1 -q 1
 
 #single AB pattern
 bigTest:
-	#time ./bin/ezgi -i tmp.fastq -o ./bin/ -p ./src/test/test_data/test_input/barcodePatternsBig.txt -m ./src/test/test_data/test_input/barcodeMismatchesBig.txt -t 1 -f 1 -q 1
-	/usr/bin/time ./bin/ezgi -i ./src/test/test_data/test_input/testBig.fastq.gz -o ./bin/ -p ./src/test/test_data/test_input/barcodePatternsBig.txt -m ./src/test/test_data/test_input/barcodeMismatchesBig.txt -t 1 -f 1 -q 1
+	#time ./bin/demultiplex -i tmp.fastq -o ./bin/ -p ./src/test/test_data/test_input/barcodePatternsBig.txt -m ./src/test/test_data/test_input/barcodeMismatchesBig.txt -t 1 -f 1 -q 1
+	/usr/bin/time ./bin/demultiplex -i ./src/test/test_data/test_input/testBig.fastq.gz -o ./bin/ -p ./src/test/test_data/test_input/barcodePatternsBig.txt -m ./src/test/test_data/test_input/barcodeMismatchesBig.txt -t 1 -f 1 -q 1
 
 bigTest2:
-	time ./bin/ezgi -i ./src/test/test_data/test_input/testBig2.fastq.gz -o ./bin/ -p ./src/test/test_data/test_input/barcodePatternsBig.txt -m /DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_input/barcodeMismatchesBig.txt -t 50 -f 1
+	time ./bin/demultiplex -i ./src/test/test_data/test_input/testBig2.fastq.gz -o ./bin/ -p ./src/test/test_data/test_input/barcodePatternsBig.txt -m /DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_input/barcodeMismatchesBig.txt -t 50 -f 1
 bigTest3:
-	time ./bin/ezgi -i ./src/test/test_data/test_input/testBig3.fastq.gz -o ./bin/ -p /DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_input/barcodePatternsBig.txt -m /DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_input/barcodeMismatchesBig.txt -t 70 -f 1
+	time ./bin/demultiplex -i ./src/test/test_data/test_input/testBig3.fastq.gz -o ./bin/ -p /DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_input/barcodePatternsBig.txt -m /DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_input/barcodeMismatchesBig.txt -t 70 -f 1
 
 #makes no sense since we have only forward reads...
 #make a small test and use fw and rv files
 bigTestRNA:
-	time ./bin/ezgi -i ./src/test/test_data/test_input/testBig.fastq.gz -o ./bin/ -p ./src/test/test_data/test_input/barcodePatternsBigRNA.txt -m ./src/test/test_data/test_input/barcodeMismatchesBigRNA.txt -t 10 -f 1
+	time ./bin/demultiplex -i ./src/test/test_data/test_input/testBig.fastq.gz -o ./bin/ -p ./src/test/test_data/test_input/barcodePatternsBigRNA.txt -m ./src/test/test_data/test_input/barcodeMismatchesBigRNA.txt -t 10 -f 1
 
 testGuideMapping:
-	./bin/ezgi -i ./src/test/test_data/guideTestInput.txt -o ./bin/output.tsv -p [NNNNNNN][GTTTAAA][XXXXXXXXXX][NNNNNNNNNN] -m 1,1,1,1 -t 1 -b ./src/test/test_data/barcodesGuideTest.txt -c ./src/test/test_data/guidesGuideTest.txt -e 1
+	./bin/demultiplex -i ./src/test/test_data/guideTestInput.txt -o ./bin/output.tsv -p [NNNNNNN][GTTTAAA][XXXXXXXXXX][NNNNNNNNNN] -m 1,1,1,1 -t 1 -b ./src/test/test_data/barcodesGuideTest.txt -c ./src/test/test_data/guidesGuideTest.txt -e 1
 	diff ./bin/Demultiplexed_guideReadsoutput.tsv ./src/test/test_data/guideTestGUIDEOutput.txt
 	diff ./bin/Demultiplexed_output.tsv ./src/test/test_data/guideTestABOutput.txt
