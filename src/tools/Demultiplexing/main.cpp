@@ -68,7 +68,7 @@ bool parse_arguments(char** argv, int argc, input& input)
         options_description desc("Options");
         desc.add_options()
             ("input,i", value<std::string>(&(input.inFile))->required(), "single file in fastq(.gz) format or the forward read file, if <-r> is also set for the\
-            reverse reads. If the file contains only sequences as strings the file must be stored in txt format (with no fastq-quality lines)")
+            reverse reads. It is also possible to provide a txt file with fastq-lines only (with no fastq-quality lines)")
             //optional for reverse mapping: no recommended, join reads first
             ("reverse,r", value<std::string>(&(input.reverseFile))->default_value(""), "Use this parameter for paired-end analysis as the reverse read file. <-i> is the forward read in \
             this case.")
@@ -98,10 +98,12 @@ bool parse_arguments(char** argv, int argc, input& input)
 
             ("threat,t", value<int>(&(input.threads))->default_value(5), "number of threads")
             ("fastqReadBucketSize,s", value<long long int>(&(input.fastqReadBucketSize))->default_value(-1), "number of lines of the fastQ file that should be read into RAM \
-            and be processed, before the next fastq read is processed. By default it equal 10X the thread number.")
-            ("writeStats,q", value<bool>(&(input.writeStats))->default_value(false), "writing Statistics about the barcode mapping (mismatches in different barcodes). This only works for simple\
-            mapping tasks without additional guide read mapping.\n")
-            ("writeFailedLines,f", value<bool>(&(input.writeFailedLines))->default_value(false), "write failed lines to extra file\n")
+            and be processed, before the next fastq read is processed. By default it equal to 10X the thread number.")
+            ("writeStats,q", value<bool>(&(input.writeStats))->default_value(false), "writing Statistics about the barcode mapping. This creates three files: \
+            ..._Quality_lastPositionMapped.txt stores how often mapping failed at which position for reads that could not be mapped \
+            ..._Quality_typeMM.txt stores for every barcode how often we observed a Subst, Ins, Del \
+            ..._Quality_numberMM.txt stores how many mismatches we observed in which barcodes \n")
+            ("writeFailedLines,f", value<bool>(&(input.writeFailedLines))->default_value(false), "write failed lines to an extra file.\n")
 
             ("help,h", "help message");
 
@@ -113,10 +115,8 @@ bool parse_arguments(char** argv, int argc, input& input)
             std::cout << desc << "\n";
 
             std::cout << "###########################################\n";
-            std::cout << "EXAMPLE CALL:\n ./bin/parser -i ./inFile -o ./outPath -p [AGTCAGTC][NNNN] -b ./barcodeFile.txt -m 2,1 -t 5\n";
-            std::cout << "Calling the Tool, mapping each line to a pattern, that starts with a constant sequence of <AGTCAGTC> in which up to two mismatches\n\
-            are allowed. After that the reads should contain a four base long sequence with a maximum of one mismatch. All sequences that are allowed are in the text file barcodeFile.txt.\n\
-            This file should have in its first row, all comma seperated sequences that could map, and they should be all only four bases long, allowed chars are only A,C,G,T.\n";
+            std::cout << "EXAMPLE CALL:\n ./bin/demultiplex -i ./src/test/test_data/test_input/testBig.fastq.gz -o ./bin/ -p ./src/test/test_data/test_input/barcodePatternsBig.txt -m ./src/test/test_data/test_input/barcodeMismatchesBig.txt -t 1 -f 1 -q 1 \n";
+            std::cout << "For a better understanding of how the barcode and mismatch files should look like, look into ./src/test/test_data/test_input/barcodePatternsBig.txt and ./src/test/test_data/test_input/barcodeMismatchesBig.txt \n";
             std::cout << "###########################################\n";
 
             return false;

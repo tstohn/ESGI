@@ -44,28 +44,31 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             ("input,i", value<std::string>(&inFile)->required(), "input file of demultiplexed reads for ABs in Single cells in tsv.gz format (input must be gzipped)")
             ("output,o", value<std::string>(&outFile)->required(), "output file with all split barcodes")
 
-            ("barcodeDir,d", value<std::string>(&(barcodeDir)), "directory where all the barcode files are (the files itself are in the header of the inFile")
+            ("barcodeDir,d", value<std::string>(&(barcodeDir)), " path to a directory which must contain all the barcode files (for variable barcodes). When running <demultiplex> we \
+            provided files for variable barcodes in the pattern-file, these files are now in the header of the output of <demultiplex>, but we still need to access those files again to assign features (e.g., protein names) or single-cell IDs to the barcode.")
             
-            ("antibodyList,a", value<std::string>(&(abFile)), "file with a list of all antbodies (protein names) used, should be in same order as the ab-barcodes in the barcodeList.")
-            ("featureIndex,x", value<int>(&featureIdx)->required(), "Index used for feature counting. This is the index of the column that should be used for features (0 indexed)")
+            ("antibodyList,a", value<std::string>(&(abFile)), "file with a list of all feature names (e.g., protein names), should be in same order as the feature-barcodes in the barcode file.")
+            ("featureIndex,x", value<int>(&featureIdx)->required(), "Index used for feature counting (e.g., index of the protein barcode). This is the index of the column that should be used for features (0 indexed)")
             
-            ("groupList,g", value<std::string>(&(treatmentFile)), "file with a list of all groups (e.g.treatments) used, should be in same order as the specific barcodes in the barcodeList. \
-            If this argument is given, you must also add the index of barcodes used for grouping")
-            ("groupingIndex,y", value<int>(&treatmentIdx), "Index used to group cells(e.g. by treatment). This is the x-th barcode from the barcodeFile (0 indexed).")
+            ("groupList,g", value<std::string>(&(treatmentFile)), "file with a list of all single-cell group assignments (e.g.treatments in specific wells). This is just a file with group names, comma seperated and should be in same order as the specific barcodes for the grouping barcode. \
+            If this argument is given, you must also add the index of barcodes used for grouping with <-y>. \
+            E.g., imagine we have a barcode file like : ACGT,TACG,CCCG. And the barcodes also define different treatment conditions \
+            then we can provide a grouping file -g groupingFile.txt with groupingFile.txt: untreated, treated_time1, treated_time2")
+            ("groupingIndex,y", value<int>(&treatmentIdx), "Index used to group cells (e.g. by treatment). This is the barcode used to assign groups that have to be given in <-g>. This is the x-th barcode from the barcodeFile (0 indexed).")
 
             ("singleCellIndices,c", value<std::string>(&(barcodeIndices))->default_value(""), "comma seperated list of indexes, that are used for \
-            single-cell assignment (e.g., combinatorial indexing) and should distinguish a unique cell. Be aware that this is the index of the line inside the barcodeList file (see above). \
-            This file ONLY includes lines for the varying sequences (except UMI). Therefore the index is not the same as the position in the whole sequence \
-            if constant or UMI-seq are present. Index starts with zero.")
+            single-cell assignment (e.g., for combinatorial indexing 0,5,3. If cells have a single barcode it can be, e.g., only 0). \
+            These indices are the indices in the barcode-pattern file (0 indexed). E.g., a pattern like ABPATTERN:[ACGT][5X][scFile1.txt][ACGT][scFile2.txt] could have the single-cell ids -c 2,4.")
 
-            ("umiIndex,u", value<std::string>(&umiIdx)->default_value(""), "list of indices used as unique molecular identifier (UMI). This can be several columns. indices are 0-indexed. \
-            If this parameter is not given all columns with an X from the pattern-input-file (e.g., [10X]) are used as UMI.")
-            ("mismatches,m", value<int>(&umiMismatches)->default_value(1), "number of allowed mismatches in a UMI. If there are several UMI-barcodes in one sequence\
-            the sequences are concatenated and the whole sequence is aligned to other UMI-seuqences by THIS ONE MISMATCH NUMBER.")
+            ("umiIndex,u", value<std::string>(&umiIdx)->default_value(""), "list of indices used as unique molecular identifier (UMI). This can be several columns (0 indexed). \
+            In the example pattern ABPATTERN:[ACGT][5X][scFile1.txt][ACGT][scFile2.txt] this parameter could be -u 1.\
+            If this parameter is not given all columns with an X from the pattern-input-file (e.g., [10X]) are used as UMI. But you can also just provide one pattern to be used as UMI in case several are present.")
+            ("mismatches,m", value<int>(&umiMismatches)->default_value(1), "number of allowed mismatches in a UMI (all UMIs are aligned to one another and collapsed if possible). If there are several UMI-barcodes in one sequence\
+            the sequences are concatenated and the whole sequence is aligned to other UMI-seuqences by this here provided mismatch number.")
             ("umiThreshold,f", value<double>(&umiThreshold)->default_value(0.0), "threshold for filtering UMIs. E.g. if set to 0.9 we only retain reads of a UMI, if more \
-            than 90percent of them have the same SC-AB combination. All other reads are deleted. Keep at 0 if UMIs should not be removed.")
-            ("umiRemoval,z", value<bool>(&umiRemoval)->default_value(true), "Set to false if UMIs should NOT be collapsed.")
-            ("scIdAsString,s", value<bool>(&scIdString)->default_value(false), "Stores the single-cell ID not as an id for the barcode, but as the actual string.")
+            than 90percent of them have the same SC-AB combination. All other reads are deleted. Default is zero. (You can keep it at 0 if UMIs should not be collapsed).")
+            ("umiRemoval,z", value<bool>(&umiRemoval)->default_value(true), "Set to false if UMIs should NOT be collapsed. By default UMIs are collapsed.")
+            ("scIdAsString,s", value<bool>(&scIdString)->default_value(false), "Stores the single-cell ID not as an id for the barcode (e.g., 1.45.0), but as the actual string (e.g., ATCG.ACTGT.GCGC).")
 
             ("thread,t", value<int>(&threats)->default_value(5), "number of threads")
             ("help,h", "help message");
