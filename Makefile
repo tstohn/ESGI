@@ -11,10 +11,14 @@ LDFLAGS =
 #system dependent boost flags
 ifeq ($(UNAME_S),Linux)
     BOOST_FLAGS = -lboost_iostreams -lboost_program_options -lpthread -lz
+	BOOST_INCLUDE =
+	BOOST_LIB =
 endif
 
 ifeq ($(UNAME_S),Darwin)
     BOOST_FLAGS = -lboost_iostreams -lboost_program_options -lpthread -lz
+	BOOST_INCLUDE =
+	BOOST_LIB =
 endif
 
 # Check for any Windows-like environments: MINGW, MSYS, or CYGWIN
@@ -25,8 +29,11 @@ ifneq (,$(filter MINGW MSYS CYGWIN,$(UNAME_S)))
         -lboost_thread-mt -lboost_iostreams-mt -lboost_program_options-mt -lpthread -lz
 endif
 
+#only include boost flags if needed
+BOOST_INCLUDE_FLAG := $(if $(BOOST_INCLUDE),-I$(BOOST_INCLUDE),)
+
 install:
-	#download and compile kseq (we have a modified makefile to compile with rand on windows), 
+	# download and compile kseq (we have a modified makefile to compile with rand on windows, which we move into the repo), 
 	# we have a submodule edlib (git submodule add https://github.com/martinsos/edlib ./edlib;
 	# no need to compile, we just add libraries and then compile with them), but we update it
 	
@@ -35,29 +42,30 @@ install:
 	cd ..
 	mkdir bin
 
-	#install libboost for various systems LINUX/ WINDOWS
+	#install libboost for various systems LINUX/ WINDOWS/ macOS
+	#TODO: we do not need all libboost-dev for LINUX and boost for macOS (check which libs are needed and install only those!)
 	@if [ "$(UNAME_S)" = "Linux" ]; then \
 		sudo apt-get update && sudo apt-get install -y libboost-all-dev; \
 	elif echo "$(UNAME_S)" | grep -E -q "MINGW|MSYS|CYGWIN"; then \
-		vcpkg install boost-iostreams boost-program-options zlib; \
+		vcpkg install boost-thread boost-iostreams boost-program-options zlib; \
 	elif [ "$(UNAME_S)" = "Darwin" ]; then \
 		brew install boost; \
 	fi
 
 #parse fastq lines and map abrcodes to each sequence
 demultiplex:
-	g++ -c ./include/edlib/edlib/src/edlib.cpp -I ./include/edlib/edlib/include/ -I ./src/lib --std=c++17 $(CXXFLAGS)
-	g++ -c src/lib/DemultiplexedStatistics.cpp -I ./include/ -I ./src/lib --std=c++17 $(CXXFLAGS)
-	g++ -c src/lib/BarcodeMapping.cpp -I ./include/ -I ./src/lib --std=c++17 $(CXXFLAGS)
-	g++ -c src/tools/Demultiplexing/DemultiplexedResult.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
-	g++ -c src/tools/Demultiplexing/Demultiplexer.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
-	g++ -c src/tools/Demultiplexing/main.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
+	g++ -c ./include/edlib/edlib/src/edlib.cpp -I ./include/edlib/edlib/include/ -I ./src/lib $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
+	g++ -c src/lib/DemultiplexedStatistics.cpp -I ./include/ -I ./src/lib $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
+	g++ -c src/lib/BarcodeMapping.cpp -I ./include/ -I ./src/lib $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
+	g++ -c src/tools/Demultiplexing/DemultiplexedResult.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
+	g++ -c src/tools/Demultiplexing/Demultiplexer.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
+	g++ -c src/tools/Demultiplexing/main.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
 	g++ main.o DemultiplexedResult.o Demultiplexer.o BarcodeMapping.o DemultiplexedStatistics.o edlib.o -o ./bin/demultiplex $(LDFLAGS) $(BOOST_FLAGS)
 
 #process the mapped sequences: correct for UMI-mismatches, then map barcodes to Protein, treatment, SinglecellIDs
 count:
-	g++ -c src/tools/FeatureCounting/BarcodeProcessingHandler.cpp -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
-	g++ -c src/tools/FeatureCounting/main.cpp -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
+	g++ -c src/tools/FeatureCounting/BarcodeProcessingHandler.cpp -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
+	g++ -c src/tools/FeatureCounting/main.cpp -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
 	g++ main.o BarcodeProcessingHandler.o -o ./bin/count $(BOOST_FLAGS)
 
 barcodeBedAnnotator:
@@ -91,7 +99,7 @@ umiqual:
 
 test:
 	make demultiplex
-	make featureCounting
+	make count
 
 	make test_ezgi
 	make bigTest
