@@ -78,8 +78,8 @@ demultiplex:
 #process the mapped sequences: correct for UMI-mismatches, then map barcodes to Protein, treatment, SinglecellIDs
 count:
 	g++ -c src/tools/FeatureCounting/BarcodeProcessingHandler.cpp -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
-	g++ -c src/tools/FeatureCounting/main.cpp -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
-	g++ main.o BarcodeProcessingHandler.o -o ./bin/count $(LDFLAGS) $(BOOST_FLAGS)
+	g++ -c src/tools/FeatureCounting/main.cpp -o main_count.o -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
+	g++ main_count.o BarcodeProcessingHandler.o -o ./bin/count $(LDFLAGS) $(BOOST_FLAGS)
 
 barcodeBedAnnotator:
 	g++ -o ./bin/barcodeBedAnn src/tools/BarcodefileBedAnnotator/BarcodeBedAnnotator.cpp src/tools/BarcodefileBedAnnotator/main.cpp $(LDFLAGS) -lboost_iostreams -lboost_program_options
