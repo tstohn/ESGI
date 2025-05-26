@@ -45,12 +45,12 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper(const std::pa
         //write demultiplexed information into demultiplexedLine, this is passed by reference and can be accessed here
         if(this->demultiplex_read(line, tmpDemultiplexedLine, pattern, input, lineCount, totalReadCount, tmpPatternScore, lineStatsPtr) && tmpPatternScore < bestPatternScore)
         {
-            std::cout << "FOUND: " << pattern->patternName << "\n";
             //as soon as a pattern matches, we exit and safe it!
             foundPatternName = pattern->patternName;
             result = true;
             finalDemultiplexedLine = tmpDemultiplexedLine;
             finalLineStatsPtr = lineStatsPtr;
+            bestPatternScore = tmpPatternScore;
             //TODO: potentailly break here if we do not want to map all patterns
             //break;
         }

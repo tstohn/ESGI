@@ -1,0 +1,3 @@
+PATTERN1:[AAAA][5X][ACT][5X][./src/test/test_data/test_multipatterns/BC1.txt]
+PATTERN2:[TTTT][5X][ACTG][5X][./src/test/test_data/test_multipatterns/BC1.txt]
+PATTERN3:[GGGG][5X][ACTGT][5X][./src/test/test_data/test_multipatterns/BC1.txt]

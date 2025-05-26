@@ -481,9 +481,7 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
 
         //std::cout << " trying " << seq.first.line << "\n";
         if(!(*patternItr)->align(barcode, seq.first.line, positionInFastqLine, targetEnd, del, ins, subst))
-        {
-            std::cout << '\t' << "FAIL at pos " << positionInFastqLine << "\n";
-            
+        {            
             //save until where we mapped
             if(stats != nullptr)
             {
