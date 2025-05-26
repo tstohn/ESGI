@@ -3,8 +3,27 @@
 #	boost
 
 UNAME_S := $(shell uname -s)
+VCPKG_ROOT ?= C:/vcpkg
+
 CXXFLAGS = -g -Wall
 LDFLAGS = 
+
+#system dependent boost flags
+ifeq ($(UNAME_S),Linux)
+    BOOST_FLAGS = -lboost_iostreams -lboost_program_options -lpthread -lz
+endif
+
+ifeq ($(UNAME_S),Darwin)
+    BOOST_FLAGS = -lboost_iostreams -lboost_program_options -lpthread -lz
+endif
+
+# Check for any Windows-like environments: MINGW, MSYS, or CYGWIN
+ifneq (,$(filter MINGW MSYS CYGWIN,$(UNAME_S)))
+    BOOST_INCLUDE = $(VCPKG_ROOT)/installed/x64-windows/include
+    BOOST_LIB = $(VCPKG_ROOT)/installed/x64-windows/lib
+    BOOST_FLAGS = -L$(BOOST_LIB) -I$(BOOST_INCLUDE) \
+        -lboost_thread-mt -lboost_iostreams-mt -lboost_program_options-mt -lpthread -lz
+endif
 
 install:
 	#download and compile kseq (we have a modified makefile to compile with rand on windows), 
@@ -20,7 +39,7 @@ install:
 	@if [ "$(UNAME_S)" = "Linux" ]; then \
 		sudo apt-get update && sudo apt-get install -y libboost-all-dev; \
 	elif echo "$(UNAME_S)" | grep -E -q "MINGW|MSYS|CYGWIN"; then \
-		vcpkg install boost-thread; \
+		vcpkg install boost-iostreams boost-program-options zlib; \
 	elif [ "$(UNAME_S)" = "Darwin" ]; then \
 		brew install boost; \
 	fi
@@ -33,13 +52,13 @@ demultiplex:
 	g++ -c src/tools/Demultiplexing/DemultiplexedResult.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
 	g++ -c src/tools/Demultiplexing/Demultiplexer.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
 	g++ -c src/tools/Demultiplexing/main.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
-	g++ main.o DemultiplexedResult.o Demultiplexer.o BarcodeMapping.o DemultiplexedStatistics.o edlib.o -o ./bin/demultiplex $(LDFLAGS) -lboost_iostreams -lboost_program_options -lpthread -lz
+	g++ main.o DemultiplexedResult.o Demultiplexer.o BarcodeMapping.o DemultiplexedStatistics.o edlib.o -o ./bin/demultiplex $(LDFLAGS) $(BOOST_FLAGS)
 
 #process the mapped sequences: correct for UMI-mismatches, then map barcodes to Protein, treatment, SinglecellIDs
 count:
 	g++ -c src/tools/FeatureCounting/BarcodeProcessingHandler.cpp -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
 	g++ -c src/tools/FeatureCounting/main.cpp -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
-	g++ main.o BarcodeProcessingHandler.o -o ./bin/count -lpthread -lz -lboost_program_options -lboost_iostreams
+	g++ main.o BarcodeProcessingHandler.o -o ./bin/count $(BOOST_FLAGS)
 
 barcodeBedAnnotator:
 	g++ -o ./bin/barcodeBedAnn src/tools/BarcodefileBedAnnotator/BarcodeBedAnnotator.cpp src/tools/BarcodefileBedAnnotator/main.cpp $(LDFLAGS) -lboost_iostreams -lboost_program_options
