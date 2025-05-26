@@ -27,7 +27,10 @@ ifneq (,$(findstring MINGW,$(UNAME_S))$(findstring MSYS,$(UNAME_S)))
     BOOST_INCLUDE = $(VCPKG_ROOT)/installed/x64-mingw-static/include
     BOOST_LIB = $(VCPKG_ROOT)/installed/x64-mingw-static/lib
 	#dynamically detect the right boost suffix
-	BOOST_SUFFIX := $(shell ls $(BOOST_LIB)/libboost_system*.a | sed -n 's/.*libboost_system\(.*\)\.a/\1/p')
+	BOOST_SUFFIX := $(shell \
+		for lib in $(BOOST_LIB)/libboost_system*.a; do \
+			basename $$lib | sed -n 's/libboost_system\(.*\)\.a/\1/p'; \
+		done | head -n 1)
     BOOST_FLAGS := -I$(BOOST_INCLUDE) -L$(BOOST_LIB) $(foreach lib,$(BOOST_LIB_NAMES),-lboost_$(lib)$(BOOST_SUFFIX)) -lpthread -lz
 endif
 
