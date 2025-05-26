@@ -45,10 +45,6 @@ struct OneLineDemultiplexingStats
         std::vector<int> deletions;
         std::vector<int> substitutions;
 
-        //MISMATCH NUMBER PARAMETERS
-        //do not save temporary values per line for this
-        //we can calculate this for the final structure from the above insertions, deletions and the result of matched barcodes
-
 };
 typedef std::shared_ptr<OneLineDemultiplexingStats> OneLineDemultiplexingStatsPtr;
 
@@ -62,7 +58,7 @@ class DemultiplexingStats{
         void write_mm_number(const std::string& outputFile);
         void write_last_mapped_position(const std::string& outputFile);
         void write_mm_types(const std::string& outputFile);
-        void write(const std::string& directory, const std::string& prefix);
+        void write(const std::string& directory, const std::string& prefix, const int patternNumber);
 
         //UPDATE FUNCTIONS
         void update_failedLinesMapping(std::pair<std::string, int> failedFw, std::pair<std::string, int> failedRv)
@@ -179,9 +175,10 @@ class DemultiplexingStats{
 
         //adding quality scores to class
         //this is only stored for failed lines:
-        //imagine a line can not be mapped to pattern A and B
-        //then it stores how far we could map in pattern A and also in pattern B
+        //imagine a line can not be mapped to pattern A
+        //then it stores how far we could map in pattern A 
         //key is <PATTERN>_<POSITION>
+        //so it might be extended in the future to store this for all patterns, for only it only works when we have ONE pattern
         std::map<std::string, int> failedLinesMappingFw;
         std::map<std::string, int> failedLinesMappingRv;
 

@@ -171,7 +171,7 @@ void DemultiplexedResult::write_output(const input& input)
     //write the results
     if(input.writeStats)
     {
-        dxStat.write(input.outPath, input.prefix);
+        dxStat.write(input.outPath, input.prefix, demultiplexedReads.size());
     }
 }
 

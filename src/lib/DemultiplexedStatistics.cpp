@@ -80,10 +80,11 @@ void DemultiplexingStats::update(OneLineDemultiplexingStatsPtr lineStatsPtr, boo
         update_mismatch_types(lineStatsPtr, foundPatternName, barcodeList);
         update_mismatch_numbers(lineStatsPtr, foundPatternName, barcodeList);
     }
-    else
+    else if(lineStatsPtr != nullptr) //it is a nullptr in case we have several patterns
     {
         //2.)
         //update for every pattern until where we could map (last mapped barcode position)
+        //this can only be updated if we have only one pattern, otherwise we would have to create this per pattern
         update_failedLinesMapping(lineStatsPtr->failedLinesMappingFw, lineStatsPtr->failedLinesMappingRv);
     }
 
@@ -473,7 +474,7 @@ void DemultiplexingStats::write_last_mapped_position(const std::string& outputFi
     out.close();
 }
 
-void DemultiplexingStats::write(const std::string& directory, const std::string& prefix)
+void DemultiplexingStats::write(const std::string& directory, const std::string& prefix, const int patternNumber)
 {
     //create file names (potentially with prefix)
     std::string barcodeMismatchNumberFile = "Quality_numberMM.txt";
@@ -504,5 +505,8 @@ void DemultiplexingStats::write(const std::string& directory, const std::string&
     write_mm_types(barcodeMismatchType);
 
     //fill last mapped positions
-    write_last_mapped_position(barcodeLastPosMapped);
+    if(patternNumber == 1)
+    {
+        write_last_mapped_position(barcodeLastPosMapped);
+    }
 }

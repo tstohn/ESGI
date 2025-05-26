@@ -100,7 +100,7 @@ bool parse_arguments(char** argv, int argc, input& input)
             ("fastqReadBucketSize,s", value<long long int>(&(input.fastqReadBucketSize))->default_value(-1), "number of lines of the fastQ file that should be read into RAM \
             and be processed, before the next fastq read is processed. By default it equal to 10X the thread number.")
             ("writeStats,q", value<bool>(&(input.writeStats))->default_value(false), "writing Statistics about the barcode mapping. This creates three files: \
-            ..._Quality_lastPositionMapped.txt stores how often mapping failed at which position for reads that could not be mapped \
+            ..._Quality_lastPositionMapped.txt stores how often mapping failed at which position for reads that could not be mapped (THIS IS ONLY WRITTEN IF WE HAVE ONLY ONE PATTERN) \
             ..._Quality_typeMM.txt stores for every barcode how often we observed a Subst, Ins, Del \
             ..._Quality_numberMM.txt stores how many mismatches we observed in which barcodes \n")
             ("writeFailedLines,f", value<bool>(&(input.writeFailedLines))->default_value(false), "write failed lines to an extra file.\n")

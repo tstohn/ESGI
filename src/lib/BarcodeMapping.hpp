@@ -35,7 +35,8 @@ class MapEachBarcodeSequentiallyPolicy
         bool split_line_into_barcode_patterns(
             const std::pair<fastqLine, fastqLine>& seq, 
             DemultiplexedLine& demultiplexedLine, const input& input,
-            BarcodePatternPtr barcodePatterns, OneLineDemultiplexingStatsPtr stats);
+            BarcodePatternPtr barcodePatterns, 
+            int& mmScore, OneLineDemultiplexingStatsPtr stats);
 };
 
 /** @brief like the sequential barcode mapping policy, for paired-end reads
@@ -68,7 +69,8 @@ class MapEachBarcodeSequentiallyPolicyPairwise
             const std::pair<fastqLine, fastqLine>& seq,  
             DemultiplexedLine& demultiplexedLine,
             const input& input, 
-            BarcodePatternPtr barcodePatterns, OneLineDemultiplexingStatsPtr stats);
+            BarcodePatternPtr barcodePatterns, int& mmScore,
+            OneLineDemultiplexingStatsPtr stats);
 };
 
 /**
@@ -82,7 +84,8 @@ class MapAroundConstantBarcodesAsAnchorPolicy
             const std::pair<fastqLine, fastqLine>& seq, 
             DemultiplexedLine& demultiplexedLine,
             const input& input,
-            BarcodePatternPtr barcodePatterns, OneLineDemultiplexingStatsPtr stats);
+            BarcodePatternPtr barcodePatterns, int& mmScore, 
+            OneLineDemultiplexingStatsPtr stats);
         void map_pattern_between_linker(const std::string& seq, const int& oldEnd, const int& start, 
                                         BarcodePatternPtr barcodePatterns, std::vector<std::string>& barcodeList,
                                         int& barcodePosition, int& skippedBarcodes);
@@ -326,6 +329,7 @@ class Mapping : protected MappingPolicy, protected FilePolicy
                               BarcodePatternPtr pattern,
                               const input& input, 
                               const unsigned long long& count, const unsigned long long& totalReadCount,
+                              int& mmScore,
                               OneLineDemultiplexingStatsPtr stats);
 
 };

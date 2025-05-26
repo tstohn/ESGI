@@ -18,12 +18,17 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper(const std::pa
     bool result = false;
     std::string foundPatternName;
     DemultiplexedLine finalDemultiplexedLine;
-    OneLineDemultiplexingStatsPtr lineStatsPtr; //result for a single line
+    OneLineDemultiplexingStatsPtr finalLineStatsPtr; //result for a single line
+    int bestPatternScore = std::numeric_limits<int>::max();
 
+    //map every pattern and save the overall score per pattern
     for(BarcodePatternPtr pattern : *this->get_barcode_pattern())
     {
+        //score for this specific pattern
+        int tmpPatternScore = std::numeric_limits<int>::max();
 
         //if we save stats initialize the temporary ones here
+        OneLineDemultiplexingStatsPtr lineStatsPtr; //result for a single line
         if(input.writeStats){lineStatsPtr = std::make_shared<OneLineDemultiplexingStats>();}
         else{lineStatsPtr = nullptr;}
 
@@ -38,15 +43,24 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper(const std::pa
         }
 
         //write demultiplexed information into demultiplexedLine, this is passed by reference and can be accessed here
-        if(this->demultiplex_read(line, tmpDemultiplexedLine, pattern, input, lineCount, totalReadCount, lineStatsPtr))
+        if(this->demultiplex_read(line, tmpDemultiplexedLine, pattern, input, lineCount, totalReadCount, tmpPatternScore, lineStatsPtr) && tmpPatternScore < bestPatternScore)
         {
+            std::cout << "FOUND: " << pattern->patternName << "\n";
             //as soon as a pattern matches, we exit and safe it!
-            //we DO NOT check if other patterns match as well -> responsibility of user to design non-ambiguous patterns
             foundPatternName = pattern->patternName;
             result = true;
             finalDemultiplexedLine = tmpDemultiplexedLine;
-            break;
+            finalLineStatsPtr = lineStatsPtr;
+            //TODO: potentailly break here if we do not want to map all patterns
+            //break;
         }
+
+        //in case we have only ONE PATTERN we can get statistics for the failed line, otherwise not
+        if(this->get_barcode_pattern()->size() == 1)
+        {
+            finalLineStatsPtr = lineStatsPtr;
+        }
+
     }
 
     //BARCODE only information is stored (e.g., protein+barcode, guide+barcode)
@@ -72,8 +86,7 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper(const std::pa
     if(input.writeStats)
     {
         //if we mapped the line store mapping information
-        
-        fileWriter->update_stats(lineStatsPtr, result, foundPatternName, finalDemultiplexedLine.barcodeList);
+        fileWriter->update_stats(finalLineStatsPtr, result, foundPatternName, finalDemultiplexedLine.barcodeList);
     }
 
     //count down elements to process
