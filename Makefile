@@ -199,7 +199,6 @@ testFeatureCounting:
 
 
 
-
 #test processing of the barcodes, includes several UMIs with mismatches, test the mapping of barcodes to unique CellIDs, ABids, treatments
 testProcessing:
 #origional first test with several basic examples
