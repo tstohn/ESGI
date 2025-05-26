@@ -22,11 +22,13 @@ ifeq ($(UNAME_S),Darwin)
 endif
 
 # Check for any Windows-like environments: MINGW, MSYS, or CYGWIN
+BOOST_LIB_NAMES = system thread program_options iostreams
 ifneq (,$(findstring MINGW,$(UNAME_S))$(findstring MSYS,$(UNAME_S)))
     BOOST_INCLUDE = $(VCPKG_ROOT)/installed/x64-mingw-static/include
     BOOST_LIB = $(VCPKG_ROOT)/installed/x64-mingw-static/lib
-    BOOST_FLAGS = -I$(BOOST_INCLUDE) -L$(BOOST_LIB) \
-    -lboost_system-mt -lboost_thread-mt -lboost_program_options-mt -lboost_iostreams-mt -lpthread -lz
+	#dynamically detect the right boost suffix
+	BOOST_SUFFIX := $(shell ls $(BOOST_LIB)/libboost_system*.a | sed -n 's/.*libboost_system\(.*\)\.a/\1/p')
+    BOOST_FLAGS := -I$(BOOST_INCLUDE) -L$(BOOST_LIB) $(foreach lib,$(BOOST_LIB_NAMES),-lboost_$(lib)$(BOOST_SUFFIX)) -lpthread -lz
 endif
 
 #only include boost flags if needed
@@ -60,8 +62,6 @@ demultiplex:
 	g++ -c src/tools/Demultiplexing/DemultiplexedResult.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
 	g++ -c src/tools/Demultiplexing/Demultiplexer.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
 	g++ -c src/tools/Demultiplexing/main.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
-	ls -l $(BOOST_LIB)
-	ls -l $(BOOST_INCLUDE)
 	g++ main.o DemultiplexedResult.o Demultiplexer.o BarcodeMapping.o DemultiplexedStatistics.o edlib.o -o ./bin/demultiplex $(LDFLAGS) $(BOOST_FLAGS)
 
 #process the mapped sequences: correct for UMI-mismatches, then map barcodes to Protein, treatment, SinglecellIDs
