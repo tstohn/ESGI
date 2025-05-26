@@ -23,8 +23,8 @@ endif
 
 # Check for any Windows-like environments: MINGW, MSYS, or CYGWIN
 ifneq (,$(findstring MINGW,$(UNAME_S))$(findstring MSYS,$(UNAME_S))$(findstring CYGWIN,$(UNAME_S)))
-    BOOST_INCLUDE = $(VCPKG_ROOT)/installed/x64-windows/include
-    BOOST_LIB = $(VCPKG_ROOT)/installed/x64-windows/lib
+    BOOST_INCLUDE = $(VCPKG_ROOT)/installed/x64-mingw-static/include
+    BOOST_LIB = $(VCPKG_ROOT)/installed/x64-mingw-static/lib
     BOOST_FLAGS = -L$(BOOST_LIB) -I$(BOOST_INCLUDE) \
     -lboost_system -lboost_thread -lboost_program_options -lboost_iostreams -lpthread -lz
 endif
@@ -47,7 +47,7 @@ install:
 	@if [ "$(UNAME_S)" = "Linux" ]; then \
 		sudo apt-get update && sudo apt-get install -y libboost-all-dev; \
 	elif echo "$(UNAME_S)" | grep -E -q "MINGW|MSYS|CYGWIN"; then \
-		vcpkg install boost-asio boost-system boost-thread boost-iostreams boost-program-options zlib; \
+		vcpkg install boost-asio boost-system boost-thread boost-iostreams boost-program-options zlib --triplet x64-mingw-static; \
 	elif [ "$(UNAME_S)" = "Darwin" ]; then \
 		brew install boost; \
 	fi
