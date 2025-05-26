@@ -6,7 +6,6 @@ UNAME_S := $(shell uname -s)
 VCPKG_ROOT ?= C:/vcpkg
 
 CXXFLAGS = -g -Wall
-LDFLAGS = 
 
 #system dependent boost flags
 ifeq ($(UNAME_S),Linux)
@@ -31,11 +30,20 @@ ifneq (,$(findstring MINGW,$(UNAME_S))$(findstring MSYS,$(UNAME_S)))
 		for lib in $(BOOST_LIB)/libboost_system*.a; do \
 			basename $$lib | sed -n 's/libboost_system\(.*\)\.a/\1/p'; \
 		done | head -n 1)
-    BOOST_FLAGS := -I$(BOOST_INCLUDE) -L$(BOOST_LIB) $(foreach lib,$(BOOST_LIB_NAMES),-lboost_$(lib)$(BOOST_SUFFIX)) -lpthread -lz
+    BOOST_FLAGS := -I$(BOOST_INCLUDE) -L$(BOOST_LIB) $(foreach lib,$(BOOST_LIB_NAMES),-lboost_$(lib)$(BOOST_SUFFIX)) -lpthread -lz -lwinpthread
 endif
 
 #only include boost flags if needed
 BOOST_INCLUDE_FLAG := $(if $(BOOST_INCLUDE),-I$(BOOST_INCLUDE),)
+
+#LDFLAGS
+ifeq ($(OS), Windows_NT)
+	LDFLAGS += -static -static-libgcc -static-libstdc++ -Wl,-Bstatic -lz -lwinpthread -Wl,-Bdynamic 
+else ifeq ($(UNAME_S),Linux)
+	LDFLAGS +=
+else ifeq ($(UNAME_S),Darwin)
+	LDFLAGS += 
+endif
 
 install:
 	# download and compile kseq (we have a modified makefile to compile with rand on windows, which we move into the repo), 
@@ -108,6 +116,9 @@ test:
 
 	make test_ezgi
 	make bigTest
+
+test_multipattern:
+	./bin/demultiplex -i ./src/test/test_data/test_multipatterns/input.txt -o ./bin/ -p ./src/test/test_data/test_multipatterns/patterns.txt -m ./src/test/test_data/test_multipatterns/mismatches.txt -t 1 -n MULTI -q 1 -f 1
 
 testUmiqual:
 	./bin/umiqual -i ./src/test/test_data/testSet.txt.gz -o ./bin/processed_out.tsv -t 1 -b ./src/test/test_data/processingBarcodeFile.txt  -c 0,2,3,4 -a ./src/test/test_data/antibody.txt -x 1 -g ./src/test/test_data/treatment.txt -y 2 -u 2
