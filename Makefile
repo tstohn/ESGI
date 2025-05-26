@@ -22,7 +22,7 @@ ifeq ($(UNAME_S),Darwin)
 endif
 
 # Check for any Windows-like environments: MINGW, MSYS, or CYGWIN
-ifneq (,$(filter MINGW MSYS CYGWIN,$(UNAME_S)))
+ifneq (,$(findstring MINGW,$(UNAME_S))$(findstring MSYS,$(UNAME_S))$(findstring CYGWIN,$(UNAME_S)))
     BOOST_INCLUDE = $(VCPKG_ROOT)/installed/x64-windows/include
     BOOST_LIB = $(VCPKG_ROOT)/installed/x64-windows/lib
     BOOST_FLAGS = -L$(BOOST_LIB) -I$(BOOST_INCLUDE) \
