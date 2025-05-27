@@ -11,6 +11,17 @@ bool check_if_seq_too_short(const int& offset, const std::string& seq)
     return false;
 }
 
+std::string trim(const std::string& str) 
+{
+    const std::string whitespace = " \t\r\f\v\n";  // Added '\n' to include newlines
+    size_t start = str.find_first_not_of(whitespace);
+    if (start == std::string::npos) {
+        return "";
+    }
+    size_t end = str.find_last_not_of(whitespace);
+    return str.substr(start, end - start + 1);
+}
+
 //parse a new file with barcodes and writes all barcodes into a vector
 template <typename MappingPolicy, typename FilePolicy>
 std::vector<std::string> Mapping<MappingPolicy, FilePolicy>::parse_variable_barcode_file(const std::string& barcodeFile)
@@ -23,6 +34,12 @@ std::vector<std::string> Mapping<MappingPolicy, FilePolicy>::parse_variable_barc
         std::stringstream strStream;
         strStream << barcodeFileStream.rdbuf();
         std::string barcodeListString = strStream.str();
+        //trim whitespaces (e.g., newline at end), we still check later for newlines at end of file, which is redundand for now    
+        barcodeListString = trim(barcodeListString);
+        if(barcodeListString.empty())
+        {
+            std::cerr << "Error: The abrcode file " << barcodeFile << " contains no barcodes. Please provide a list of comma seperated barcodes.\n";
+        }
 
         std::string delimiter = ",";
         int pos = 0;
@@ -32,19 +49,22 @@ std::vector<std::string> Mapping<MappingPolicy, FilePolicy>::parse_variable_barc
             for (char const &c: seq) {
                 if(!(c=='A' || c=='T' || c=='G' || c=='C' ||
                         c=='a' || c=='t' || c=='g' || c=='c'))
-                        {
-                            std::cout << seq << "\n";
-   
-                        std::cerr << "PARAMETER ERROR: a barcode sequence in " << barcodeFile << " is not a base (A,T,G,C)\n";
-                        if(c==' ' || c=='\t' || c=='\n')
-                        {
-                            std::cerr << "PARAMETER ERROR: Detected a whitespace in following sequence[" << seq << "], pls. remove it to continue!\n";
-                            if(c=='\n')
+                        {   
+                            if(c==' ' || c=='\t' || c=='\n')
                             {
-                                std::cerr << "Looks like you forgot to remove a newline at the end of the file?\n";
+                                std::cerr << "PARAMETER ERROR: Detected a whitespace in following barcode file: " << barcodeFile << ", pls. remove it to continue!\n";
+                                std::cerr << "the whitespace occured within this barcode: " << seq << "\n";
+                                std::cerr << "(Barcodes have to be comma-seperated with no whitespace, newline, tab in between. Also there should be no newline at the end of the file)\n";
+                                if(c=='\n')
+                                {
+                                    std::cerr << "Barcodes should be comma seperated. Looks like you forgot to remove a newline between barcodes?\n";
+                                }
                             }
-                        }
-                        exit(1);
+                            else
+                            {
+                                std::cerr << "PARAMETER ERROR: a barcode sequence in " << barcodeFile << " is not a base (A,T,G,C)\n";
+                            }
+                            exit(1);
                         }
             }
             barcodes.push_back(seq);
@@ -53,15 +73,19 @@ std::vector<std::string> Mapping<MappingPolicy, FilePolicy>::parse_variable_barc
             if(!(c=='A' || c=='T' || c=='G' || c=='C' ||
                     c=='a' || c=='t' || c=='g' || c=='c'))
                     {
-                    std::cerr << "PARAMETER ERROR: a barcode sequence in " << barcodeFile << " is not a base (A,T,G,C)\n";
-                    if(c==' ' || c=='\t' || c=='\n')
-                    {
-                        std::cerr << "PARAMETER ERROR: Detected a whitespace in following sequence[" << barcodeListString << "], pls. remove it to continue!\n";
-                        if(c=='\n')
+                        if(c==' ' || c=='\t' || c=='\n')
                         {
-                            std::cerr << "Looks like you forgot to remove a newline at the end of the file?\n";
+                            std::cerr << "PARAMETER ERROR: Detected a whitespace in following barcode file: " << barcodeFile << ", pls. remove it to continue!\n";
+                            std::cerr << "(Barcodes have to be comma-seperated with no whitespace, newline, tab in between.)\n";
+                            if(c=='\n')
+                            {
+                                std::cerr << "Looks like you forgot to remove a newline in the file?\n";
+                            }
                         }
-                    }
+                        else
+                        {
+                            std::cerr << "PARAMETER ERROR: a barcode sequence in " << barcodeFile << " is not a base (A,T,G,C)\n";
+                        }
                     exit(1);
                     }
         }
@@ -85,22 +109,33 @@ std::pair<std::string, std::vector<std::string> > Mapping<MappingPolicy, FilePol
 {
     std::vector<std::string> patterns;
     std::string name;
-    try{
-        //if present parse the name of the line
-        size_t pos = line.find(":[");
-        if (pos != std::string::npos) 
-        {
-            //make sure this patterns only exists once
-            if (line.find(":[", pos + 1) != std::string::npos) 
-            {
-                std::cerr << "The substring <:[> appears more than once. This is invalid as <:> should only be used to" <<
-                " name patterns like, e.g., <name:[GACGTA][pattern.txt]>... " << std::endl;
-                exit(EXIT_FAILURE);     
-            }
 
-            //parse name
-            name = line.substr(0, pos);
-            line.erase(0, pos + 1);
+    try {
+        //if present parse the name of the line
+        size_t colonPos = line.find(":");
+        if (colonPos != std::string::npos) 
+        {
+            // Find the first '[' after the colon
+            size_t bracketPos = line.find('[', colonPos);
+            if (bracketPos != std::string::npos)
+            {
+                //make sure this patterns only exists once
+                if (line.find(':', colonPos + 1) != std::string::npos) 
+                {
+                    std::cerr << "The substring <:> appears more than once. This is invalid as <:> should only be used to" <<
+                    " name patterns like, e.g., <name:[GACGTA][pattern.txt]>... " << std::endl;
+                    exit(EXIT_FAILURE);     
+                }
+
+                //parse name and trim it
+                name = trim(line.substr(0, colonPos));
+                line = trim(line.substr(bracketPos));  // Start from the first '['
+            }
+            else
+            {
+                std::cerr << "PARAMETER ERROR: Found ':' but no following pattern starting with '['\n";
+                exit(1);
+            }
         }
         else
         {
@@ -108,23 +143,26 @@ std::pair<std::string, std::vector<std::string> > Mapping<MappingPolicy, FilePol
         }
         name = '\'' + name + '\'';
 
-        // parse one pattern line: e.g.: [ACGTTCAG][15X][file1.txt]
+        // parse one pattern line: e.g.: [ACGTTCAG]  [15X]   [file1.txt]
         std::string delimiter = "]";
         const char delimiter2 = '[';
-        pos = 0;
+        size_t pos = 0;
         std::string seq;
         //PARSE PATTERN
         while ((pos = line.find(delimiter)) != std::string::npos) {
-            seq = line.substr(0, pos);
-            line.erase(0, pos + 1);
-            if(seq.at(0) != delimiter2)
+            seq = trim(line.substr(0, pos));
+            line = trim(line.erase(0, pos + 1));
+            if(seq.empty() || seq.at(0) != delimiter2)
             {
-                std::cerr << "PARAMETER ERROR: Wrong barcode patter parameter, it looks like a \'[\' is missing\n";
+                std::cerr << "PARAMETER ERROR: Wrong barcode pattern parameter, it looks like a \'[\' is missing\n";
                 exit(1);
             }
-            seq.erase(0, 1);
+            seq.erase(0, 1);  // remove the '['
+            seq = trim(seq);  // trim the actual pattern content
             
-            patterns.push_back(seq);
+            if (!seq.empty()) {  // only add non-empty patterns
+                patterns.push_back(seq);
+            }
         }
     }
     catch(std::exception& e)
@@ -163,8 +201,12 @@ std::vector<std::pair<std::string, std::vector<std::string>>> Mapping<MappingPol
     int lineNumber = 0;
     while(std::getline(patternFileStream, line))
     {
-        patternList.emplace_back(parse_pattern_line(line, lineNumber));
-        ++lineNumber;
+        std::string trimmedLine = trim(line);
+        if(!line.empty())
+        {
+            patternList.emplace_back(parse_pattern_line(line, lineNumber));
+            ++lineNumber;
+        }
     }
 
     return(patternList);
@@ -188,13 +230,28 @@ std::vector<std::vector<int>> Mapping<MappingPolicy, FilePolicy>::parse_mismatch
     std::string delimiter = ",";
     while(std::getline(mismatchFileStream, mismatchLine))
     {
+        //we trim every individual line in case whitespaces are present
+        mismatchLine = trim(mismatchLine);
+        if(mismatchLine.empty()){continue;}
         std::vector<int> mismatches;
         int pos = 0;
         while ((pos = mismatchLine.find(delimiter)) != std::string::npos) 
         {
             std::string seq = mismatchLine.substr(0, pos);
             mismatchLine.erase(0, pos + 1);
+            if(seq.empty() || seq.find_first_not_of("0123456789") != std::string::npos)
+            {
+                std::cerr << "The mismatch file contains a non-numeric element [" << seq << "]\n";
+                std::cerr << "Please provide comma seperated mismatches. One line for every barcode-pattern.\n";
+                exit(EXIT_FAILURE);
+            }
             mismatches.push_back(std::stoi(seq));
+        }
+        if(mismatchLine.empty() || mismatchLine.find_first_not_of("0123456789") != std::string::npos)
+        {
+            std::cerr << "The mismatch file contains a non-numeric element [" << mismatchLine << "]\n";
+            std::cerr << "Please provide comma seperated mismatches. One line for every barcode-pattern.\n";
+            exit(EXIT_FAILURE);
         }
         mismatches.push_back(std::stoi(mismatchLine));
 
