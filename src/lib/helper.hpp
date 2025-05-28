@@ -23,7 +23,7 @@ inline bool endWith(std::string const &fullString, std::string const &ending)
 {
     if (fullString.length() >= ending.length()) 
     {
-        return (0 == fullString.compare (fullString.length() - ending.length(), ending.length(), ending));
+        return (0 == fullString.compare(fullString.length() - ending.length(), ending.length(), ending));
     } 
     else 
     {
@@ -497,11 +497,11 @@ inline bool levenshtein(const std::string sequence, std::string pattern, const i
 }
 */
 
-inline int backBarcodeMappingExtension(const std::string& sequence, const std::string& pattern, int seq_end, const int& patternEnd)
+inline int backBarcodeMappingExtension(const std::string& sequence, const std::string& pattern, size_t seq_end, const size_t& patternEnd)
 {
     int elongation = 0;
-    //check if the end of sequebnces still maps for deletions
-    for(int i =0; i < (pattern.length() - patternEnd); ++i)
+    //check if the end of sequences still maps for deletions
+    for(size_t i = 0; i < (pattern.length() - patternEnd); ++i)
     {
         if( (seq_end + i) >= sequence.length()){return elongation;} //special case, the sequence ends before finishing of the whole pattern
         if( sequence.at(seq_end+i) == pattern.at(patternEnd + i) )
@@ -516,12 +516,12 @@ inline int backBarcodeMappingExtension(const std::string& sequence, const std::s
     return elongation;
 }
 
-inline int frontBarcodeMappingExtension(const std::string& sequence, const std::string& pattern, const int& seq_start, const int& patternStart)
+inline int frontBarcodeMappingExtension(const std::string& sequence, const std::string& pattern, const size_t& seq_start, const size_t& patternStart)
 {
     int elongation = 0;
-    //check if the end of sequebnces still maps for deletions
-    //start in pattern is 1-based: patternstart of 2 euquals one base deletion at start
-    for(int i =0; i < (patternStart); ++i)
+    //check if the end of sequences still maps for deletions
+    //start in pattern is 1-based: patternstart of 2 equals one base deletion at start
+    for(size_t i = 0; i < patternStart; ++i)
     {
         if( sequence.at(patternStart - 1 - i) == pattern.at(patternStart - 1 - i) )
         {

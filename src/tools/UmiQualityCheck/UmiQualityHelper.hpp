@@ -1,3 +1,5 @@
+#pragma once
+
 #include <iostream>
 #include <boost/asio/thread_pool.hpp>
 #include <boost/asio/post.hpp>
@@ -6,8 +8,8 @@
 #include "helper.hpp"
 
 struct VectorHasher {
-    int operator()(const std::vector<int> &V) const {
-        int hash = V.size();
+    size_t operator()(const std::vector<size_t> &V) const {
+        size_t hash = V.size();
         for(auto &i : V) {
             hash ^= i + 0x9e3779b9 + (hash << 6) + (hash >> 2);
         }
@@ -25,7 +27,7 @@ class umiQualityStat
         {
             return(barcodeOrder);
         }
-        std::unordered_map< std::vector<int>, unsigned long long, VectorHasher> get_error_map()
+        std::unordered_map< std::vector<size_t>, unsigned long long, VectorHasher> get_error_map()
         {
             return(errorMap);
         }
@@ -37,8 +39,8 @@ class umiQualityStat
         // 1   | 2   | 1      | 1             => 100
         //e.g. we have many UMIs (92236) where the Sc-AB-treatment is truly unique
         //and 100 UMIs that have two different barcodes in BC-round 2
-        std::unordered_map< std::vector<int>, unsigned long long, VectorHasher> errorMap;
-        std::vector<std::string> barcodeOrder; // order of barcode types (AB, BC1, BC2, ...) in which the counts are stored in vector<int>
+        std::unordered_map< std::vector<size_t>, unsigned long long, VectorHasher> errorMap;
+        std::vector<std::string> barcodeOrder; // order of barcode types (AB, BC1, BC2, ...) in which the counts are stored in vector<size_t>
         //above in the errorMap
         std::mutex errorMapUpdateLock;
 };
