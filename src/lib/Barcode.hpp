@@ -133,7 +133,7 @@ class Barcode
         return newSeq;
     }
     //overwritten function to match sequence pattern(s)
-    virtual bool align(std::string& matchedBarcode, const std::string& fastqLine,const int targetOffset,
+    virtual bool align(std::string& matchedBarcode, const std::string& fastqLine, const unsigned int targetOffset,
                        int& targetEnd, int& delNum, int& insNum, int& substNum,
                        bool reverse = false) = 0;
     virtual std::vector<std::string> get_patterns() = 0;
@@ -162,7 +162,7 @@ class ConstantBarcode : public Barcode
         );
     }
 
-    bool align(std::string& matchedBarcode, const std::string& fastqLine,const int targetOffset,
+    bool align(std::string& matchedBarcode, const std::string& fastqLine,const unsigned int targetOffset,
                int& targetEnd, int& delNum, int& insNum, int& substNum,
                bool reverse = false)
     {
@@ -253,13 +253,13 @@ class VariableBarcode : public Barcode
             EDLIB_TASK_PATH,    // Request full alignment path (M, I, D, S)
             NULL, 0);             // No custom alphabet
 
-        for (int i = 0; i < patterns.size(); ++i) 
+        for (size_t i = 0; i < patterns.size(); ++i) 
         {
             const std::string a = patterns.at(i);
             int min_rate = std::numeric_limits<int>::max();
             int minElement = std::numeric_limits<int>::max();
 
-            for (int j = 0; j < patterns.size(); ++j) 
+            for (size_t j = 0; j < patterns.size(); ++j) 
             {
                 if(i == j){continue;}
 
@@ -307,7 +307,7 @@ class VariableBarcode : public Barcode
         }
     }
 
-    bool align(std::string& matchedBarcode, const std::string& fastqLine, const int targetOffset,
+    bool align(std::string& matchedBarcode, const std::string& fastqLine, const unsigned int targetOffset,
         int& targetEnd, int& delNum, int& insNum, int& substNum,
         bool reverse = false)
     {
@@ -334,7 +334,7 @@ class VariableBarcode : public Barcode
         bool severalMatches = false; //if there are several best-fitting solutions (only the case when the number of allowed mismatches
         //is bigger than possible barcode-conversion numbers) we discard the solution
 
-        for(int patternIdx = 0; patternIdx!= patternsToMap.size(); ++patternIdx)
+        for(size_t patternIdx = 0; patternIdx!= patternsToMap.size(); ++patternIdx)
         {
             bool foundAlignment = false;
 
@@ -443,10 +443,15 @@ class WildcardBarcode : public Barcode
     public:
     WildcardBarcode(int inMismatches, std::string name, int inLength) : Barcode(name, inMismatches, inLength) {}
 
-    bool align(std::string& matchedBarcode, const std::string& target, const int positionInFastqLine,
+    bool align(std::string& matchedBarcode, const std::string& target, const unsigned int positionInFastqLine,
         int& targetEnd, int& delNum, int& insNum, int& substNum,
         bool reverse = false)
     {
+        (void)delNum; // silence unused parameter warning
+        (void)insNum; // silence unused parameter warning
+        (void)substNum; // silence unused parameter warning
+        (void)reverse; // silence unused parameter warning
+
         matchedBarcode = target.substr(positionInFastqLine, length);
         targetEnd = (target.length() < length) ? target.length() : length;
         // e.g.: [AGTAGT]cccc: start=0 end=6 end is first not included idx
@@ -473,11 +478,20 @@ class StopBarcode : public Barcode
     public:
     StopBarcode(std::string inPattern, int inMismatches) : Barcode("*", inMismatches),pattern(inPattern) {}
 
-    bool align(std::string& matchedBarcode, const std::string& target, const int targetOffset,
+    bool align(std::string& matchedBarcode, const std::string& target, const unsigned int targetOffset,
         int& targetEnd, int& delNum, int& insNum, int& substNum,
         bool reverse = false)
 
         {
+            (void)matchedBarcode; // silence unused parameter warning
+            (void)target; // silence unused parameter warning
+            (void)targetOffset; // silence unused parameter warning
+            (void)targetEnd; // silence unused parameter warning
+            (void)delNum; // silence unused parameter warning
+            (void)insNum; // silence unused parameter warning
+            (void)substNum; // silence unused parameter warning
+            (void)reverse; // silence unused parameter warning
+
             return false;
         }
     std::vector<std::string> get_patterns()
@@ -502,11 +516,20 @@ class ReadSeperatorBarcode : public Barcode
     public:
     ReadSeperatorBarcode(std::string inPattern, int inMismatches) : Barcode("-", inMismatches),pattern(inPattern) {}
 
-    bool align(std::string& matchedBarcode, const std::string& target, const int targetOffset,
+    bool align(std::string& matchedBarcode, const std::string& target, const unsigned int targetOffset,
         int& targetEnd, int& delNum, int& insNum, int& substNum,
         bool reverse = false)
 
         {
+            (void)matchedBarcode; // silence unused parameter warning
+            (void)target; // silence unused parameter warning
+            (void)targetOffset; // silence unused parameter warning
+            (void)targetEnd; // silence unused parameter warning
+            (void)delNum; // silence unused parameter warning
+            (void)insNum; // silence unused parameter warning
+            (void)substNum; // silence unused parameter warning
+            (void)reverse; // silence unused parameter warning
+
             return false;
         }
     std::vector<std::string> get_patterns()
@@ -532,11 +555,20 @@ class DNABarcode : public Barcode
     public:
     DNABarcode(int inMismatches = -1) : Barcode("DNA", inMismatches) {pattern = "DNA";}
 
-    bool align(std::string& matchedBarcode, const std::string& target, const int targetOffset,
+    bool align(std::string& matchedBarcode, const std::string& target, const unsigned int targetOffset,
         int& targetEnd, int& delNum, int& insNum, int& substNum,
         bool reverse = false)
 
         {
+            (void)matchedBarcode; // silence unused parameter warning
+            (void)target; // silence unused parameter warning
+            (void)targetOffset; // silence unused parameter warning
+            (void)targetEnd; // silence unused parameter warning
+            (void)delNum; // silence unused parameter warning
+            (void)insNum; // silence unused parameter warning
+            (void)substNum; // silence unused parameter warning
+            (void)reverse; // silence unused parameter warning
+
             return false;
         }
     std::vector<std::string> get_patterns()

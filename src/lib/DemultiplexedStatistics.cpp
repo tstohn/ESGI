@@ -19,7 +19,7 @@ void DemultiplexingStats::initializeStats(const MultipleBarcodePatternVectorPtr&
         //we DO NOT push stop/ read-end or DNA patterns in there, and therefore also CAN NOT count these indices as indices
         //that store patterns with potential DEL/INS/MIS
 
-        for(int barcodePos = 0; barcodePos < patternPtr->barcodePattern->size(); ++barcodePos)
+        for(size_t barcodePos = 0; barcodePos < patternPtr->barcodePattern->size(); ++barcodePos)
         {
 
             //initialize the failed line positions for fW and rv reads

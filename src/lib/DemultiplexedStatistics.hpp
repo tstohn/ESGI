@@ -151,17 +151,17 @@ class DemultiplexingStats{
 
         //GETTER FUNCTIONS
         ///number of perfect matches
-        const unsigned long long get_perfect_matches() const
+        unsigned long long get_perfect_matches() const
         {
             return perfectMatches;
         }
         ///number of matches with mismatches
-        const unsigned long long get_moderat_matches() const
+        unsigned long long get_moderat_matches() const
         {
             return moderateMatches;
         }
         ///number of failed matches
-        const unsigned long long get_failed_matches() const
+        unsigned long long get_failed_matches() const
         {
             return noMatches;
         }

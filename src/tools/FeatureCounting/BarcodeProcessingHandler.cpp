@@ -489,7 +489,7 @@ void BarcodeProcessingHandler::count_umi_occurence(std::vector<int>& positionsOf
         //(no longer done, those deletion should probably be considered as part of the allowed umiMismatches)
         const char* umia = allScAbCounts.at(lastIdx)->umiSeq;
         const char* umib = allScAbCounts.at(j)->umiSeq;
-        int dist = INT_MAX;
+        unsigned int dist = UINT_MAX;
         bool similar = outputSense(umia, umib, barcodeInformation.umiMismatches, dist);
 
         //if mismatches are within range, change UMI seq

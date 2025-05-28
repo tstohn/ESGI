@@ -40,11 +40,11 @@ struct BarcodeInformation
     //different indices, they r the index of the NNN-barcodes only (and therefore differe from the index of all barcodes incl. constant ones)
     std::vector<int> scBarcodeIndices; //CI barcode indices
     int treatmentIdx = -1; // treatment index
-    int featureIdx = 1; //AB index
+    unsigned int featureIdx = 1; //AB index
     
     std::vector<int> umiIdx; //UMI index
-    int umiMismatches;
-    int umiLength = 0; //the sum of lengths for all UMIs
+    unsigned int umiMismatches;
+    unsigned int umiLength = 0; //the sum of lengths for all UMIs
 };
 
 //data type to represent final processed AB counts per single cell
@@ -289,7 +289,7 @@ class BarcodeProcessingHandler
         {
             return(barcodeInformation.scBarcodeIndices);
         }
-        const int getAbIdx() const
+        int getAbIdx() const
         {
             return(barcodeInformation.featureIdx);
         }
@@ -297,7 +297,7 @@ class BarcodeProcessingHandler
         {
             return(barcodeInformation.umiIdx);
         }
-        const int getTreatmentIdx() const
+        int getTreatmentIdx() const
         {
             return(barcodeInformation.treatmentIdx);
         }

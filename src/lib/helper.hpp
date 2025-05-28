@@ -101,6 +101,7 @@ struct input{
     std::string prefix;
 
     std::string reverseFile = "";
+    bool detachedReverseMapping = false;
 
     std::string barcodeFile; //file of all barcode-vectors, each line sequentially representing a barcode 
     std::string mismatchFile; //file withg several lines with coma seperated list of mismathces per barcode
@@ -195,10 +196,10 @@ inline void front(const std::string& a, const std::string& b, frontMatrix& f)
 
 //output sensitive -> O() depends on the mismatches that we allow, since we allow mostly just for a few it runs super fast...
 //no backtracking implemented for now, only used to align UMIs where we do not care about alingment start, end
-inline bool outputSense(const std::string& sequence, const std::string& pattern, const int& mismatches, int& score)
+inline bool outputSense(const std::string& sequence, const std::string& pattern, const unsigned int& mismatches, unsigned int& score)
 {
-    const int m = sequence.length();
-    const int n = pattern.length();
+    const unsigned int m = sequence.length();
+    const unsigned int n = pattern.length();
     
     frontMatrix f(m,n);
     f.offset = m + 1;
@@ -253,7 +254,8 @@ inline void free_levenshtein(levenshtein_value** dist, int ls)
 
 inline std::string stripQuotes(const std::string& input) 
 {
-    if (input.size() >= 2 && input.front() == '\'' && input.back() == '\'') {
+    if (input.size() >= 2 && input.front() == '\'' && input.back() == '\'') 
+    {
         return input.substr(1, input.size() - 2); // cut first and last character
     } else {
         return input;
@@ -516,7 +518,7 @@ inline int backBarcodeMappingExtension(const std::string& sequence, const std::s
     return elongation;
 }
 
-inline int frontBarcodeMappingExtension(const std::string& sequence, const std::string& pattern, const size_t& seq_start, const size_t& patternStart)
+inline int frontBarcodeMappingExtension(const std::string& sequence, const std::string& pattern, const size_t& patternStart)
 {
     int elongation = 0;
     //check if the end of sequences still maps for deletions
