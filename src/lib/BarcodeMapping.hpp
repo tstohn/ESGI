@@ -49,7 +49,8 @@ class MapEachBarcodeSequentiallyPolicyPairwise
                         OneLineDemultiplexingStatsPtr stats,
                         DemultiplexedLine& demultiplexedLine,
                         unsigned int& barcodePosition,
-                        int& score_sum);
+                        int& score_sum,
+                        PatternType type);
         bool map_reverse(const fastqLine& seq, const input& input, 
                         BarcodePatternPtr barcodePatterns,
                         OneLineDemultiplexingStatsPtr stats,
@@ -321,7 +322,8 @@ class Mapping : protected MappingPolicy, protected FilePolicy
             const std::vector<std::string>& barcodeList, 
             const std::vector<int>& mismatchList, 
             const std::string& patternName,
-            std::unordered_map<std::string, std::vector<std::string>>& fileToBarcodesMap);
+            std::unordered_map<std::string, std::vector<std::string>>& fileToBarcodesMap,
+            const input& input);
         bool generate_barcode_patterns(const input& input);
 
 //OLD FUNCTION:

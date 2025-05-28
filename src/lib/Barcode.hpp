@@ -15,6 +15,11 @@ typedef std::shared_ptr<Barcode> BarcodePtr;
 typedef std::vector<BarcodePtr> BarcodeVector; 
 typedef std::shared_ptr<BarcodeVector> BarcodeVectorPtr; 
 
+enum class PatternType 
+{
+    Forward,
+    Reverse
+};
 //class to handle a barcode pattern 
 //can be used to iterate through the barcode, and stores additional information like:
 //it stores if the pattern contains DNA barcodes which require different handling
@@ -29,6 +34,8 @@ class BarcodePattern
         bool containsDNA;
         std::string patternName; //this is also the file this pattern will be written to
         BarcodeVectorPtr barcodePattern;
+        BarcodeVectorPtr detachedReversePattern; //in case we do not have one long pattern with a fw&rv read
+        //but more two independent read that should be mapped seperately
 
         //class functions
         //write multiplexed lines to file (must be specific for DNA, AB-barcodes, etc.)
@@ -40,46 +47,55 @@ class BarcodePattern
             barcodePattern->push_back(barcode);
         }
         // Get the size of the barcodePattern
-        std::size_t size() const {
+        std::size_t size(PatternType type = PatternType::Forward) const {
             return barcodePattern->size();
         }
+        
         // Access element by index
-        BarcodePtr& operator[](std::size_t index) {
-            return (*barcodePattern)[index];
-        }
-        const BarcodePtr& operator[](std::size_t index) const {
-            return (*barcodePattern)[index];
-        }
+   //     BarcodePtr& operator[](std::size_t index) {
+    //        return (*barcodePattern)[index];
+     //   }
+      //  const BarcodePtr& operator[](std::size_t index) const {
+       //     return (*barcodePattern)[index];
+        //}
+
         // Iterator types
         using iterator = typename std::vector<BarcodePtr>::iterator;
         using const_iterator = typename std::vector<BarcodePtr>::const_iterator;
         using reverse_iterator = typename std::vector<BarcodePtr>::reverse_iterator;
         using const_reverse_iterator = typename std::vector<BarcodePtr>::const_reverse_iterator;
         // Begin and end iterators
-        iterator begin() {
-            return barcodePattern->begin();
+        iterator begin(PatternType type = PatternType::Forward) {
+            return get_pattern(type)->begin();
         }
-        const_iterator begin() const {
-            return barcodePattern->begin();
+        const_iterator begin(PatternType type = PatternType::Forward) const {
+            return get_pattern(type)->begin();
         }
-        iterator end() {
-            return barcodePattern->end();
+        iterator end(PatternType type = PatternType::Forward) {
+            return get_pattern(type)->end();
         }
-        const_iterator end() const {
-            return barcodePattern->end();
+        const_iterator end(PatternType type = PatternType::Forward) const {
+            return get_pattern(type)->end();
         }
         // Reverse iterators
-        reverse_iterator rbegin() {
-            return barcodePattern->rbegin();
+        reverse_iterator rbegin(PatternType type = PatternType::Forward) {
+            return get_pattern(type)->rbegin();
         }
-        const_reverse_iterator rbegin() const {
-            return barcodePattern->rbegin();
+        const_reverse_iterator rbegin(PatternType type = PatternType::Forward) const {
+            return get_pattern(type)->rbegin();
         }
-        reverse_iterator rend() {
-            return barcodePattern->rend();
+        reverse_iterator rend(PatternType type = PatternType::Forward) {
+            return get_pattern(type)->rend();
         }
-        const_reverse_iterator rend() const {
-            return barcodePattern->rend();
+        const_reverse_iterator rend(PatternType type = PatternType::Forward) const {
+            return get_pattern(type)->rend();
+        }
+
+    private:
+        BarcodeVectorPtr get_pattern(PatternType type) const 
+        {
+            if (type == PatternType::Forward){return barcodePattern;}
+            else if(type == PatternType::Reverse){return detachedReversePattern;}
         }
 };
 

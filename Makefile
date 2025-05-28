@@ -118,6 +118,9 @@ test:
 	make bigTest
 	make test_multipattern
 
+test_detached:
+	./bin/demultiplex -i ./src/test/test_data/test_detached/input_fw.fastq -r ./src/test/test_data/test_detached/input_rv.fastq -d 1 -o ./bin/ -p ./src/test/test_data/test_detached/patterns.txt -m ./src/test/test_data/test_detached/mismatches.txt -t 1 -n DETACHED -q 1 -f 1
+
 test_multipattern:
 	./bin/demultiplex -i ./src/test/test_data/test_multipatterns/input.txt -o ./bin/ -p ./src/test/test_data/test_multipatterns/patterns.txt -m ./src/test/test_data/test_multipatterns/mismatches.txt -t 1 -n MULTI -q 1 -f 1
 	diff ./bin/MULTI_PATTERN1.tsv src/test/test_data/test_multipatterns/MULTI_PATTERN1.tsv
