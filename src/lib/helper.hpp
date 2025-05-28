@@ -9,6 +9,7 @@
 #include <cstring>
 #include <atomic>
 #include <mutex>
+#include <algorithm>
 
 #include "edlib/edlib/include/edlib.h"
 
@@ -159,8 +160,8 @@ inline int lcp(const std::string& a, const std::string& b)
 //idea: how far along all the diagonals that r within x-mismatches can i go in my edit-matrix with x-mismatches
 inline void front(const std::string& a, const std::string& b, frontMatrix& f)
 {
-    unsigned int min = MIN(a.length(), f.d);
-    unsigned int max = MIN(b.length(), f.d);
+    int min = std::min(static_cast<int>(a.length()), static_cast<int>(f.d));
+    int max = std::min(static_cast<int>(b.length()), static_cast<int>(f.d));
 
     f.previous = f.current;
 
@@ -172,7 +173,7 @@ inline void front(const std::string& a, const std::string& b, frontMatrix& f)
         if(f.previous.at(i+1) != UINT_MAX){ bVal = f.previous.at(i+1)+1;}
         if(f.previous.at(i) != UINT_MAX){ cVal = f.previous.at(i)+1;}
 
-        l = MAX(MAX(aVal, bVal), cVal);
+        l = std::max(std::max(aVal, bVal), cVal);
             
             if(l >= a.length())
             {
@@ -196,8 +197,8 @@ inline void front(const std::string& a, const std::string& b, frontMatrix& f)
 //no backtracking implemented for now, only used to align UMIs where we do not care about alingment start, end
 inline bool outputSense(const std::string& sequence, const std::string& pattern, const int& mismatches, int& score)
 {
-    const unsigned int m = sequence.length();
-    const unsigned int n = pattern.length();
+    const int m = sequence.length();
+    const int n = pattern.length();
     
     frontMatrix f(m,n);
     f.offset = m + 1;
@@ -217,7 +218,7 @@ inline bool outputSense(const std::string& sequence, const std::string& pattern,
     }
 
     ++f.d;
-    while(f.d <= MIN(MAX(m,n), mismatches))
+    while(f.d <= std::min(std::max(m,n), mismatches))
     {
         front(sequence, pattern, f);
         if(f.current.at(n-m+f.offset) == m )

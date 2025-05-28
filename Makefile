@@ -5,7 +5,7 @@
 UNAME_S := $(shell uname -s)
 VCPKG_ROOT ?= C:/vcpkg
 
-CXXFLAGS = -g -Wall
+CXXFLAGS = -g -Wall -Wextra	-Wsign-compare -O3
 
 #system dependent boost flags
 ifeq ($(UNAME_S),Linux)

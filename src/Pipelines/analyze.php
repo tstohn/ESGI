@@ -106,7 +106,7 @@ if(array_key_exists("help", $options))
 
     -n list of names for the guide barcodes (e.g. names of the cell lines/ knock outs). Must be in same order as the guide barcodes.
 
-    #NON MANDATORY PARAMTERS
+    #NON MANDATORY PARAMETERS
     -m mismatches per patter (default = 1)
     -t threads (default = 1)
     -f threshold to use when filtering umis (default is zero). Keep a read of UMI only, if more than X-perc (as double) are from same single cell and AB

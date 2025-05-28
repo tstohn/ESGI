@@ -53,7 +53,7 @@
  *          at least one matched only with mismatches, at least one did not match at all. The number of duplicate barcodes is per barcode, and thus might
  *          be greater than the total number of mismatches.)
  * 
- *          barcode file: Output file starts with 'BarcodeMapping_' and ends with the ending extension declared with the -o paramter
+ *          barcode file: Output file starts with 'BarcodeMapping_' and ends with the ending extension declared with the -o parameter
  *          stats file: a list where for each barcode in the fastq file, the number of found mismatches is written, the columns start with zero mismatches
  *          to the maximum number of mismtaches declared in mismatches parameter plus one, this last columns sums up all cases of more than max-num mismatches.
  *          real barcode file: like barcode file with uncorrected sequences, starts with RealBarcodeSequence
@@ -72,6 +72,10 @@ bool parse_arguments(char** argv, int argc, input& input)
             //optional for reverse mapping: no recommended, join reads first
             ("reverse,r", value<std::string>(&(input.reverseFile))->default_value(""), "Use this parameter for paired-end analysis as the reverse read file. <-i> is the forward read in \
             this case.")
+            ("detached, d", value<bool>(&(input.writeStats))->default_value(false),"detached mapping of forward and reverse read. In this case we do not \
+            assume the whole pattern is one sequence from 5'->3'. We rather have two seperate reads for FW and RV and we map both reads individually 5'-'3' and the reverse\
+            read is not a reverse complement of the pattern itself. In this case we must additionally add a read seperator [-] to clarify where FW and RV reads end. \
+            Barcodes for the reverse read are then mapped as they are and are not reverse complements of the pattern.")
 
             ("output,o", value<std::string>(&(input.outPath))->required(), "output directory. All files including failed lines, statistics will be saved here.")
             ("namePrefix,n", value<std::string>(&(input.prefix))->default_value(""), "a prefix for file names. Default uses no prefix.")
@@ -135,15 +139,15 @@ bool parse_arguments(char** argv, int argc, input& input)
 
 void write_parameter_file(const input& input)
 {
-    std::string paramterFile = "paramter.ini";
+    std::string parameterFile = "parameter.ini";
     if(input.prefix !="")
     {
-        paramterFile = input.prefix + "_" + paramterFile;
+        parameterFile = input.prefix + "_" + parameterFile;
     }
 
-    std::ofstream outFile(input.outPath + "/" + paramterFile);
+    std::ofstream outFile(input.outPath + "/" + parameterFile);
     if (!outFile) {
-        std::cerr << "Could not open paramter file for writing.\n";
+        std::cerr << "Could not open parameter file for writing.\n";
         exit(EXIT_FAILURE);
     }
 
@@ -200,7 +204,7 @@ int main(int argc, char** argv)
             fprintf(stderr,"The output directory (-o) must exist! Please provide a valid directory.\n Fail to find directory: %s\n", input.outPath.c_str());
             exit(EXIT_FAILURE);
         }
-        //write paramters to a parameter file
+        //write parameters to a parameter file
         write_parameter_file(input);
 
         //set the number of reads in the processing queue by default to 10X number of threads

@@ -104,8 +104,21 @@ class ExtractLinesFromTxtFilesPolicy
         if (fileStream.is_open()) 
         {
             fileStream.seekg(0);
+            //counting newlines for proxy of read number
             totalReads = std::count(std::istreambuf_iterator<char>(fileStream),
                                     std::istreambuf_iterator<char>(), '\n');
+                                        // Check last character (only if file isn't empty)
+            //if the last line has no newline add +1
+            if (fileStream.tellg() > 0) 
+            {
+                fileStream.clear(); // Clear EOF flag
+                fileStream.seekg(-1, std::ios::end);
+                char lastChar;
+                fileStream.get(lastChar);
+                if (lastChar != '\n') {
+                    totalReads += 1;
+                }
+            }
         } 
         else 
         {

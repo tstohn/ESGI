@@ -979,7 +979,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::split_line_into_barcode_patterns(
     unsigned int barcodePositionFw = 0;
 
     //for forward read we immediately add barcodes to demultiplexedLine.barcodeList, which is then extended in combine pattern, IF we find all patterns
-    bool fwBool = map_forward(seq.first, input, barcodePatterns, stats, demultiplexedLine, barcodePositionFw, mmScore);
+    map_forward(seq.first, input, barcodePatterns, stats, demultiplexedLine, barcodePositionFw, mmScore);
     DemultiplexedLine demultiplexedLineRv;
     unsigned int barcodePositionRv = 0;
 
@@ -998,7 +998,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::split_line_into_barcode_patterns(
     if(stats != nullptr){statsRvPtr = std::make_shared<OneLineDemultiplexingStats>();}
     else{statsRvPtr = nullptr;}
     
-    bool rvBool = map_reverse(seq.second, input, barcodePatterns, statsRvPtr, demultiplexedLineRv,barcodePositionRv, mmScore);
+    map_reverse(seq.second, input, barcodePatterns, statsRvPtr, demultiplexedLineRv,barcodePositionRv, mmScore);
 
    // std::cout << "FOUND REVERSE: ";
    // for(auto el : demultiplexedLineRv.barcodeList)
@@ -1136,7 +1136,7 @@ bool MapAroundConstantBarcodesAsAnchorPolicy::split_line_into_barcode_patterns(c
         //2.) write the newly mapped constant barcode
         demultiplexedLine.barcodeList.push_back(barcode);
 
-        //set paramters after constant mapping
+        //set parameters after constant mapping
         oldEnd += end;
         ++barcodePosition;
         skippedBarcodes = 0;
