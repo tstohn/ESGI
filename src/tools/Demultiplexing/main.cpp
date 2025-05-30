@@ -68,7 +68,8 @@ bool parse_arguments(char** argv, int argc, input& input)
         options_description desc("Options");
         desc.add_options()
             ("input,i", value<std::string>(&(input.inFile))->required(), "single file in fastq(.gz) format or the forward read file, if <-r> is also set for the\
-            reverse reads. It is also possible to provide a txt file with fastq-lines only (with no fastq-quality lines)")
+            reverse reads. It is also possible to provide a txt file with fastq-lines only (with no fastq-quality lines. For txt-files only the single-read option\
+            with forward read only is supported: -i file.txt)")
             //optional for reverse mapping: no recommended, join reads first
             ("reverse,r", value<std::string>(&(input.reverseFile))->default_value(""), "Use this parameter for paired-end analysis as the reverse read file. <-i> is the forward read in \
             this case.")

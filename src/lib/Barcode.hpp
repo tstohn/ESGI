@@ -43,21 +43,15 @@ class BarcodePattern
 
         //barcodeVector/ iterator functions
         // Add a barcode to the barcodePattern
-        void add_barcode(const BarcodePtr& barcode) {
-            barcodePattern->push_back(barcode);
+        void add_barcode(const BarcodePtr& barcode, PatternType type = PatternType::Forward) 
+        {
+            get_pattern(type)->push_back(barcode);
         }
         // Get the size of the barcodePattern
-        std::size_t size(PatternType type = PatternType::Forward) const {
-            return barcodePattern->size();
+        std::size_t size(PatternType type = PatternType::Forward) const 
+        {
+            return get_pattern(type)->size();
         }
-        
-        // Access element by index
-   //     BarcodePtr& operator[](std::size_t index) {
-    //        return (*barcodePattern)[index];
-     //   }
-      //  const BarcodePtr& operator[](std::size_t index) const {
-       //     return (*barcodePattern)[index];
-        //}
 
         // Iterator types
         using iterator = typename std::vector<BarcodePtr>::iterator;
@@ -94,8 +88,8 @@ class BarcodePattern
     private:
         BarcodeVectorPtr get_pattern(PatternType type) const 
         {
-            if (type == PatternType::Forward){return barcodePattern;}
-            else if(type == PatternType::Reverse){return detachedReversePattern;}
+            if(type == PatternType::Reverse){return detachedReversePattern;}
+            return barcodePattern; //if not reverse return forward pattern
         }
 };
 

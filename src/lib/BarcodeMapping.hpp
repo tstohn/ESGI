@@ -44,14 +44,14 @@ class MapEachBarcodeSequentiallyPolicy
 class MapEachBarcodeSequentiallyPolicyPairwise
 {
     private:
-        bool map_forward(const fastqLine& seq, const input& input, 
+        bool map_forward(const fastqLine& seq,
                         BarcodePatternPtr barcodePatterns,
                         OneLineDemultiplexingStatsPtr stats,
                         DemultiplexedLine& demultiplexedLine,
                         unsigned int& barcodePosition,
                         int& score_sum,
                         PatternType type);
-        bool map_reverse(const fastqLine& seq, const input& input, 
+        bool map_reverse(const fastqLine& seq, 
                         BarcodePatternPtr barcodePatterns,
                         OneLineDemultiplexingStatsPtr stats,
                         DemultiplexedLine& demultiplexedLine,
@@ -98,6 +98,8 @@ class ExtractLinesFromTxtFilesPolicy
     public:
     void init_file(const std::string& fwFile, const std::string& rvFile)
     {       
+        (void)rvFile; //we have only a forward fastq-read
+
         //no error handling for txt file right now
         fileStream.open(fwFile, std::ios::in);
 
@@ -169,6 +171,8 @@ class ExtractLinesFromFastqFilePolicy
 
     void init_file(const std::string& fwFile, const std::string& rvFile)
     {
+        (void)rvFile; //we have only a forward fastq-read
+
         fp = gzopen(fwFile.c_str(),"r");
         if(fp == Z_NULL)
         {

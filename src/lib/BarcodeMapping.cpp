@@ -1,6 +1,6 @@
 #include "BarcodeMapping.hpp"
 
-bool check_if_seq_too_short(const int& offset, const std::string& seq)
+bool check_if_seq_too_short(const size_t& offset, const std::string& seq)
 {
     if(offset >= seq.length())
     {
@@ -41,7 +41,7 @@ std::vector<std::string> Mapping<MappingPolicy, FilePolicy>::parse_variable_barc
         }
 
         std::string delimiter = ",";
-        int pos = 0;
+        unsigned int pos = 0;
         while ((pos = barcodeListString.find(delimiter)) != std::string::npos) {
             std::string seq = barcodeListString.substr(0, pos);
             barcodeListString.erase(0, pos + 1);
@@ -233,7 +233,7 @@ std::vector<std::vector<int>> Mapping<MappingPolicy, FilePolicy>::parse_mismatch
         mismatchLine = trim(mismatchLine);
         if(mismatchLine.empty()){continue;}
         std::vector<int> mismatches;
-        int pos = 0;
+        unsigned int pos = 0;
         while ((pos = mismatchLine.find(delimiter)) != std::string::npos) 
         {
             std::string seq = mismatchLine.substr(0, pos);
@@ -504,7 +504,8 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
                                         int& mmScore,
                                         OneLineDemultiplexingStatsPtr stats)
 {
-
+    (void) input; //only needed for pairwise splitting of lines
+    
     //fastq-read specific variables
     unsigned int positionInFastqLine = 0;
     int totalEdits = 0;
@@ -625,7 +626,7 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
     return true;
 }
 
-bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const fastqLine& seq, const input& input, 
+bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const fastqLine& seq, 
                                                            BarcodePatternPtr barcodePatterns,
                                                            OneLineDemultiplexingStatsPtr stats,
                                                            DemultiplexedLine& demultiplexedLine,
@@ -750,7 +751,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const fastqLine& seq,
     return true;
 }
 
-bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const fastqLine& seq, const input& input, 
+bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const fastqLine& seq, 
                                                            BarcodePatternPtr barcodePatterns,
                                                            OneLineDemultiplexingStatsPtr stats,
                                                            DemultiplexedLine& demultiplexedLine,
@@ -881,7 +882,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(const BarcodePatt
                                                                int& score_sum)
 {
     //check that we span the whole sequence (except constant regions)
-    int patternNum = barcodePatterns->size();
+    unsigned int patternNum = barcodePatterns->size();
 
     //if the reverse read contains DNA co-y the information into the Fw demultiplexed line (the fw line is used as final class)
     if(demultiplexedLineRv.containsDNA)
@@ -919,9 +920,9 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(const BarcodePatt
     if(patternNum < (barcodePositionFw + barcodePositionRv))
     {
         //assert all overlapping barcodes r the same
-        int start = (patternNum - barcodePositionRv); // this is the idx of the first shared barcode
-        int end = barcodePositionFw - 1; //this is the idnex of the last shared barcode
-        int j = demultiplexedLineRv.barcodeList.size() - 1;
+        unsigned int start = (patternNum - barcodePositionRv); // this is the idx of the first shared barcode
+        unsigned int end = barcodePositionFw - 1; //this is the idnex of the last shared barcode
+        unsigned int j = demultiplexedLineRv.barcodeList.size() - 1;
         for(size_t i = start; i <= end; ++i)
         {
             if(demultiplexedLineFw.barcodeList.at(i) != demultiplexedLineRv.barcodeList.at(j))
@@ -952,8 +953,8 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(const BarcodePatt
     if(patternNum > (barcodePositionFw + barcodePositionRv))
     {
         //check if missing barcodes are only constant
-        int start = barcodePositionFw; // index of first missing barcode
-        int end = (patternNum - barcodePositionRv) - 1; //last idnex that can be missing
+        unsigned int start = barcodePositionFw; // index of first missing barcode
+        unsigned int end = (patternNum - barcodePositionRv) - 1; //last idnex that can be missing
 
         for(size_t i = start; i <= end; ++i)
         {
@@ -1026,7 +1027,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::split_line_into_barcode_patterns(
         unsigned int barcodePositionFw = 0;
         int tmpMMScore = 0;
         //for forward read we immediately add barcodes to demultiplexedLine.barcodeList, which is then extended in combine pattern, IF we find all patterns
-        bool forwardSuccess = map_forward(seq.first, input, barcodePatterns, stats, demultiplexedLine, barcodePositionFw, tmpMMScore);
+        bool forwardSuccess = map_forward(seq.first, barcodePatterns, stats, demultiplexedLine, barcodePositionFw, tmpMMScore);
 
         DemultiplexedLine demultiplexedLineRv;
         unsigned int barcodePositionRv = 0;
@@ -1039,7 +1040,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::split_line_into_barcode_patterns(
         if(stats != nullptr){statsRvPtr = std::make_shared<OneLineDemultiplexingStats>();}
         else{statsRvPtr = nullptr;}
 
-        bool reverseSuccess = map_forward(seq.second, input, barcodePatterns, statsRvPtr, demultiplexedLineRv,barcodePositionRv, tmpMMScore, PatternType::Reverse);
+        bool reverseSuccess = map_forward(seq.second, barcodePatterns, statsRvPtr, demultiplexedLineRv,barcodePositionRv, tmpMMScore, PatternType::Reverse);
 
         if(forwardSuccess && reverseSuccess)
         {
@@ -1084,7 +1085,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::split_line_into_barcode_patterns(
         unsigned int barcodePositionFw = 0;
         int tmpMMScore = 0;
         //for forward read we immediately add barcodes to demultiplexedLine.barcodeList, which is then extended in combine pattern, IF we find all patterns
-        map_forward(seq.first, input, barcodePatterns, stats, demultiplexedLine, barcodePositionFw, tmpMMScore);
+        map_forward(seq.first, barcodePatterns, stats, demultiplexedLine, barcodePositionFw, tmpMMScore);
         DemultiplexedLine demultiplexedLineRv;
         unsigned int barcodePositionRv = 0;
 
@@ -1103,7 +1104,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::split_line_into_barcode_patterns(
         if(stats != nullptr){statsRvPtr = std::make_shared<OneLineDemultiplexingStats>();}
         else{statsRvPtr = nullptr;}
         
-        map_reverse(seq.second, input, barcodePatterns, statsRvPtr, demultiplexedLineRv,barcodePositionRv, tmpMMScore);
+        map_reverse(seq.second, barcodePatterns, statsRvPtr, demultiplexedLineRv,barcodePositionRv, tmpMMScore);
 
     // std::cout << "FOUND REVERSE: ";
     // for(auto el : demultiplexedLineRv.barcodeList)

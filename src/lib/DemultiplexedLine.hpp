@@ -58,7 +58,7 @@ class DemultiplexedReads
             mappedBarcodes.push_back(uniqueBarcodeVector);
         }
 
-        const size_t size()
+        size_t size() const
         {
             return mappedBarcodes.size();
         }
