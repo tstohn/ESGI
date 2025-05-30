@@ -41,7 +41,7 @@ std::vector<std::string> Mapping<MappingPolicy, FilePolicy>::parse_variable_barc
         }
 
         std::string delimiter = ",";
-        unsigned int pos = 0;
+        size_t pos = 0;
         while ((pos = barcodeListString.find(delimiter)) != std::string::npos) {
             std::string seq = barcodeListString.substr(0, pos);
             barcodeListString.erase(0, pos + 1);
@@ -233,7 +233,7 @@ std::vector<std::vector<int>> Mapping<MappingPolicy, FilePolicy>::parse_mismatch
         mismatchLine = trim(mismatchLine);
         if(mismatchLine.empty()){continue;}
         std::vector<int> mismatches;
-        unsigned int pos = 0;
+        size_t pos = 0;
         while ((pos = mismatchLine.find(delimiter)) != std::string::npos) 
         {
             std::string seq = mismatchLine.substr(0, pos);
@@ -920,9 +920,9 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(const BarcodePatt
     if(patternNum < (barcodePositionFw + barcodePositionRv))
     {
         //assert all overlapping barcodes r the same
-        unsigned int start = (patternNum - barcodePositionRv); // this is the idx of the first shared barcode
-        unsigned int end = barcodePositionFw - 1; //this is the idnex of the last shared barcode
-        unsigned int j = demultiplexedLineRv.barcodeList.size() - 1;
+        size_t start = (patternNum - barcodePositionRv); // this is the idx of the first shared barcode
+        size_t end = barcodePositionFw - 1; //this is the idnex of the last shared barcode
+        size_t j = demultiplexedLineRv.barcodeList.size() - 1;
         for(size_t i = start; i <= end; ++i)
         {
             if(demultiplexedLineFw.barcodeList.at(i) != demultiplexedLineRv.barcodeList.at(j))
@@ -953,8 +953,8 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(const BarcodePatt
     if(patternNum > (barcodePositionFw + barcodePositionRv))
     {
         //check if missing barcodes are only constant
-        unsigned int start = barcodePositionFw; // index of first missing barcode
-        unsigned int end = (patternNum - barcodePositionRv) - 1; //last idnex that can be missing
+        size_t start = barcodePositionFw; // index of first missing barcode
+        size_t end = (patternNum - barcodePositionRv) - 1; //last idnex that can be missing
 
         for(size_t i = start; i <= end; ++i)
         {

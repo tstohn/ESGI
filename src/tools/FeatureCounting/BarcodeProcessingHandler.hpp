@@ -256,7 +256,7 @@ class BarcodeProcessingHandler
 
         BarcodeProcessingHandler(BarcodeInformation barcodeInformationInput) : barcodeInformation(barcodeInformationInput){}
 
-        void parse_barcode_file(const std::string fileName, const int& thread);
+        void parse_barcode_file(const std::string fileName);
 
         //counts AB and UMIs per single cell, data is stored in result (also saves basic information about processing
         //like removed reads, mismatched UMIs, etc.)
@@ -322,7 +322,7 @@ class BarcodeProcessingHandler
 
         //parse the file, store each line in UnprocessedDemultiplexedData structure (ABs, treatment is already stored as a name,
         // single cells are defined by a dot seperated list of indices)
-        void add_line_to_temporary_data(const std::string& line, const int& elements,
+        void add_line_to_temporary_data(const std::string& line, const size_t& elements,
                                         unsigned long long& readCount);
         void parseBarcodeLines(std::istream* instream, const unsigned long long& totalReads, unsigned long long& currentReads);
         

@@ -94,7 +94,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
 }
 
 // generate a dictionary to map sequences to AB(proteins)
-std::unordered_map<std::string, std::string > generateProteinDict(std::string abFile, int featureIdx, 
+std::unordered_map<std::string, std::string > generateProteinDict(std::string abFile, 
                                                                   const std::vector<std::string>& abBarcodes)
 {
     std::unordered_map<std::string, std::string > map;
@@ -124,7 +124,7 @@ std::unordered_map<std::string, std::string > generateProteinDict(std::string ab
     }
 
     assert(abBarcodes.size() == proteinNames.size());
-    for(int i = 0; i < abBarcodes.size(); ++i)
+    for(size_t i = 0; i < abBarcodes.size(); ++i)
     {
         map.insert(std::make_pair(abBarcodes.at(i), proteinNames.at(i)));
     }
@@ -134,7 +134,7 @@ std::unordered_map<std::string, std::string > generateProteinDict(std::string ab
 }
 
 // generate a dictionary to map sequences to treatments
-std::unordered_map<std::string, std::string > generateTreatmentDict(std::string treatmentFile, int treatmentIdx,
+std::unordered_map<std::string, std::string > generateTreatmentDict(std::string treatmentFile,
                                                                     const std::vector<std::string>& treatmentBarcodes)
 {
     std::unordered_map<std::string, std::string > map;
@@ -164,7 +164,7 @@ std::unordered_map<std::string, std::string > generateTreatmentDict(std::string 
         treatmentNames.push_back(seq);
     }
     assert(treatmentNames.size() == treatmentBarcodes.size());
-    for(int i = 0; i < treatmentBarcodes.size(); ++i)
+    for(size_t i = 0; i < treatmentBarcodes.size(); ++i)
     {
         map.insert(std::make_pair(treatmentBarcodes.at(i), treatmentNames.at(i)));
     }
@@ -241,14 +241,14 @@ int main(int argc, char** argv)
     std::unordered_map<std::string, std::string > featureMap;
     if(!abFile.empty())
     {
-        featureMap = generateProteinDict(abFile, featureIdx, abBarcodes);
+        featureMap = generateProteinDict(abFile, abBarcodes);
     }
 
     //featureMap is empty if the feature name should stay as they are (no mapping of e.g. barcodes to proteins)
     dataParser.addProteinData(featureMap);
     if(!treatmentFile.empty() && treatmentIdx != -1)
     {
-        std::unordered_map<std::string, std::string > treatmentMap = generateTreatmentDict(treatmentFile, treatmentIdx, treatmentBarcodes);
+        std::unordered_map<std::string, std::string > treatmentMap = generateTreatmentDict(treatmentFile, treatmentBarcodes);
         dataParser.addTreatmentData(treatmentMap);
     }
 
@@ -256,7 +256,7 @@ int main(int argc, char** argv)
     //add all the data to the Unprocessed Demultiplexed Data (stored in rawData)
     // (AB, treatment already are mapped to their real names, scID is a concatenation of numbers for each barcode in
     //each abrcoding round, seperated by a dot)
-    dataParser.parse_barcode_file(inFile, thread);
+    dataParser.parse_barcode_file(inFile);
 
     //further process the data (correct UMIs, collapse same UMIs, etc.)
     dataParser.processBarcodeMapping(thread);

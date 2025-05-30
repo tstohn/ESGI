@@ -183,7 +183,7 @@ void generateBarcodeDicts(const std::string& headerLine, const std::string& barc
         }
 
         std::cout << "Assinging single-cells according to columns: ";
-        for(int i = 0; i < barcodeIdData.scBarcodeIndices.size()-1; ++i)
+        for(size_t i = 0; i < barcodeIdData.scBarcodeIndices.size()-1; ++i)
         {
             std::cout << barcodeHeader.at(barcodeIdData.scBarcodeIndices.at(i)) << ",";
         }
@@ -192,7 +192,7 @@ void generateBarcodeDicts(const std::string& headerLine, const std::string& barc
         
         //make map colIdx -> (map: barcode string -> number)
         //iterate over colIdx for scID
-        for(int scIdx : barcodeIdData.scBarcodeIndices)
+        for(size_t scIdx : barcodeIdData.scBarcodeIndices)
         {
             int barcodeCount = 0;
             std::unordered_map<std::string, int> barcodeMap;
@@ -238,7 +238,7 @@ void generateBarcodeDicts(const std::string& headerLine, const std::string& barc
 
 }
 
-void BarcodeProcessingHandler::parse_barcode_file(const std::string fileName, const int& thread)
+void BarcodeProcessingHandler::parse_barcode_file(const std::string fileName)
 {
     unsigned long long totalReads = totalNumberOfLines(fileName);
     unsigned long long currentReads = 0;
@@ -294,7 +294,7 @@ void BarcodeProcessingHandler::parseBarcodeLines(std::istream* instream, const u
     std::cout << "\n";
 }
 
-void BarcodeProcessingHandler::add_line_to_temporary_data(const std::string& line, const int& elements, unsigned long long& readCount)
+void BarcodeProcessingHandler::add_line_to_temporary_data(const std::string& line, const size_t& elements, unsigned long long& readCount)
 {
     //split the line into barcodes
     std::vector<std::string> result;
@@ -360,13 +360,13 @@ std::string BarcodeProcessingHandler::generateSingleCellIndexFromBarcodes(const 
     std::string scIdx;
     if(scIdString)
     {
-        for(int i=0; i < ciBarcodes.size(); ++i)
+        for(size_t i=0; i < ciBarcodes.size(); ++i)
         {
             scIdx += ciBarcodes.at(i);
         }
         return scIdx;
     }
-    for(int i = 0; i < barcodeInformation.scBarcodeIndices.size(); ++i)
+    for(size_t i = 0; i < barcodeInformation.scBarcodeIndices.size(); ++i)
     {
         //first is the column idx of the barcode, second is the actual barcode that we want to map to a number
         int tmpIdx = (barcodeInformation.barcodeIdMaps.at(i)).at(ciBarcodes.at(i));
@@ -481,7 +481,7 @@ void BarcodeProcessingHandler::count_umi_occurence(std::vector<int>& positionsOf
                                                    const int& lastIdx)
 {
     unsigned long long numberAlignedUmis = 0;
-    for(int j = 0; j < (allScAbCounts.size() - 1); ++j)
+    for(size_t j = 0; j < (allScAbCounts.size() - 1); ++j)
     {
         //calling outputSense algorithm, much faster than levenshtein O(e*max(m,n))
         //however is recently implemented without backtracking
@@ -555,11 +555,11 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const std::vector<dataL
             int lastIdx = scAbCounts.size() - 1;
 
             //check if we have to delete element anyways, bcs umi is too long
-            if( std::abs(int( strlen(lastAbSc->umiSeq) - barcodeInformation.umiLength )) >  barcodeInformation.umiMismatches)
-            {
+            //if( std::abs(int( strlen(lastAbSc->umiSeq) - barcodeInformation.umiLength )) >  barcodeInformation.umiMismatches)
+            //{
                 //scAbCounts.pop_back();
                 //continue;
-            }
+            //}
 
             //if in last element
             if(scAbCounts.size() == 1)
