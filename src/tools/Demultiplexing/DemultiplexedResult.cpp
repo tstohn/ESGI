@@ -52,7 +52,7 @@ void DemultiplexedResult::write_dna_line(TmpPatternStream& dnaLineStream, const 
     //write barcode data to barcodeStream (tsv)
     // entries: 1.) ReadName (WITHOUT @, this is only for fastq and is also removed during mapping with STAR) 2.) mapped barcodes
     *barcodeStream << lineName << "\t";
-    int i = 0;
+    size_t i = 0;
     for(const std::string& barcode : demultiplexedLine.barcodeList)
     {
         *barcodeStream << barcode;
@@ -303,7 +303,7 @@ void DemultiplexedResult::initialize_output_for_pattern(const std::string& outpu
         barcodeOutputStream << "READNAME\t";
     }
     
-    for(int bidx = 0; bidx < (pattern->barcodePattern)->size(); ++bidx)
+    for(size_t bidx = 0; bidx < (pattern->barcodePattern)->size(); ++bidx)
     {
         BarcodePtr bptr = (pattern->barcodePattern)->at(bidx);
         //stop and DNA pattern should not be written
@@ -321,7 +321,7 @@ void DemultiplexedResult::initialize_output_for_pattern(const std::string& outpu
             }
 
             barcodeOutputStream << filename;
-            if( bidx != ((pattern->barcodePattern)->size()-1))
+            if(bidx != ((pattern->barcodePattern)->size()-1))
             {
                 barcodeOutputStream << "\t";
             }
@@ -500,9 +500,9 @@ void DemultiplexedResult::write_demultiplexed_barcodes(const input& input, Barco
 
     //write the barcodes we mapped
     outputFile.open (demultiplexedBarcodesOutput, std::ofstream::app);
-    for(int i = 0; i < barcodes.size(); ++i)
+    for(size_t i = 0; i < barcodes.size(); ++i)
     {
-        for(int j = 0; j < barcodes.at(i).size(); ++j)
+        for(size_t j = 0; j < barcodes.at(i).size(); ++j)
         {
             outputFile << barcodes.at(i).at(j);
             if(j!=barcodes.at(i).size()-1){outputFile << "\t";}
