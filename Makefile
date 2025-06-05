@@ -210,21 +210,16 @@ move_this_to_test_ezgi:
 	./bin/demultiplexing -i ./src/test/test_data/inFastqDoubleUmiTest_1.fastq -r ./src/test/test_data/inFastqDoubleUmiTest_2.fastq -o ./bin/testMultipleUmis_PairedEnd.tsv -p [AAAA][XXXX][XXXX][TTTT] -m 1,1,1,1 -t 1
 	diff ./bin/Demultiplexed_testMultipleUmis_PairedEnd.tsv ./src/test/test_data/result_testMultipleUmis_PairedEnd.tsv
 
-
-
-
 testCount:
-	./bin/count -i ./src/test/test_data/testSet.txt.gz -o ./bin/processed_out.tsv -t 2 -d ./src/test/test_data -c 0,5,7,9 -a ./src/test/test_data/antibody.txt -x 3 -g ./src/test/test_data/treatment.txt -y 5 -u 2 -f 0.9
-	(head -n 1 ./bin/ABprocessed_out.tsv && tail -n +2 ./bin/ABprocessed_out.tsv | LC_ALL=c sort) > ./bin/sortedABprocessed_out.tsv
-	diff ./src/test/test_data/sortedABprocessed_out.tsv ./bin/sortedABprocessed_out.tsv
 #origional first test with several basic examples
 	./bin/count -i ./src/test/test_data/testSet.txt.gz -o ./bin/processed_out.tsv -t 2 -d ./src/test/test_data -c 0,5,7,9 -a ./src/test/test_data/antibody.txt -x 3 -g ./src/test/test_data/treatment.txt -y 5 -u 2 -f 0.9
 	(head -n 1 ./bin/ABprocessed_out.tsv && tail -n +2 ./bin/ABprocessed_out.tsv | LC_ALL=c sort) > ./bin/sortedABprocessed_out.tsv
 	diff ./src/test/test_data/sortedABprocessed_out.tsv ./bin/sortedABprocessed_out.tsv
 
-
-
-
+#test with multiple UMIs
+	./bin/count -i ./src/test/test_data/testTwoUMIs.txt.gz -o ./bin/2UMIs_out.tsv -t 2 -d ./src/test/test_data -c 0,5,7,9 -a ./src/test/test_data/antibody.txt -x 3 -g ./src/test/test_data/treatment.txt -y 5 -u 2,10 -f 0.9 -z 0
+	(head -n 1 ./bin/ABprocessed_out.tsv && tail -n +2 ./bin/ABprocessed_out.tsv | LC_ALL=c sort) > ./bin/sortedABprocessed_out.tsv
+	diff ./src/test/test_data/sortedABprocessedTwoUMIs_out.tsv ./bin/sortedABprocessed_out.tsv
 
 #test processing of the barcodes, includes several UMIs with mismatches, test the mapping of barcodes to unique CellIDs, ABids, treatments
 testProcessing:
