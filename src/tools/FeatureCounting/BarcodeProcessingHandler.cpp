@@ -53,6 +53,12 @@ void parseVariableBarcodeFile(const std::string& file, std::unordered_map<int, s
     std::string line;
     while (std::getline(barcodeFileStream, line)) 
     {
+        //check Windows-specific trailing newlines
+        if (!line.empty() && (line.back() == '\n' || line.back() == '\r')) 
+        {
+            line.pop_back();
+        }
+
         std::string delimiter = ",";
         std::string seq;
         size_t pos = 0;
@@ -94,12 +100,18 @@ void parseVariableBarcodeFile(const std::string& file, std::unordered_map<int, s
     }
 }
 
-std::vector<std::string> parseFeatureNames(const std::string& featureFile) {
+std::vector<std::string> parseFeatureNames(const std::string& featureFile) 
+{
     std::vector<std::string> result;
     std::stringstream ss(featureFile);
     std::string item;
     while (std::getline(ss, item, ',')) 
     {
+        //check Windows-specific trailing newlines
+        if (!item.empty() && (item.back() == '\n' || item.back() == '\r')) 
+        {
+            item.pop_back();
+        }
         result.push_back(item);
     }
     return result;
@@ -144,6 +156,12 @@ void generateBarcodeDicts(const std::string& headerLine, const std::string& barc
     std::unordered_map<int, std::vector<std::string>> barcodeList; //maps column number -> all barcodes: e.g. 2 -> variables barcode sin BC1.txt, ...
     while (std::getline(ss, colName, '\t')) 
     {
+        //check Windows-specific trailing newlines
+        if (!colName.empty() && (colName.back() == '\n' || colName.back() == '\r')) 
+        {
+            colName.pop_back();
+        }
+
         //STORE ALL HEADERS
         barcodeHeader.push_back(colName);
 
@@ -290,6 +308,12 @@ void BarcodeProcessingHandler::parseBarcodeLines(std::string& inFile, const unsi
     unsigned long long readCount = 0;
     while(std::getline(*instream, line))
     {
+        //check Windows-specific trailing newlines
+        if (!line.empty() && (line.back() == '\n' || line.back() == '\r')) 
+        {
+            line.pop_back();
+        }
+
         //Skip the header line
         if(currentReads==0)
         {
