@@ -41,7 +41,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
     {
         options_description desc("Options");
         desc.add_options()
-            ("input,i", value<std::string>(&inFile)->required(), "input file of demultiplexed reads for ABs in Single cells in tsv.gz format (input must be gzipped)")
+            ("input,i", value<std::string>(&inFile)->required(), "input file of demultiplexed reads for ABs in Single cells. (input must be a tsv file, it can be gzipped)")
             ("output,o", value<std::string>(&outFile)->required(), "output file with all split barcodes")
 
             ("barcodeDir,d", value<std::string>(&(barcodeDir)), " path to a directory which must contain all the barcode files (for variable barcodes). When running <demultiplex> we \

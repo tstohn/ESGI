@@ -21,8 +21,9 @@
 /** 
  * @brief Simple tool to annotate a TSV file with tab seperated barcodes with a column from a bed file. 
  * E.g.: We have a barcode file from ezgi, the first column MUST contain the read name, this tool then takes an
- * additional bed file and a column index (0-indexed) and adds this column element to the barcode file if the read-name
- * exists in the bed file. (Due to overlapping read-mappings the first occuring gene-name is assigned to the barcode file).
+ * additional BAM file (e.g., from STAR annotations) and a tag that should be used as feature (e.g., GX for gene ids, or GN for gene names) and adds this column element to the barcode file if the read-name
+ * exists in the BAM file.
+ * Output are only reads that: 1.) Could be mapped the the barcode pattern, 2.) mapped to a gene in the reference genome
  **/
 
 using namespace boost::program_options;

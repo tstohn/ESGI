@@ -114,15 +114,13 @@ void BarcodeBamAnnotator::processBarcodeFile()
     {
         //read name is in the 1st columns
         std::string readName = getNthElement(line, 0);
-        std::string feature = "UNMAPPED";
+        std::string feature;
 
         auto it = readnameToFeatureMap.find(readName);
-        if (it != readnameToFeatureMap.end()) 
+        if ( (it != readnameToFeatureMap.end()) && (it->second)!= "-" && (it->second)!= "")
         {
-            feature = it->second; //get feature name if found
+            annotatedFileStream << line << "\t" << it->second << "\n";  // Write to output file
         }
-
-        annotatedFileStream << line << "\t" << feature << "\n";  // Write to output file
     }
 
     barcodeFileStream.close();
