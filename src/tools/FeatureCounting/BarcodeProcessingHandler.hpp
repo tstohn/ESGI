@@ -97,6 +97,36 @@ struct ProcessingLog
     unsigned long long totalAbReads = 0;
 };
 
+//functions to open gzipped/ non-zipped files containing the demultiplexed reads
+inline std::istream* openFile(const std::string& filename,
+                       std::ifstream& fileStream,
+                       boost::iostreams::filtering_streambuf<boost::iostreams::input>& inbuf,
+                       bool isGz)
+{
+    fileStream.close();  // In case it's already open
+    fileStream.clear();  // Clear any EOF flags
+    fileStream.open(filename, std::ios_base::in | std::ios_base::binary);
+    if (!fileStream.is_open()) 
+    {
+        std::cerr << "Error opening file: " << filename << std::endl;
+        return nullptr;
+    }
+
+    if (isGz) 
+    {
+        inbuf.reset();  // Clear previous filters
+        inbuf.push(boost::iostreams::gzip_decompressor());
+        inbuf.push(fileStream);
+        return new std::istream(&inbuf);
+    } else {
+        return &fileStream;
+    }
+}
+inline bool isGzipped(const std::string& filename) 
+{
+    return boost::algorithm::iends_with(filename, ".gz");
+}
+
 /**
  * @brief Class storing all the final values (after removing erroneous reads with non unique UMIs, correcting MIsmatches in UMIs)
  *        the abData = final AB count data (represents a singleCell * AB matrix)
@@ -256,7 +286,7 @@ class BarcodeProcessingHandler
 
         BarcodeProcessingHandler(BarcodeInformation barcodeInformationInput) : barcodeInformation(barcodeInformationInput){}
 
-        void parse_barcode_file(const std::string fileName);
+        void parse_barcode_file(std::string& inFile);
 
         //counts AB and UMIs per single cell, data is stored in result (also saves basic information about processing
         //like removed reads, mismatched UMIs, etc.)
@@ -324,7 +354,7 @@ class BarcodeProcessingHandler
         // single cells are defined by a dot seperated list of indices)
         void add_line_to_temporary_data(const std::string& line, const size_t& elements,
                                         unsigned long long& readCount);
-        void parseBarcodeLines(std::istream* instream, const unsigned long long& totalReads, unsigned long long& currentReads);
+        void parseBarcodeLines(std::string& inFile, const unsigned long long& totalReads, unsigned long long& currentReads);
         
         //check if a read is in 'dataLinesToDelete' (not-unique UMI for this read)
         bool checkIfLineIsDeleted(const dataLinePtr& line, const std::vector<dataLinePtr>& dataLinesToDelete);

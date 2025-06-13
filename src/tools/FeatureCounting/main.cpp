@@ -207,30 +207,31 @@ int main(int argc, char** argv)
     BarcodeInformation barcodeIdData;
 
     //get the first line of headers from input file
-    std::string firstLine;
-    if(!endWith(inFile,".gz"))
-    {
-        std::cerr << "Input file must be gzip compressed\n";
-        exit(EXIT_FAILURE);
-    }
-    std::ifstream file(inFile, std::ios_base::in | std::ios_base::binary);
+    std::ifstream file;
     boost::iostreams::filtering_streambuf<boost::iostreams::input> inbuf;
-    inbuf.push(boost::iostreams::gzip_decompressor());
-    inbuf.push(file);
-    std::istream instream(&inbuf);
+    bool gz = isGzipped(inFile);
+    std::istream* instream = openFile(inFile, file, inbuf, gz);
+    if (!instream)
+    {
+        std::cerr << "Error reading input file or file is empty! Please double check if the file exists:" << inFile << std::endl;
+        exit(EXIT_FAILURE);
+    };
 
-    if (file.is_open() && std::getline(instream, firstLine)) 
+    std::string firstLine;
+    if (std::getline(*instream, firstLine)) 
     {  
         bool parseAbBarcodes = true;
         if(abFile.empty()){parseAbBarcodes = false;}
         generateBarcodeDicts(firstLine, barcodeDir, barcodeIndices, barcodeIdData, abBarcodes, parseAbBarcodes, featureIdx, &treatmentBarcodes, treatmentIdx, umiIdx, umiMismatches);
     } 
-    else 
+    else
     {
-        std::cerr << "Error reading input file or file is empty! Please double check if the file exists:" << inFile << std::endl;
+        std::cerr << "Error reading header line of input file:" << inFile << std::endl;
         exit(EXIT_FAILURE);
     }
-    file.close();
+    //clean data if necessary
+    if (instream != &file) delete instream;
+    instream = nullptr;
 
     BarcodeProcessingHandler dataParser(barcodeIdData);
     if(umiThreshold != -1){dataParser.setUmiFilterThreshold(umiThreshold);}

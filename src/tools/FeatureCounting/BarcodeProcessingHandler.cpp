@@ -62,11 +62,11 @@ void parseVariableBarcodeFile(const std::string& file, std::unordered_map<int, s
             seq = line.substr(0, pos);
             line.erase(0, pos + 1);
             for (char const &c: seq) {
-                if(!(c=='A' | c=='T' | c=='G' |c=='C' |
-                        c=='a' | c=='t' | c=='g' | c=='c'))
+                if(!( (c=='A') | (c=='T') | (c=='G') | (c=='C') |
+                        (c=='a') | (c=='t') | (c=='g') | (c=='c')))
                         {
                         std::cerr << "PARAMETER ERROR: a barcode sequence in barcode file is not a base (A,T,G,C)\n";
-                        if(c==' ' | c=='\t' | c=='\n')
+                        if( (c==' ') | (c=='\t') | (c=='\n'))
                         {
                             std::cerr << "PARAMETER ERROR: Detected a whitespace in sequence; remove it to continue!\n";
                         }
@@ -77,11 +77,11 @@ void parseVariableBarcodeFile(const std::string& file, std::unordered_map<int, s
         }
         seq = line;
         for (char const &c: seq) {
-            if(!(c=='A' || c=='T' || c=='G' || c=='C' ||
-                    c=='a' || c=='t' || c=='g' || c=='c'))
+            if(!((c=='A') || (c=='T') || (c=='G') || (c=='C') ||
+                    (c=='a') || (c=='t') || (c=='g') || (c=='c')))
                     {
                     std::cerr << "PARAMETER ERROR: a barcode sequence in barcode file is not a base (A,T,G,C)\n";
-                    if(c==' ' || c=='\t' || c=='\n')
+                    if((c==' ') || (c=='\t') || (c=='\n'))
                     {
                         std::cerr << "PARAMETER ERROR: Detected a whitespace in sequence; remove it to continue!\n";
                     }
@@ -245,29 +245,45 @@ void generateBarcodeDicts(const std::string& headerLine, const std::string& barc
 
 }
 
-void BarcodeProcessingHandler::parse_barcode_file(const std::string fileName)
+void BarcodeProcessingHandler::parse_barcode_file(std::string& inFile)
 {
-    unsigned long long totalReads = totalNumberOfLines(fileName);
-    unsigned long long currentReads = 0;
-    //open gz file
-    if(!endWith(fileName,".gz"))
+    //reopen file for line counting
+    std::ifstream file;
+    boost::iostreams::filtering_streambuf<boost::iostreams::input> inbuf;
+    bool gz = isGzipped(inFile);
+    std::istream* instream = openFile(inFile, file, inbuf, gz);
+    if (!instream)
     {
-        std::cerr << "Input file must be gzip compressed\n";
+        std::cerr << "Error reading input file or file is empty! Please double check if the file exists:" << inFile << std::endl;
         exit(EXIT_FAILURE);
     }
-    std::ifstream file(fileName, std::ios_base::in | std::ios_base::binary);
-    boost::iostreams::filtering_streambuf<boost::iostreams::input> inbuf;
-    inbuf.push(boost::iostreams::gzip_decompressor());
-    inbuf.push(file);
-    std::istream instream(&inbuf);
-    
-    parseBarcodeLines(&instream, totalReads, currentReads);
 
-    file.close();
+    unsigned long long totalReads = 0;
+    std::string line;
+    while (std::getline(*instream, line)) 
+    {
+        ++totalReads;
+    }
+    if (instream != &file) delete instream;
+    instream = nullptr;
+
+    unsigned long long currentReads = 0;
+    parseBarcodeLines(inFile, totalReads, currentReads);
 }
 
-void BarcodeProcessingHandler::parseBarcodeLines(std::istream* instream, const unsigned long long& totalReads, unsigned long long& currentReads)
+void BarcodeProcessingHandler::parseBarcodeLines(std::string& inFile, const unsigned long long& totalReads, unsigned long long& currentReads)
 {
+    //reopen file
+    std::ifstream file;
+    boost::iostreams::filtering_streambuf<boost::iostreams::input> inbuf;
+    bool gz = isGzipped(inFile);
+    std::istream* instream = openFile(inFile, file, inbuf, gz);
+    if (!instream)
+    {
+        std::cerr << "Error reading input file or file is empty! Please double check if the file exists:" << inFile << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
     std::string line;
     std::cout << "STEP[1/3]\t(READING ALL LINES INTO MEMORY)\n";
     int elements = 0; //check that each row has the correct number of barcodes

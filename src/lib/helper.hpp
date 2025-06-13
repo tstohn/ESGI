@@ -11,6 +11,14 @@
 #include <mutex>
 #include <algorithm>
 
+#include <boost/algorithm/string/predicate.hpp>
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <boost/iostreams/filtering_streambuf.hpp>
+#include <boost/iostreams/filter/gzip.hpp>
+#include <boost/iostreams/copy.hpp>
+
 #include "edlib/edlib/include/edlib.h"
 
 #define PBSTR "||||||||||||||||||||||||||||||||||||||||||||||||||||||||||||"
@@ -31,12 +39,14 @@ inline bool endWith(std::string const &fullString, std::string const &ending)
     }
 }
 
+//total number of reads for gzipped files
 inline unsigned long long totalNumberOfLines(std::string fileName)
 {
     unsigned long long totalReads = 0;
     unsigned char buffer[1000];
     gzFile fp = gzopen(fileName.c_str(),"r");
-    if(NULL == fp){
+    if(NULL == fp)
+    {
         fprintf(stderr,"Fail to open file: %s\n", fileName.c_str());
     }
     while(!gzeof(fp))
