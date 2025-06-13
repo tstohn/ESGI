@@ -49,27 +49,29 @@ install:
 	# download and compile kseq (we have a modified makefile to compile with rand on windows, which we move into the repo), 
 	# we have a submodule edlib (git submodule add https://github.com/martinsos/edlib ./edlib;
 	# no need to compile, we just add libraries and then compile with them), but we update it
-	
-	#FALLBACK: manually build htslib (no sudo rights needed)
-	#install htslib from git - replace with apt get
-	#git clone https://github.com/samtools/htslib.git
-	#cd htslib
-	#make
-	#sudo make install
+
 
 	cd ./include; git clone https://github.com/lh3/seqtk --branch v1.3; mv Makefile ./seqtk/; mv rand_win.c ./seqtk/; cd ./seqtk; make
 	git submodule update --init --recursive
+
+	#FALLBACK: manually build htslib (no sudo rights needed)
+	#install htslib from git - replace with apt get
+	git clone https://github.com/samtools/htslib.git
+	cd htslib
+	make
+	sudo make install
+
 	cd ..
 	mkdir bin
 
 	#install libboost for various systems LINUX/ WINDOWS/ macOS
 	#TODO: we do not need all libboost-dev for LINUX and boost for macOS (check which libs are needed and install only those!)
 	@if [ "$(UNAME_S)" = "Linux" ]; then \
-		sudo apt-get update && sudo apt-get install -y libboost-all-dev libhts-dev; \
+		sudo apt-get update && sudo apt-get install -y libboost-all-dev; \
 	elif echo "$(UNAME_S)" | grep -E -q "MINGW|MSYS"; then \
-		vcpkg install boost-asio boost-system boost-thread boost-iostreams boost-program-options zlib htslib --triplet x64-mingw-static; \
+		vcpkg install boost-asio boost-system boost-thread boost-iostreams boost-program-options zlib --triplet x64-mingw-static; \
 	elif [ "$(UNAME_S)" = "Darwin" ]; then \
-		brew install boost htslib; \
+		brew install boost; \
 	fi
 
 #parse fastq lines and map abrcodes to each sequence
