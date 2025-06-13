@@ -50,16 +50,15 @@ install:
 	# we have a submodule edlib (git submodule add https://github.com/martinsos/edlib ./edlib;
 	# no need to compile, we just add libraries and then compile with them), but we update it
 
-
+	#build seqtk
 	cd ./include; git clone https://github.com/lh3/seqtk --branch v1.3; mv Makefile ./seqtk/; mv rand_win.c ./seqtk/; cd ./seqtk; make
 	git submodule update --init --recursive
 
-	#FALLBACK: manually build htslib (no sudo rights needed)
-	#install htslib from git - replace with apt get
+	#build htslib
 	git clone https://github.com/samtools/htslib.git
 	cd htslib
 	make
-	sudo make install
+	$(MAKE) -C htslib install
 
 	cd ..
 	mkdir bin
@@ -67,7 +66,7 @@ install:
 	#install libboost for various systems LINUX/ WINDOWS/ macOS
 	#TODO: we do not need all libboost-dev for LINUX and boost for macOS (check which libs are needed and install only those!)
 	@if [ "$(UNAME_S)" = "Linux" ]; then \
-		sudo apt-get update && sudo apt-get install -y libboost-all-dev; \
+		apt-get update && apt-get install -y libboost-all-dev; \
 	elif echo "$(UNAME_S)" | grep -E -q "MINGW|MSYS"; then \
 		vcpkg install boost-asio boost-system boost-thread boost-iostreams boost-program-options zlib --triplet x64-mingw-static; \
 	elif [ "$(UNAME_S)" = "Darwin" ]; then \
