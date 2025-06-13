@@ -53,6 +53,9 @@ install:
 	#create bin	
 	mkdir bin
 
+	#update submodules (edlib)
+	git submodule update --init --recursive
+
 	#install libboost for various systems LINUX/ WINDOWS/ macOS
 	#TODO: we do not need all libboost-dev for LINUX and boost for macOS (check which libs are needed and install only those!)
 	@if [ "$(UNAME_S)" = "Linux" ]; then \
