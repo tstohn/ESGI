@@ -45,6 +45,12 @@ else ifeq ($(UNAME_S),Darwin)
 	LDFLAGS += 
 endif
 
+install-htslib:
+	git clone https://github.com/samtools/htslib.git
+	cd htslib
+	make
+	$(MAKE) -C htslib install
+
 install:
 	# download and compile kseq (we have a modified makefile to compile with rand on windows, which we move into the repo), 
 	# we have a submodule edlib (git submodule add https://github.com/martinsos/edlib ./edlib;
@@ -55,10 +61,7 @@ install:
 	git submodule update --init --recursive
 
 	#build htslib
-	git clone https://github.com/samtools/htslib.git
-	cd htslib
-	make
-	$(MAKE) -C htslib install
+	make install-htslib
 
 	cd ..
 	mkdir bin
