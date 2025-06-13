@@ -2,6 +2,9 @@
 #	zlib /(input is a ONE READ fastq file, therefore convert forward/ reverse fastqs into one e.g. with fastq-join/)
 #	boost
 
+#WARNING:
+# FOR NOW RNA-MAPPING IS NOT SUPPORTED UNDER WINDOWS
+
 UNAME_S := $(shell uname -s)
 VCPKG_ROOT ?= C:/vcpkg
 
@@ -64,7 +67,7 @@ install:
 	@if [ "$(UNAME_S)" = "Linux" ]; then \
 		sudo apt-get update && sudo apt-get install -y libboost-all-dev libhts-dev; \
 	elif echo "$(UNAME_S)" | grep -E -q "MINGW|MSYS"; then \
-		vcpkg install htslib boost-asio boost-system boost-thread boost-iostreams boost-program-options zlib --triplet x64-mingw-static; \
+		vcpkg install boost-asio boost-system boost-thread boost-iostreams boost-program-options zlib --triplet x64-mingw-static; \
 	elif [ "$(UNAME_S)" = "Darwin" ]; then \
 		brew install boost htslib; \
 	fi
