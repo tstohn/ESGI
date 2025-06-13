@@ -53,7 +53,7 @@ install:
 	#install libboost for various systems LINUX/ WINDOWS/ macOS
 	#TODO: we do not need all libboost-dev for LINUX and boost for macOS (check which libs are needed and install only those!)
 	@if [ "$(UNAME_S)" = "Linux" ]; then \
-		apt-get update && apt-get install -y libboost-all-dev libcurl4-openssl-dev; \
+		sudo apt-get update && sudo apt-get install -y libboost-all-dev libcurl4-openssl-dev; \
 	elif echo "$(UNAME_S)" | grep -E -q "MINGW|MSYS"; then \
 		vcpkg install boost-asio boost-system boost-thread boost-iostreams boost-program-options zlib liblzma curl --triplet x64-mingw-static; \
 	elif [ "$(UNAME_S)" = "Darwin" ]; then \
