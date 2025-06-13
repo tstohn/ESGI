@@ -58,16 +58,13 @@ install:
 	@if [ "$(UNAME_S)" = "Linux" ]; then \
 		sudo apt-get update && sudo apt-get install -y libboost-all-dev seqtk libhts-dev; \
 	elif echo "$(UNAME_S)" | grep -E -q "MINGW|MSYS"; then \
-		#build seqtk \
 		cd ./include; git clone https://github.com/lh3/seqtk --branch v1.3; mv Makefile ./seqtk/; mv rand_win.c ./seqtk/; cd ./seqtk; make \
 		git submodule update --init --recursive \
-		#build htslib		
 		vcpkg install htslib; \
 		vcpkg install boost-asio boost-system boost-thread boost-iostreams boost-program-options zlib liblzma curl --triplet x64-mingw-static; \
 	elif [ "$(UNAME_S)" = "Darwin" ]; then \
 		brew install boost seqtk htslib; \
 	fi
-
 
 	#build seqtk 
 	#cd ./include; git clone https://github.com/lh3/seqtk --branch v1.3; mv Makefile ./seqtk/; mv rand_win.c ./seqtk/; cd ./seqtk; make
