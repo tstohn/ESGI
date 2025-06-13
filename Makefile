@@ -55,10 +55,7 @@ install:
 	git submodule update --init --recursive
 
 	#build htslib
-	git clone https://github.com/samtools/htslib.git
-	cd htslib
-	$(MAKE)
-	$(MAKE) -C htslib install
+	git clone https://github.com/samtools/htslib.git; cd htslib; $(MAKE); $(MAKE) -C htslib install
 
 	cd ..
 	mkdir bin
