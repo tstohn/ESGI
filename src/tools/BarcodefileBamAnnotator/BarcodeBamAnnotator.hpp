@@ -7,25 +7,25 @@
 #include <sstream>
 #include <iostream>
 
-class BarcodeBedAnnotator {
+class BarcodeBamAnnotator {
 public:
     // Constructor
-    BarcodeBedAnnotator(const std::string& barcodeFile, const std::string& bedFile, const int featureCol);
+    BarcodeBamAnnotator(const std::string& barcodeFile, const char* bamFile, const char* featureTag);
 
     // Main function to perform annotation
     void annotate();
 
 private:
     std::string barcodeFile;
-    std::string bedFile;
-    int featureCol;
+    const char* bamFile;
+    const char* featureTag;
 
     std::unordered_map<std::string, std::string> readnameToFeatureMap;
 
     // Methods
     std::string getNthElement(const std::string& line, int n);
-    //read the bed file creating the map of readname to feature
-    void readBedFile();
+    //read the bam file creating the map of readname to feature
+    void readBamFile();
 
     //processes each demultiplexed barcode file (tsv)
     void processBarcodeFile();

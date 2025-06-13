@@ -50,20 +50,30 @@ install:
 	# we have a submodule edlib (git submodule add https://github.com/martinsos/edlib ./edlib;
 	# no need to compile, we just add libraries and then compile with them), but we update it
 	
-	cd ./include; git clone https://github.com/lh3/seqtk --branch v1.3; mv Makefile ./seqtk/; mv rand_win.c ./seqtk/; cd ./seqtk; make
-	git submodule update --init --recursive
-	cd ..
-	mkdir bin
+	#FALLBACK: manually build seqtk and htslib (no sudo rights needed)
+	#cd ./include; git clone https://github.com/lh3/seqtk --branch v1.3; mv Makefile ./seqtk/; mv rand_win.c ./seqtk/; cd ./seqtk; make
+	#git submodule update --init --recursive
+	#cd ..
+	#mkdir bin
+	#install htslib from git - replace with apt get
+	#git clone https://github.com/samtools/htslib.git
+	#cd htslib
+	#make
+	#sudo make install
 
 	#install libboost for various systems LINUX/ WINDOWS/ macOS
 	#TODO: we do not need all libboost-dev for LINUX and boost for macOS (check which libs are needed and install only those!)
 	@if [ "$(UNAME_S)" = "Linux" ]; then \
-		sudo apt-get update && sudo apt-get install -y libboost-all-dev; \
+		sudo apt-get update && sudo apt-get install -y libboost-all-dev htslib-dev seqtk; \
 	elif echo "$(UNAME_S)" | grep -E -q "MINGW|MSYS"; then \
-		vcpkg install boost-asio boost-system boost-thread boost-iostreams boost-program-options zlib --triplet x64-mingw-static; \
+		vcpkg install boost-asio boost-system boost-thread boost-iostreams boost-program-options zlib seqtk htslib --triplet x64-mingw-static; \
 	elif [ "$(UNAME_S)" = "Darwin" ]; then \
-		brew install boost; \
+		brew install boost htslib seqtk; \
 	fi
+
+install rna_mapping:
+	wget https://github.com/ShiLab-Bioinformatics/subread/releases/download/2.0.2/subread-2.0.2-Linux-x86_64.tar.gz
+	tar -xzf subread-2.0.2-Linux-x86_64.tar.gz
 
 #parse fastq lines and map abrcodes to each sequence
 demultiplex:
@@ -81,8 +91,8 @@ count:
 	g++ -c src/tools/FeatureCounting/main.cpp -o main_count.o -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
 	g++ main_count.o BarcodeProcessingHandler.o -o ./bin/count $(LDFLAGS) $(BOOST_FLAGS)
 
-barcodeBedAnnotator:
-	g++ -o ./bin/barcodeBedAnn src/tools/BarcodefileBedAnnotator/BarcodeBedAnnotator.cpp src/tools/BarcodefileBedAnnotator/main.cpp $(LDFLAGS) -lboost_iostreams -lboost_program_options
+annotate:
+	g++ -o ./bin/annotate src/tools/BarcodefileBamAnnotator/BarcodeBamAnnotator.cpp src/tools/BarcodefileBamAnnotator/main.cpp $(LDFLAGS) -lboost_iostreams -lboost_program_options -lhts
 
 #a quality control tool: Mapping first Linker to whole sequence
 demultiplexAroundLinker:

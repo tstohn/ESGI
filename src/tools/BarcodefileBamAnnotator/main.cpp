@@ -16,7 +16,7 @@
 #include <boost/program_options/value_semantic.hpp>
 #include <boost/program_options/version.hpp>
 
-#include "BarcodeBedAnnotator.hpp"
+#include "BarcodeBamAnnotator.hpp"
 
 /** 
  * @brief Simple tool to annotate a TSV file with tab seperated barcodes with a column from a bed file. 
@@ -27,16 +27,16 @@
 
 using namespace boost::program_options;
 
-bool parse_arguments(char** argv, int argc, std::string& barcodeFile, std::string& bedFile, int& featureCol)
+bool parse_arguments(char** argv, int argc, std::string& barcodeFile, std::string& bamFile, std::string& featureTag)
 {
     try
     {
         options_description desc("Options");
         desc.add_options()
-            ("input-file,i", value<std::string>(&(barcodeFile))->required(), "Barcodes file, contains all barcodes that were mapped for a fastq-read name.")
-            ("bed-file,b", value<std::string>(&(bedFile))->required(), "Bed-file containing read-names (in 4th column) and feature annotations like \
-            gene names. The column-index (0-indexed) with the feature must also be given with -f.")
-            ("feature-column,f", value<int>(&(featureCol))->required(), "feature column to annotate the barcode file with. E.g., column 14 of the bed file (0-indexed).")
+            ("input-file,i", value<std::string>(&barcodeFile)->required(), "Barcodes file, contains all barcodes that were mapped for a fastq-read name.")
+            ("bam-file,b", value<std::string>(&bamFile)->required(), "Bam-file with read-mapping. E.g., from running STAR, it must contain the\
+            read-namke in the first column (to map the read back to the barcode-reads. And it must contain the feature-tag, given with the -f argument, E.g., GX for gene ids.)")
+            ("feature-tag,f", value<std::string>(&featureTag)->default_value("GX"), "feature-tag to annotate the barcode file with. Default are gene ids (GX), for gene names set it to \'GN\'.")
 
             ("help,h", "help message");
 
@@ -68,11 +68,11 @@ bool parse_arguments(char** argv, int argc, std::string& barcodeFile, std::strin
 int main(int argc, char** argv)
 {
     std::string barcodeFile;
-    std::string bedFile;
-    int featureCol;
-    if(parse_arguments(argv, argc, barcodeFile, bedFile, featureCol))
+    std::string bamFile;
+    std::string featureTag;
+    if(parse_arguments(argv, argc, barcodeFile, bamFile, featureTag))
     {
-        BarcodeBedAnnotator barcodeann = BarcodeBedAnnotator(barcodeFile, bedFile, featureCol);
+        BarcodeBamAnnotator barcodeann = BarcodeBamAnnotator(barcodeFile, bamFile.c_str(), featureTag.c_str());
         // run barcode annotation
         barcodeann.annotate();
     }

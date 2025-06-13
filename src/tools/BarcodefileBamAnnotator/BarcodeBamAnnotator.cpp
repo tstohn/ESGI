@@ -1,20 +1,22 @@
-#include "BarcodeBedAnnotator.hpp"
+#include "BarcodeBamAnnotator.hpp"
+
+#include <htslib/sam.h>
 #include <regex>
 
 // Constructor
-BarcodeBedAnnotator::BarcodeBedAnnotator(const std::string &barcodeFile, const std::string &bedFile, const int featureCol)
-    : barcodeFile(barcodeFile), bedFile(bedFile), featureCol(featureCol) {}
+BarcodeBamAnnotator::BarcodeBamAnnotator(const std::string &barcodeFile, const char* bamFile, const char* featureTag)
+    : barcodeFile(barcodeFile), bamFile(bamFile), featureTag(featureTag) {}
 
 // Main function to execute annotation
-void BarcodeBedAnnotator::annotate() 
+void BarcodeBamAnnotator::annotate() 
 {
     //read barcodes into hash map
-    readBedFile();
+    readBamFile();
     //process line by line and add a new gene column to <barcodeFile>_annotated.tsv
     processBarcodeFile();
 }
 
-std::string BarcodeBedAnnotator::getNthElement(const std::string& line, int n) 
+std::string BarcodeBamAnnotator::getNthElement(const std::string& line, int n) 
 {
     std::stringstream ss(line);
     std::string element;
@@ -34,54 +36,54 @@ std::string BarcodeBedAnnotator::getNthElement(const std::string& line, int n)
 }
 
 // Reads the bed file (rna-read annotations) into a hashmap (readName -> feature)
-void BarcodeBedAnnotator::readBedFile() 
+void BarcodeBamAnnotator::readBamFile() 
 {
-    std::ifstream bedFileStream(bedFile); 
-    if (!bedFileStream) 
+    // Open BAM file
+    samFile* samFilePtr = sam_open(bamFile, "r");
+    if(!samFilePtr) 
     {
-        std::cerr << "Error: Unable to open BED file " << bedFile << ".\n";
+        std::cerr << "Failed to open BAM file\n";
         exit(EXIT_FAILURE);
     }
 
-    std::string line;
-    while (std::getline(bedFileStream, line)) 
+    // Read header
+    bam_hdr_t* header = sam_hdr_read(samFilePtr);
+    if (!header) 
     {
-        //skip empty and comment lines
-        if (line.empty() || line[0] == '#') continue; 
-
-        std::istringstream stream(line);
-        std::vector<std::string> columns;
-        std::string token;
-
-        // Split line into columns
-        while (std::getline(stream, token, '\t')) 
-        {
-            columns.push_back(token);
-        }
-
-        // Ensure at least featureColumn presence
-        if (columns.size() < featureCol+1 || columns.size() < 4)
-        {
-            std::cout << "line in bed file does not have enough columns to extract feature and read name!\n";
-            std::cout << "Detecting only " << std::to_string(columns.size()) << " columns. " << std::to_string(featureCol+1) << " expected\n";
-            std::cout << line << "\n";
-            continue;
-        }
-
-        //name is in 4th column in bed file
-        std::string readName = columns.at(3);
-        // Extract the feature from the target column
-        std::string feature = columns.at(featureCol);
-
-        if (!feature.empty()) 
-        {
-            readnameToFeatureMap.insert(std::make_pair(readName, feature));
-        }
+        std::cerr << "Failed to read BAM header\n";
+        sam_close(samFilePtr);
+        exit(EXIT_FAILURE);
     }
+
+    // Allocate alignment
+    bam1_t* aln = bam_init1();
+
+    // Read alignments
+    while(sam_read1(samFilePtr, header, aln) >= 0) 
+    {
+        // Read name
+        std::string readName = bam_get_qname(aln);
+
+        // Get feature-tag, per default the GX tag
+        uint8_t* featureTagEntry = bam_aux_get(aln, featureTag);
+        std::string feature = "";
+        if(featureTagEntry && *featureTagEntry == 'Z') 
+        {
+            feature = bam_aux2Z(featureTagEntry);
+        }
+
+        // Output
+        readnameToFeatureMap.insert(std::make_pair(readName, feature));
+    }
+
+    // Cleanup
+    bam_destroy1(aln);
+    bam_hdr_destroy(header);
+    sam_close(samFilePtr);
 }
 
 // Reads the barcode tsv file, annotates it, and extracts gene mappings
-void BarcodeBedAnnotator::processBarcodeFile() 
+void BarcodeBamAnnotator::processBarcodeFile() 
 {
     std::ifstream barcodeFileStream(barcodeFile);
     if (!barcodeFileStream) 

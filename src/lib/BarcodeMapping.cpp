@@ -1113,9 +1113,6 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::split_line_into_barcode_patterns(
     // }
     // std::cout << "\n";
 
-        //passing demultiplexedLine.barcodeList as the barcodeList in forward pattern
-        bool pairwiseMappingSuccess = false;
-
         //todo: better check if fw and rv mapped: at the moment they returna  fail if e.g. a half-constant barcode does not map
         pairwiseMappingSuccess = combine_mapping(barcodePatterns, demultiplexedLine, barcodePositionFw, demultiplexedLineRv, barcodePositionRv, stats, statsRvPtr, tmpMMScore);
         if(pairwiseMappingSuccess){mmScore = tmpMMScore;}
@@ -1139,7 +1136,7 @@ bool Mapping<MappingPolicy, FilePolicy>::demultiplex_read(const std::pair<fastqL
 
     //demultipelxed barcodes are stored in barcodeMap
     result = this->split_line_into_barcode_patterns(seq, demultiplexedLine, input, pattern, mmScore, stats);
-    
+
     //update status bar
     if(count%1000==0 && totalReadCount!=ULLONG_MAX && count<totalReadCount) //update at every 1,000th entry
     {

@@ -44,6 +44,11 @@ int isUMICol(const std::string& str)
 void parseVariableBarcodeFile(const std::string& file, std::unordered_map<int, std::vector<std::string>>& barcodeList, int colIdx)
 {
     std::ifstream barcodeFileStream(file);
+    if (!barcodeFileStream.is_open()) {
+        std::cerr << "Error: Could not open following file for barcode parsing: " << file << std::endl;
+        std::cerr << "Please double check if the path to the barcode-files is right." << std::endl;
+        exit(EXIT_FAILURE);
+    }
 
     std::string line;
     while (std::getline(barcodeFileStream, line)) 
@@ -182,7 +187,7 @@ void generateBarcodeDicts(const std::string& headerLine, const std::string& barc
             barcodeIdData.scBarcodeIndices.push_back(stoi(substr));
         }
 
-        std::cout << "Assinging single-cells according to columns: ";
+        std::cout << "Assigning single-cells according to columns: ";
         for(size_t i = 0; i < barcodeIdData.scBarcodeIndices.size()-1; ++i)
         {
             std::cout << barcodeHeader.at(barcodeIdData.scBarcodeIndices.at(i)) << ",";
@@ -192,7 +197,7 @@ void generateBarcodeDicts(const std::string& headerLine, const std::string& barc
         
         //make map colIdx -> (map: barcode string -> number)
         //iterate over colIdx for scID
-        for(size_t scIdx : barcodeIdData.scBarcodeIndices)
+        for(unsigned int scIdx : barcodeIdData.scBarcodeIndices)
         {
             int barcodeCount = 0;
             std::unordered_map<std::string, int> barcodeMap;
@@ -204,6 +209,8 @@ void generateBarcodeDicts(const std::string& headerLine, const std::string& barc
             }
             barcodeIdData.barcodeIdMaps.push_back(barcodeMap);
         }
+                    std::cout << __LINE__ << "\n";
+
     }
 
     //print assigned grouping index
