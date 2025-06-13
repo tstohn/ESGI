@@ -71,10 +71,6 @@ install:
 		brew install boost htslib seqtk; \
 	fi
 
-install rna_mapping:
-	wget https://github.com/ShiLab-Bioinformatics/subread/releases/download/2.0.2/subread-2.0.2-Linux-x86_64.tar.gz
-	tar -xzf subread-2.0.2-Linux-x86_64.tar.gz
-
 #parse fastq lines and map abrcodes to each sequence
 demultiplex:
 	g++ -c ./include/edlib/edlib/src/edlib.cpp -I ./include/edlib/edlib/include/ -I ./src/lib $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
