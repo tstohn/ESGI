@@ -50,6 +50,16 @@ install:
 	# we have a submodule edlib (git submodule add https://github.com/martinsos/edlib ./edlib;
 	# no need to compile, we just add libraries and then compile with them), but we update it
 
+	#install libboost for various systems LINUX/ WINDOWS/ macOS
+	#TODO: we do not need all libboost-dev for LINUX and boost for macOS (check which libs are needed and install only those!)
+	@if [ "$(UNAME_S)" = "Linux" ]; then \
+		apt-get update && apt-get install -y libboost-all-dev libcurl4-openssl-dev; \
+	elif echo "$(UNAME_S)" | grep -E -q "MINGW|MSYS"; then \
+		vcpkg install boost-asio boost-system boost-thread boost-iostreams boost-program-options zlib liblzma curl --triplet x64-mingw-static; \
+	elif [ "$(UNAME_S)" = "Darwin" ]; then \
+		brew install boost curl; \
+	fi
+
 	#build seqtk
 	cd ./include; git clone https://github.com/lh3/seqtk --branch v1.3; mv Makefile ./seqtk/; mv rand_win.c ./seqtk/; cd ./seqtk; make
 	git submodule update --init --recursive
@@ -59,16 +69,6 @@ install:
 
 	cd ..
 	mkdir bin
-
-	#install libboost for various systems LINUX/ WINDOWS/ macOS
-	#TODO: we do not need all libboost-dev for LINUX and boost for macOS (check which libs are needed and install only those!)
-	@if [ "$(UNAME_S)" = "Linux" ]; then \
-		apt-get update && apt-get install -y libboost-all-dev; \
-	elif echo "$(UNAME_S)" | grep -E -q "MINGW|MSYS"; then \
-		vcpkg install boost-asio boost-system boost-thread boost-iostreams boost-program-options zlib --triplet x64-mingw-static; \
-	elif [ "$(UNAME_S)" = "Darwin" ]; then \
-		brew install boost; \
-	fi
 
 #parse fastq lines and map abrcodes to each sequence
 demultiplex:
