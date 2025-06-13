@@ -56,24 +56,22 @@ install:
 	#update submodules (edlib)
 	git submodule update --init --recursive
 
+	#we use seqtk to hadnel fastq files, we directly include the files and need to download them from git
+	cd ./include; git clone https://github.com/lh3/seqtk --branch v1.3; mv Makefile ./seqtk/; mv rand_win.c ./seqtk/; cd ./seqtk; make
+	cd..
+
 	#install libboost for various systems LINUX/ WINDOWS/ macOS
 	#TODO: we do not need all libboost-dev for LINUX and boost for macOS (check which libs are needed and install only those!)
 	@if [ "$(UNAME_S)" = "Linux" ]; then \
-		sudo apt-get update && sudo apt-get install -y libboost-all-dev seqtk libhts-dev; \
+		sudo apt-get update && sudo apt-get install -y libboost-all-dev libhts-dev; \
 	elif echo "$(UNAME_S)" | grep -E -q "MINGW|MSYS"; then \
-		cd ./include; git clone https://github.com/lh3/seqtk --branch v1.3; mv Makefile ./seqtk/; mv rand_win.c ./seqtk/; cd ./seqtk; make \
-		vcpkg install htslib; \
-		vcpkg install boost-asio boost-system boost-thread boost-iostreams boost-program-options zlib liblzma curl --triplet x64-mingw-static; \
+		vcpkg install htslib boost-asio boost-system boost-thread boost-iostreams boost-program-options zlib --triplet x64-mingw-static; \
 	elif [ "$(UNAME_S)" = "Darwin" ]; then \
-		brew install boost seqtk htslib; \
+		brew install boost htslib; \
 	fi
 
-	#build seqtk 
-	#cd ./include; git clone https://github.com/lh3/seqtk --branch v1.3; mv Makefile ./seqtk/; mv rand_win.c ./seqtk/; cd ./seqtk; make
-	#git submodule update --init --recursive
-	#build htslib
-	#git clone --recurse-submodules https://github.com/samtools/htslib.git; cd htslib; $(MAKE); $(MAKE) -C htslib install
-	#cd ..
+	#build htslib manually
+	#cd ./include; git clone --recurse-submodules https://github.com/samtools/htslib.git; cd htslib; $(MAKE); $(MAKE) -C htslib install; cd ..
 
 #parse fastq lines and map abrcodes to each sequence
 demultiplex:
