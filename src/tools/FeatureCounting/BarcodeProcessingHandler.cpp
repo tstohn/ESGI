@@ -47,6 +47,12 @@ void parseVariableBarcodeFile(const std::string& file, std::unordered_map<int, s
     if (!barcodeFileStream.is_open()) {
         std::cerr << "Error: Could not open following file for barcode parsing: " << file << std::endl;
         std::cerr << "Please double check if the path to the barcode-files is right." << std::endl;
+        // check wrong spaces
+        if (file.find(',') != std::string::npos || file.find(' ') != std::string::npos || file.find('\n') != std::string::npos) 
+        {
+            std::cout << "The file path contains spacing characters like: <,> or < > or <newline>. \n";
+            std::cout << "Did you accidentally use one of them instead of tabs to seperate columns.\n";
+        }
         exit(EXIT_FAILURE);
     }
 

@@ -127,14 +127,16 @@ umiqual:
 	g++ -c src/tools/UmiQualityCheck/main.cpp -I ./include/ -I ./src/lib -I ./src/tools/FeatureCounting --std=c++17 $(CXXFLAGS)
 	g++ main.o UmiQualityHelper.o BarcodeProcessingHandler.o -o ./bin/umiqual -lpthread -lz -lboost_program_options -lboost_iostreams
 
+#this test is run on github.com
 test:
 	make demultiplex
-	make test_ezgi
+	make test_demultiplex
 	make bigTest
 	make test_multipattern
 
 	make count
-	make testCount
+	make test_count
+
 test_detached:
 	./bin/demultiplex -i ./src/test/test_data/test_detached/input_fw.fastq -r ./src/test/test_data/test_detached/input_rv.fastq -d 1 -o ./bin/ -p ./src/test/test_data/test_detached/patterns.txt -m ./src/test/test_data/test_detached/mismatches.txt -t 1 -n DETACHED -q 1 -f 1
 
@@ -151,7 +153,7 @@ testUmiqual:
 
 #small test script for the parser, includes 1 perfect match, 6 matches with different types of mismatches below threshold, 2 mismatches above threshold
 #and four mismatches due to barcodes that can not be uniquely identified
-testDemultiplexing:
+test_demultiplex_TODO:
 	#test orde ron one thread
 	./bin/demultiplexing -i ./src/test/test_data/inFastqTest.fastq -o ./bin/output.tsv -p [NNNN][ATCAGTCAACAGATAAGCGA][NNNN][XXX][GATCAT] -m 1,4,1,1,2 -t 1 -b ./src/test/test_data/barcodeFile.txt -q true
 	diff ./src/test/test_data/BarcodeMapping_output.tsv ./bin/Demultiplexed_output.tsv
@@ -187,13 +189,20 @@ testDemultiplexing:
 	./bin/demultiplexing -i ./src/test/test_data/inFastqDoubleUmiTest_1.fastq -r ./src/test/test_data/inFastqDoubleUmiTest_2.fastq -o ./bin/testMultipleUmis_PairedEnd.tsv -p [AAAA][XXXX][XXXX][TTTT] -m 1,1,1,1 -t 1
 	diff ./bin/Demultiplexed_testMultipleUmis_PairedEnd.tsv ./src/test/test_data/result_testMultipleUmis_PairedEnd.tsv
 
-test_ezgi:
+test_demultiplex:
 	#test order on one thread
 	./bin/demultiplex -i ./src/test/test_data/inFastqTest.fastq -o ./bin/ -p ./src/test/test_data/test1Pattern.txt -m ./src/test/test_data/test1MM.txt -t 1 -n TEST -q 1
 	diff ./src/test/test_data/BarcodeMapping_output.tsv ./bin/TEST_TEST1.tsv
 	
 	#statistics not imlemented yet for new alignment method ...
 	#diff ./src/test/test_data/StatsBarcodeMappingErrors_output.tsv ./bin/StatsMismatches_output.tsv
+
+#sometimes several barcodes can encode for the same cell (e.g., look at SIGNALseq where two different barcodes tag
+#poly-A and randomHexamer reads with two different barcodes), we can tell the 'count' tool to collapse those SC-barcodes
+test_barcode_merging:
+	./bin/count -i ./src/test/test_data/test_barcodeMerging/demultiplexedReads.tsv -o ./bin/barcodeMergingCounts.tsv -t 2 -d ./src/test/test_data/test_barcodeMerging -c 0,1 -a ./src/test/test_data/test_barcodeMerging/antibody.txt -x 3 -u 2 -m 1 -w ./src/test/test_data/test_barcodeMerging/mergeBarcodes.tsv -s 1
+	(head -n 1 ./bin/ABbarcodeMergingCounts.tsv && tail -n +2 ./bin/ABbarcodeMergingCounts.tsv | LC_ALL=c sort) > ./bin/sortedABbarcodeMergingCounts.tsv
+	diff ./src/test/test_data/test_barcodeMerging/ABbarcodeMergingCounts.tsv ./bin/sortedABbarcodeMergingCounts.tsv
 
 #TO DO:
 move_this_to_test_ezgi:
@@ -227,7 +236,7 @@ move_this_to_test_ezgi:
 	./bin/demultiplexing -i ./src/test/test_data/inFastqDoubleUmiTest_1.fastq -r ./src/test/test_data/inFastqDoubleUmiTest_2.fastq -o ./bin/testMultipleUmis_PairedEnd.tsv -p [AAAA][XXXX][XXXX][TTTT] -m 1,1,1,1 -t 1
 	diff ./bin/Demultiplexed_testMultipleUmis_PairedEnd.tsv ./src/test/test_data/result_testMultipleUmis_PairedEnd.tsv
 
-testCount:
+test_count:
 #origional first test with several basic examples
 	./bin/count -i ./src/test/test_data/testSet.txt -o ./bin/processed_out.tsv -t 2 -d ./src/test/test_data -c 0,5,7,9 -a ./src/test/test_data/antibody.txt -x 3 -g ./src/test/test_data/treatment.txt -y 5 -u 2 -f 0.9
 	(head -n 1 ./bin/ABprocessed_out.tsv && tail -n +2 ./bin/ABprocessed_out.tsv | LC_ALL=c sort) > ./bin/sortedABprocessed_out.tsv
