@@ -44,21 +44,10 @@ int isUMICol(const std::string& str)
 void parseVariableBarcodeFile(const std::string& file, std::unordered_map<int, std::vector<std::string>>& barcodeList, int colIdx)
 {
     std::ifstream barcodeFileStream(file);
-    if (!barcodeFileStream.is_open()) {
-        std::cerr << "Error: Could not open following file for barcode parsing: " << file << std::endl;
-        std::cerr << "Please double check if the path to the barcode-files is right." << std::endl;
-        exit(EXIT_FAILURE);
-    }
 
     std::string line;
     while (std::getline(barcodeFileStream, line)) 
     {
-        //check Windows-specific trailing newlines
-        if (!line.empty() && (line.back() == '\n' || line.back() == '\r')) 
-        {
-            line.pop_back();
-        }
-
         std::string delimiter = ",";
         std::string seq;
         size_t pos = 0;
@@ -68,11 +57,11 @@ void parseVariableBarcodeFile(const std::string& file, std::unordered_map<int, s
             seq = line.substr(0, pos);
             line.erase(0, pos + 1);
             for (char const &c: seq) {
-                if(!( (c=='A') | (c=='T') | (c=='G') | (c=='C') |
-                        (c=='a') | (c=='t') | (c=='g') | (c=='c')))
+                if(!(c=='A' | c=='T' | c=='G' |c=='C' |
+                        c=='a' | c=='t' | c=='g' | c=='c'))
                         {
                         std::cerr << "PARAMETER ERROR: a barcode sequence in barcode file is not a base (A,T,G,C)\n";
-                        if( (c==' ') | (c=='\t') | (c=='\n'))
+                        if(c==' ' | c=='\t' | c=='\n')
                         {
                             std::cerr << "PARAMETER ERROR: Detected a whitespace in sequence; remove it to continue!\n";
                         }
@@ -83,11 +72,11 @@ void parseVariableBarcodeFile(const std::string& file, std::unordered_map<int, s
         }
         seq = line;
         for (char const &c: seq) {
-            if(!((c=='A') || (c=='T') || (c=='G') || (c=='C') ||
-                    (c=='a') || (c=='t') || (c=='g') || (c=='c')))
+            if(!(c=='A' || c=='T' || c=='G' || c=='C' ||
+                    c=='a' || c=='t' || c=='g' || c=='c'))
                     {
                     std::cerr << "PARAMETER ERROR: a barcode sequence in barcode file is not a base (A,T,G,C)\n";
-                    if((c==' ') || (c=='\t') || (c=='\n'))
+                    if(c==' ' || c=='\t' || c=='\n')
                     {
                         std::cerr << "PARAMETER ERROR: Detected a whitespace in sequence; remove it to continue!\n";
                     }
@@ -100,18 +89,12 @@ void parseVariableBarcodeFile(const std::string& file, std::unordered_map<int, s
     }
 }
 
-std::vector<std::string> parseFeatureNames(const std::string& featureFile) 
-{
+std::vector<std::string> parseFeatureNames(const std::string& featureFile) {
     std::vector<std::string> result;
     std::stringstream ss(featureFile);
     std::string item;
     while (std::getline(ss, item, ',')) 
     {
-        //check Windows-specific trailing newlines
-        if (!item.empty() && (item.back() == '\n' || item.back() == '\r')) 
-        {
-            item.pop_back();
-        }
         result.push_back(item);
     }
     return result;
@@ -156,12 +139,6 @@ void generateBarcodeDicts(const std::string& headerLine, const std::string& barc
     std::unordered_map<int, std::vector<std::string>> barcodeList; //maps column number -> all barcodes: e.g. 2 -> variables barcode sin BC1.txt, ...
     while (std::getline(ss, colName, '\t')) 
     {
-        //check Windows-specific trailing newlines
-        if (!colName.empty() && (colName.back() == '\n' || colName.back() == '\r')) 
-        {
-            colName.pop_back();
-        }
-
         //STORE ALL HEADERS
         barcodeHeader.push_back(colName);
 
@@ -205,7 +182,7 @@ void generateBarcodeDicts(const std::string& headerLine, const std::string& barc
             barcodeIdData.scBarcodeIndices.push_back(stoi(substr));
         }
 
-        std::cout << "Assigning single-cells according to columns: ";
+        std::cout << "Assinging single-cells according to columns: ";
         for(size_t i = 0; i < barcodeIdData.scBarcodeIndices.size()-1; ++i)
         {
             std::cout << barcodeHeader.at(barcodeIdData.scBarcodeIndices.at(i)) << ",";
@@ -215,7 +192,7 @@ void generateBarcodeDicts(const std::string& headerLine, const std::string& barc
         
         //make map colIdx -> (map: barcode string -> number)
         //iterate over colIdx for scID
-        for(unsigned int scIdx : barcodeIdData.scBarcodeIndices)
+        for(size_t scIdx : barcodeIdData.scBarcodeIndices)
         {
             int barcodeCount = 0;
             std::unordered_map<std::string, int> barcodeMap;
@@ -227,8 +204,6 @@ void generateBarcodeDicts(const std::string& headerLine, const std::string& barc
             }
             barcodeIdData.barcodeIdMaps.push_back(barcodeMap);
         }
-                    std::cout << __LINE__ << "\n";
-
     }
 
     //print assigned grouping index
@@ -292,57 +267,35 @@ void BarcodeProcessingHandler::parse_barcode_sharing_file(std::string& barcodeFu
     }
 }
 
-void BarcodeProcessingHandler::parse_barcode_file(const std::string& inFile)
+void BarcodeProcessingHandler::parse_barcode_file(const std::string fileName)
 {
-    //reopen file for line counting
-    std::ifstream file;
-    boost::iostreams::filtering_streambuf<boost::iostreams::input> inbuf;
-    bool gz = isGzipped(inFile);
-    std::istream* instream = openFile(inFile, file, inbuf, gz);
-    if (!instream)
+    unsigned long long totalReads = totalNumberOfLines(fileName);
+    unsigned long long currentReads = 0;
+    //open gz file
+    if(!endWith(fileName,".gz"))
     {
-        std::cerr << "Error reading input file or file is empty! Please double check if the file exists:" << inFile << std::endl;
+        std::cerr << "Input file must be gzip compressed\n";
         exit(EXIT_FAILURE);
     }
+    std::ifstream file(fileName, std::ios_base::in | std::ios_base::binary);
+    boost::iostreams::filtering_streambuf<boost::iostreams::input> inbuf;
+    inbuf.push(boost::iostreams::gzip_decompressor());
+    inbuf.push(file);
+    std::istream instream(&inbuf);
+    
+    parseBarcodeLines(&instream, totalReads, currentReads);
 
-    unsigned long long totalReads = 0;
-    std::string line;
-    while (std::getline(*instream, line)) 
-    {
-        ++totalReads;
-    }
-    if (instream != &file) delete instream;
-    instream = nullptr;
-
-    unsigned long long currentReads = 0;
-    parseBarcodeLines(inFile, totalReads, currentReads);
+    file.close();
 }
 
-void BarcodeProcessingHandler::parseBarcodeLines(const std::string& inFile, const unsigned long long& totalReads, unsigned long long& currentReads)
+void BarcodeProcessingHandler::parseBarcodeLines(std::istream* instream, const unsigned long long& totalReads, unsigned long long& currentReads)
 {
-    //reopen file
-    std::ifstream file;
-    boost::iostreams::filtering_streambuf<boost::iostreams::input> inbuf;
-    bool gz = isGzipped(inFile);
-    std::istream* instream = openFile(inFile, file, inbuf, gz);
-    if (!instream)
-    {
-        std::cerr << "Error reading input file or file is empty! Please double check if the file exists:" << inFile << std::endl;
-        exit(EXIT_FAILURE);
-    }
-
     std::string line;
     std::cout << "STEP[1/3]\t(READING ALL LINES INTO MEMORY)\n";
     int elements = 0; //check that each row has the correct number of barcodes
     unsigned long long readCount = 0;
     while(std::getline(*instream, line))
     {
-        //check Windows-specific trailing newlines
-        if (!line.empty() && (line.back() == '\n' || line.back() == '\r')) 
-        {
-            line.pop_back();
-        }
-
         //Skip the header line
         if(currentReads==0)
         {

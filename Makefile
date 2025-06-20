@@ -2,8 +2,9 @@
 #	zlib /(input is a ONE READ fastq file, therefore convert forward/ reverse fastqs into one e.g. with fastq-join/)
 #	boost
 
+#STAR with a minimum version of  2.7.9, to also annotate gene ids (GX)
 #WARNING:
-# FOR NOW RNA-MAPPING IS NOT SUPPORTED UNDER WINDOWS
+# FOR NOW RNA-MAPPING IS NOT SUPPORTED UNDER WINDOWS: missing htslib installation!
 
 UNAME_S := $(shell uname -s)
 VCPKG_ROOT ?= C:/vcpkg
@@ -74,6 +75,11 @@ install:
 
 	#build htslib manually
 	#cd ./include; git clone --recurse-submodules https://github.com/samtools/htslib.git; cd htslib; $(MAKE); $(MAKE) -C htslib install; cd ..
+
+ESGI:
+	make demultiplex
+	make count
+	
 
 #parse fastq lines and map abrcodes to each sequence
 demultiplex:

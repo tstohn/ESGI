@@ -35,7 +35,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
                      std::string& barcodeDir, std::string& barcodeIndices, 
                      std::string& umiIdx, int& umiMismatches,
                      std::string& abFile, int& featureIdx, std::string& treatmentFile, int& treatmentIdx,
-                     double& umiThreshold, bool& umiRemoval,  bool& scIdString)
+                     double& umiThreshold, bool& umiRemoval,  bool& scIdString, std::string& fuseBarcodesFile)
 {
     try
     {
@@ -69,6 +69,9 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             than 90percent of them have the same SC-AB combination. All other reads are deleted. Default is zero. (You can keep it at 0 if UMIs should not be collapsed).")
             ("umiRemoval,z", value<bool>(&umiRemoval)->default_value(true), "Set to false if UMIs should NOT be collapsed. By default UMIs are collapsed.")
             ("scIdAsString,s", value<bool>(&scIdString)->default_value(false), "Stores the single-cell ID not as an id for the barcode (e.g., 1.45.0), but as the actual string (e.g., ATCG.ACTGT.GCGC).")
+            ("shareBarcodes,w", value<std::string>(&fuseBarcodesFile)->default_value(""), "A file that contains positions and barcode-pairs that should be fused. Tsv file with 3 columns: the 1st column \
+            contains the barcode position (0-indexed), the 2nd columns contains the retained barcode (barcode the that should be assign to the other one), \
+            and the 3rd column contains a barcode that should be replaced by the barcode in column 2. E.g., 1 AGT GGG will convert all AGT barcodes at position 1 into GGG>")
 
             ("thread,t", value<int>(&threats)->default_value(5), "number of threads")
             ("help,h", "help message");
@@ -185,6 +188,7 @@ int main(int argc, char** argv)
     double umiThreshold = -1;
     bool umiRemoval = true;
     bool scIdAsString = false;
+    std::string fuseBarcodesFile;
 
     //data for protein(ab) and treatment information
     std::string abFile; 
@@ -198,7 +202,7 @@ int main(int argc, char** argv)
     if(!parse_arguments(argv, argc, inFile, outFile, thread, 
                         barcodeDir, barcodeIndices, umiIdx, umiMismatches, 
                         abFile, featureIdx, treatmentFile, treatmentIdx,
-                        umiThreshold, umiRemoval, scIdAsString))
+                        umiThreshold, umiRemoval, scIdAsString, fuseBarcodesFile))
     {
         exit(EXIT_FAILURE);
     }
@@ -234,6 +238,9 @@ int main(int argc, char** argv)
     instream = nullptr;
 
     BarcodeProcessingHandler dataParser(barcodeIdData);
+    //if we have barcodes that must be fused (assign certain barcodes to others, bcs they come, e.g., from the same cell)
+    if(fuseBarcodesFile != "")
+    {dataParser.parse_barcode_sharing_file(fuseBarcodesFile);}
     if(umiThreshold != -1){dataParser.setUmiFilterThreshold(umiThreshold);}
     dataParser.setumiRemoval(umiRemoval);
     dataParser.setSingleCellIdStyle(scIdAsString);

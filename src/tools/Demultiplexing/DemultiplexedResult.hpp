@@ -157,6 +157,6 @@ struct thread_id_hash {
           //we only close the function and end the waiting to re-use thread for upcoming demultiplexing
           std::unique_ptr<std::atomic<unsigned int>> threadToInitializePtr; //this gets counted down in initialize_tmp_file, when zero we continue
           std::unique_ptr<std::condition_variable> cvPtr;
-  
+
   };
   typedef std::shared_ptr<DemultiplexedResult> DemultiplexedResultPtr; 

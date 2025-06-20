@@ -286,7 +286,9 @@ class BarcodeProcessingHandler
 
         BarcodeProcessingHandler(BarcodeInformation barcodeInformationInput) : barcodeInformation(barcodeInformationInput){}
 
-        void parse_barcode_file(std::string& inFile);
+        void parse_barcode_file(const std::string& inFile);
+        //parse the file for barcode sharing (fusing opf barcodes)
+        void parse_barcode_sharing_file(std::string& barcodeFuseFile);
 
         //counts AB and UMIs per single cell, data is stored in result (also saves basic information about processing
         //like removed reads, mismatched UMIs, etc.)
@@ -354,7 +356,7 @@ class BarcodeProcessingHandler
         // single cells are defined by a dot seperated list of indices)
         void add_line_to_temporary_data(const std::string& line, const size_t& elements,
                                         unsigned long long& readCount);
-        void parseBarcodeLines(std::string& inFile, const unsigned long long& totalReads, unsigned long long& currentReads);
+        void parseBarcodeLines(const std::string& inFile, const unsigned long long& totalReads, unsigned long long& currentReads);
         
         //check if a read is in 'dataLinesToDelete' (not-unique UMI for this read)
         bool checkIfLineIsDeleted(const dataLinePtr& line, const std::vector<dataLinePtr>& dataLinesToDelete);
@@ -403,6 +405,10 @@ class BarcodeProcessingHandler
         // DATA STRUCTURES FOR PARSING DEMULTIPLEXED DATA
         //stores all the indices of variable barcodes in the barcode file (among all barcodes of [NNN...] pattern)
         BarcodeInformation barcodeInformation;
+
+        //map of shared barcodes: BC_PATH -> [BARCDE2 -> BARCODE1]
+        //when a BARCODE2 is encountered it is convered into BARCODE1
+        std::unordered_map<unsigned int, std::unordered_map<std::string, std::string>> barcodeSharingMap;
 
         double umiFilterThreshold = 0.0;
         bool scMustHaveClass = true;
