@@ -325,6 +325,7 @@ class VariableBarcode : public Barcode
         if(equalLengthBarcodes && (fastqLine.size() >= (targetOffset + patterns.at(0).size())))
         {
             std::string target = fastqLine.substr(targetOffset, patterns.at(0).size());
+            if(reverse){target = generate_reverse_complement(target);}
             if (barcodeSet.find(target) != barcodeSet.end()) 
             {
                 targetEnd = patterns.at(0).size();
@@ -362,12 +363,10 @@ class VariableBarcode : public Barcode
             if(targetOffset + substringLength > fastqLine.size()){substringLength = fastqLine.size()-targetOffset;};
             target = fastqLine.substr(targetOffset, substringLength);
 
-            //std::cout << " in barcode trying barcode: " << usedPattern << " with target sequ " << target<< "\n";
-
             //map the pattern to the target sequence
             foundAlignment = run_alignment(usedPattern, target, targetEnd, config, delNumTmp,  insNumTmp, substNumTmp);
             
-            if(foundAlignment && (delNum+insNum+substNum)<=bestEditDist)
+            if(foundAlignment && (delNumTmp+insNumTmp+substNumTmp)<=bestEditDist)
             {
                 //if we have variable length barcodes, and two barcodes map equally well, 
                 //we store the barcode of a longer sequence
@@ -379,7 +378,7 @@ class VariableBarcode : public Barcode
                 }
 
                 //check if we have several best solutions
-                if((delNum+insNum+substNum)==bestEditDist)
+                if((delNumTmp+insNumTmp+substNumTmp)==bestEditDist)
                 {
                     severalMatches = true;
                 }
@@ -391,7 +390,7 @@ class VariableBarcode : public Barcode
                 bestFoundAlignment = foundAlignment;
                 bestFoundPattern = patterns.at(patternIdx); //the barcode is the TRUE forward barcode, not the reverse complement
                 bestTargetEnd = targetEnd;
-                bestEditDist = (delNum+insNum+substNum);
+                bestEditDist = (delNumTmp+insNumTmp+substNumTmp);
                 delNum = delNumTmp;
                 insNum = insNumTmp;
                 substNum = substNumTmp;
