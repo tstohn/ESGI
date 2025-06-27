@@ -233,8 +233,6 @@ void generateBarcodeDicts(const std::string& headerLine, const std::string& barc
             }
             barcodeIdData.barcodeIdMaps.push_back(barcodeMap);
         }
-                    std::cout << __LINE__ << "\n";
-
     }
 
     //print assigned grouping index
@@ -579,17 +577,18 @@ void BarcodeProcessingHandler::markReadsWithNoUniqueUmi(const std::vector<umiDat
 
 void BarcodeProcessingHandler::count_umi_occurence(std::vector<int>& positionsOfSameUmi, 
                                                    umiCount& umiLineTmp,
-                                                   const std::vector<dataLinePtr>& allScAbCounts,
-                                                   const int& lastIdx)
+                                                   const std::vector<dataLinePtr>& allScAbCounts)
 {
+    //this stores only the number of UMIs that were collapsed into each other due to MM
     unsigned long long numberAlignedUmis = 0;
-    for(size_t j = 0; j < (allScAbCounts.size() - 1); ++j)
+    //skip the first UMI, this is the one we compare all others to
+    const char* umia = allScAbCounts.front()->umiSeq; //comapre first element to others
+    for(size_t j = 1; j < allScAbCounts.size(); ++j)
     {
         //calling outputSense algorithm, much faster than levenshtein O(e*max(m,n))
         //however is recently implemented without backtracking
         //before umiMismatches was increased by the length difference between the two UMIs 
         //(no longer done, those deletion should probably be considered as part of the allowed umiMismatches)
-        const char* umia = allScAbCounts.at(lastIdx)->umiSeq;
         const char* umib = allScAbCounts.at(j)->umiSeq;
         unsigned int dist = UINT_MAX;
         bool similar = outputSense(umia, umib, barcodeInformation.umiMismatches, dist);
@@ -607,18 +606,44 @@ void BarcodeProcessingHandler::count_umi_occurence(std::vector<int>& positionsOf
             //UMIs are not corrected in rawData (the rawData keeps the 'wrong' umi sequences)
             //they could be changed by calling 'changeUmi'
             positionsOfSameUmi.push_back(j);     
-            
             umiLineTmp.abCount += allScAbCounts.at(j)->umiCount; // increase count for this UMI
         }
     }
     result.add_umi_mismatches(numberAlignedUmis);
 }
 
+// collapse UMIs in vector of datalinePtrs, comapres only const char* by default
+// make sure that umis Are stored as const char* where SAME Umis are stored in the same address
+void BarcodeProcessingHandler::collapse_identical_UMIs(std::vector<dataLinePtr>& scAbCounts) 
+{
+    //iterate through UMIs and store positions that should be removed afterwards
+    //DO NOT REMOVE current line and inside umiCount of the line store how many lines were collapsed
+    for(size_t i = 0; i < (scAbCounts.size()-1); ++i)
+    {
+        std::vector<unsigned int> deletePositions;
+        for(size_t j = i+1; j < scAbCounts.size(); ++j)
+        {
+            //check if UMIs are identical (were stored under the same char*)
+            if(scAbCounts.at(i)->umiSeq == scAbCounts.at(j)->umiSeq)
+            {
+                //store positions to remove
+                deletePositions.push_back(j);
+                //increase UMI count of the 'master-line'
+                ++(scAbCounts.at(i)->umiCount); // increase count for this UMI
+            }
+        }
+        //remove all the positions that were collapsed and do not ahve to be checked anymore
+        for(int posIdx = static_cast<int>(deletePositions.size()) - 1; posIdx >= 0; --posIdx)
+        {
+            unsigned int pos = deletePositions.at(posIdx);
+            scAbCounts.erase(scAbCounts.begin() + pos);
+        }
+    }
+}
+
 void BarcodeProcessingHandler::count_abs_per_single_cell(const std::vector<dataLinePtr>& uniqueAbSc,
                                                         std::atomic<unsigned long long>& count,
-                                                        const unsigned long long& totalCount,
-                                                        std::shared_ptr<std::unordered_map<const char*, std::vector<umiDataLinePtr>, 
-                                                        CharHash, CharPtrComparator>>& umiMap)
+                                                        const unsigned long long& totalCount)
 {
         //correct for UMI mismatches and fill the AbCountvector
         //iterate through same AbScIdx, calculate levenshtein dist for all UMIs and match those with a certain number of mismatches
@@ -628,12 +653,16 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const std::vector<dataL
 
         //data structures to be filled for the UMI and AB count
         scAbCount abLineTmp; // we fill only this one AB SC count
-        umiCount umiLineTmp;
+        umiCount umiLineTmp; //when iterating through scAbCounts the UMI is set new every time we encouter a new UMI
 
         abLineTmp.scID = umiLineTmp.scID = uniqueAbSc.at(0)->scID;
         abLineTmp.abName = umiLineTmp.abName = uniqueAbSc.at(0)->abName;
         abLineTmp.treatment = umiLineTmp.treatment = uniqueAbSc.at(0)->treatmentName;
         abLineTmp.className = uniqueAbSc.at(0)->cellClassname;
+
+        //erase dataLinePtrs for lines with EXACTLY the same UMI (no MM) and increase umi count in this linePtr
+        //can be done fast due to simple const char* comparison (we stored unique UMIs previously)
+        collapse_identical_UMIs(scAbCounts);
 
         //if we have no umis erase whole vector and count every element
         if(std::string(scAbCounts.back()->umiSeq) == "" )
@@ -643,18 +672,19 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const std::vector<dataL
         }
         else
         {
-            //sort vector by distance to origional UMI length: 
-            //reads get a value for dsitance to UMi length (one Base plus minus gets same value)
-            //and are then sorted in decreasing fashion (when comparing UMIs a UMI of length umilength is chosen first)
-            //to minimize erros bcs e.g. three reads are within 2MM but we choose one UMI out the outer end regarding MM
-            sort(scAbCounts.rbegin(), scAbCounts.rend(), less_than_umi(barcodeInformation.umiLength, umiMap));
+            //new sort the remaining UMIs (after collpasing EXACTLY UNIQUE ones) in order of occurences, 
+            //then start with the first (MOST ABUNDANT) for further demultiplexing
+            std::sort(scAbCounts.begin(), scAbCounts.end(), sort_descending_by_umi_count);
         }
-        //we take always last element in vector of read of same AB and SC ID
-        //then store all reads where UMIs are within distance, and delete those line, and sum up the AB count by one
+
+        //we take always first element in vector of read of same AB and SC ID (the element of most UMI counts)
+        //then store all reads where UMIs are within distance, and delete those lines, and sum up their UMI counts (they might have been collapsed before on EXACT IDENTITY)
         while(!scAbCounts.empty())
         {
-            dataLinePtr lastAbSc = scAbCounts.back();
-            int lastIdx = scAbCounts.size() - 1;
+            dataLinePtr firstAbSc = scAbCounts.front();
+            
+            umiLineTmp.umi =  firstAbSc->umiSeq;
+            umiLineTmp.abCount = firstAbSc->umiCount; //count the first occurence
 
             //check if we have to delete element anyways, bcs umi is too long
             //if( std::abs(int( strlen(lastAbSc->umiSeq) - barcodeInformation.umiLength )) >  barcodeInformation.umiMismatches)
@@ -664,41 +694,38 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const std::vector<dataL
             //}
 
             //if in last element
-            if(scAbCounts.size() == 1)
-            {
-                ++abLineTmp.abCount;
-                umiLineTmp.abCount += lastAbSc->umiCount; 
-                umiLineTmp.umi = lastAbSc->umiSeq;
+        //    if(scAbCounts.size() == 1)
+        //    {
+         //       ++abLineTmp.abCount;
+         //       umiLineTmp.abCount += firstAbSc->umiCount; 
+         //       umiLineTmp.umi = firstAbSc->umiSeq;
 
-                result.add_umi_count(umiLineTmp);
-                result.add_umi_stats(umiLineTmp);
-                scAbCounts.pop_back();
-                break;
-            }
+        //        result.add_umi_count(umiLineTmp);
+        //        result.add_umi_stats(umiLineTmp);
+        //        scAbCounts.pop_back();
+        //        break;
+        //    }
 
             //otherwise conmpare all and mark the ones to delete
             std::vector<int> deletePositions;
-            umiLineTmp.abCount += lastAbSc->umiCount; //count the first occurence
+            deletePositions.push_back(0); //add the first line to lines to delete
 
-            //count all occurences of the last UMI for this AB-SC:
-            // store the positions of other UMIs within umiMismatches to delete and not count
-            //those to final sc AB count
+            //count all occurences of the first UMI for this AB-SC:
+            // store the positions of other UMIs within umiMismatches to delete and not count those to final sc AB count (collapse them)
             if(barcodeInformation.umiMismatches > 0)
             {
-                count_umi_occurence(deletePositions, umiLineTmp, scAbCounts, lastIdx);
+                //add positions that should be deleted bcs. they contains same UMI, increase the count for this UMI in umiLineTmp
+                count_umi_occurence(deletePositions, umiLineTmp, scAbCounts);
             }
-            deletePositions.push_back(lastIdx);
 
             //ADD UMI if exists
             if(umiLineTmp.abCount > 0)
             {
-                umiLineTmp.umi = lastAbSc->umiSeq;
                 result.add_umi_count(umiLineTmp);
                 result.add_umi_stats(umiLineTmp);
-                umiLineTmp.abCount = 0; //reset the count for this umi, all other variables stay the same (Ab name, cellID, etc...)
             }
 
-            //delte all same UMIs
+            //delete all same UMIs
             for(int posIdx = (deletePositions.size() - 1); posIdx >= 0; --posIdx)
             {
                 int pos = deletePositions.at(posIdx);
@@ -715,7 +742,7 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const std::vector<dataL
             result.add_ab_count(abLineTmp);
         }
 
-        if((totalCount >= 100) && (count % (totalCount / 100) == 0))
+        if((totalCount >= 100) && ( ((100*count) / totalCount) % 5 == 0))
         {
             statusUpdateLock.lock();
             double perc = count/ (double) totalCount;
@@ -761,10 +788,6 @@ void BarcodeProcessingHandler::processBarcodeMapping(const int& thread)
     boost::asio::thread_pool pool_3(thread); //create thread pool
     std::cout << "STEP[3/3]\t(Count reads for AB in single cells)\n";
             
-    std::shared_ptr<std::unordered_map<const char*, std::vector<umiDataLinePtr>, 
-                    CharHash, CharPtrComparator>> uniqueUmiMap = 
-                    rawData.getUniqueUmis();
-
     const std::shared_ptr< std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator>> AbScMap = rawData.getUniqueAbSc();
     for(std::unordered_map<const char*, std::vector<dataLinePtr>, CharHash, CharPtrComparator>::const_iterator it = AbScMap->begin(); 
         it != AbScMap->end(); 
@@ -772,8 +795,7 @@ void BarcodeProcessingHandler::processBarcodeMapping(const int& thread)
     {
         //as above: abSc is copied only
         boost::asio::post(pool_3, std::bind(&BarcodeProcessingHandler::count_abs_per_single_cell, this, 
-                                            std::cref(it->second), std::ref(umiCount), std::cref(totalCount), 
-                                            std::ref(uniqueUmiMap) ));
+                                            std::cref(it->second), std::ref(umiCount), std::cref(totalCount)));
     }
     pool_3.join();
     printProgress(1);

@@ -443,7 +443,6 @@ BarcodePatternPtr Mapping<MappingPolicy, FilePolicy>::create_barcodeVector_from_
     return(patternPtr);
 }
 
-//new fucntion to overwrite old function which was misconstructed
 template <typename MappingPolicy, typename FilePolicy>
 bool Mapping<MappingPolicy, FilePolicy>::generate_barcode_patterns(const input& input)
 {
@@ -936,7 +935,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(const BarcodePatt
         int overlap = (end - start) + 1;
         int missingPatternStartIdx = (demultiplexedLineRv.barcodeList.size() - overlap) -1;
         //combine them to one vector
-        for(size_t i = missingPatternStartIdx; i >= 0; --i)
+        for(int i = missingPatternStartIdx; i >= 0; --i)
         {
             demultiplexedLineFw.barcodeList.push_back(demultiplexedLineRv.barcodeList.at(i));
             if(stats != nullptr)

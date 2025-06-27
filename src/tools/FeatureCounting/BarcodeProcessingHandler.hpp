@@ -75,6 +75,12 @@ struct umiDist
     std::vector<std::unordered_map<int, unsigned long>> dist;
 };
 
+//comparison function sort UMIs by occurence
+inline bool sort_descending_by_umi_count(const dataLinePtr& a, const dataLinePtr& b) 
+{
+    return(a->umiCount > b->umiCount);
+}
+
 //some information about the read/ UMI quality (how many reads removed, how many Mismatches, etc.)
 struct ProcessingLog
 {
@@ -369,18 +375,16 @@ class BarcodeProcessingHandler
                                                               std::vector<dataLinePtr>& dataLinesToDelete, 
                                                               std::atomic<unsigned long long>& count,
                                                               const unsigned long long& totalCount);
+        void collapse_identical_UMIs(std::vector<dataLinePtr>& scAbCounts);
         //used within 'count_abs_per_single_cell' to get counts per UMI for reads of one AB SC combination
         void count_umi_occurence(std::vector<int>& positionsOfSameUmi, 
                                                    umiCount& umiLineTmp,
-                                                   const std::vector<dataLinePtr>& allScAbCounts,
-                                                   const int& lastIdx);
+                                                   const std::vector<dataLinePtr>& allScAbCounts);
         //count the ABs per single cell (iterating over reads for a AB-SC combination and summing them, this is already a sparse vector)
         //reads of same UMI are collapsed before
         void count_abs_per_single_cell(const std::vector<dataLinePtr>& uniqueAbSc,
                                                         std::atomic<unsigned long long>& count,
-                                                        const unsigned long long& totalCount,
-                                                        std::shared_ptr<std::unordered_map<const char*, std::vector<umiDataLinePtr>, 
-                                                        CharHash, CharPtrComparator>>& umiMap);
+                                                        const unsigned long long& totalCount);
 
         //get positions of all barcodes in the lines of demultiplexed data
         void getBarcodePositions(const std::string& line, int& barcodeElements);

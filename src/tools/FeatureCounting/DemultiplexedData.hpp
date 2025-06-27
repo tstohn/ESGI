@@ -31,10 +31,11 @@ struct dataLine
     unsigned long long umiCount = 0;
 };
 typedef std::shared_ptr<dataLine> umiDataLinePtr;
-typedef std::shared_ptr<const dataLine> dataLinePtr;
+typedef std::shared_ptr< dataLine> dataLinePtr;
 
 //less operator to compare two dataLines, compares the length distance of the lines UMIs to the
 //origional length that this line is supposed to have
+//origionally used to compare UMIs that can have different lengths, currently NOT USED
 struct less_than_umi
 {
     less_than_umi(const int& origionalLength, 
@@ -232,7 +233,7 @@ class UnprocessedDemultiplexedData
             //generate the new line
             dataLine newLine = *oldLine;
             newLine.umiSeq = newUmi;
-            std::shared_ptr<const dataLine> newLinePtr = std::make_shared<const dataLine>(newLine);
+            std::shared_ptr<dataLine> newLinePtr = std::make_shared<dataLine>(newLine);
             std::shared_ptr<dataLine> newLineUmiPtr = std::make_shared<dataLine> (newLine);
 
             //and add the new line to all dicts

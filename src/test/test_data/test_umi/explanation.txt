@@ -1,0 +1,46 @@
+
+ #FIRST CELL: TWO ABS
+#merge 5 UMIs into most abundant CCCCC
+CCCCC AATAAAA
+CCCCC AATAAAA
+CCGCC AATAAAA
+CCCC AATAAAA
+CCCCA AATAAAA
+
+#merge 3 into most abundant AAAAC
+AAAAC AATATTT
+AAAAA AATATTT
+AAAAC AATATTT
+
+
+
+#SECOND CELL: THREE ABS
+#merge 3 into TTTTT
+TTTTT GATACCC
+TTTTT GATACCC
+TTATT GATACCC
+#merge 4 into AAAAA
+AAAAA GATACCC
+AAAAA GATACCC
+AAAAT GATACCC
+GAAAA GATACCC
+=> combine to count of 2
+
+
+#merge 3 UMI into most abudnant AAAAA
+AAAAT GATAGGG
+AAAAA GATAGGG
+AAAAA GATAGGG
+=> 1 count
+
+#merge 5 UMI into most abudnant AAAAA
+AAAAA GATATTT
+AAAAA GATATTT
+AAAAA GATATTT
+AAAAT GATATTT
+AAAAT GATATTT
+#then merge two other ones in any way, we donn t know which one is deletionFirstSeq
+AAATT GATATTT
+AATTT GATATTT
+=>combine to count of 2
+

@@ -50,13 +50,17 @@ else ifeq ($(UNAME_S),Darwin)
 	LDFLAGS += 
 endif
 
+all: 
+	make install
+	make ESGI
+
 install:
 	# download and compile kseq (we have a modified makefile to compile with rand on windows, which we move into the repo), 
 	# we have a submodule edlib (git submodule add https://github.com/martinsos/edlib ./edlib;
 	# no need to compile, we just add libraries and then compile with them), but we update it
 
 	#create bin	
-	mkdir bin
+	mkdir -p bin
 
 	#update submodules (edlib)
 	git submodule update --init --recursive
@@ -194,9 +198,24 @@ test_demultiplex:
 	./bin/demultiplex -i ./src/test/test_data/inFastqTest.fastq -o ./bin/ -p ./src/test/test_data/test1Pattern.txt -m ./src/test/test_data/test1MM.txt -t 1 -n TEST -q 1
 	diff ./src/test/test_data/BarcodeMapping_output.tsv ./bin/TEST_TEST1.tsv
 	
-	#statistics not imlemented yet for new alignment method ...
-	#diff ./src/test/test_data/StatsBarcodeMappingErrors_output.tsv ./bin/StatsMismatches_output.tsv
+	#test order with more threads
+	./bin/demultiplex -i ./src/test/test_data/inFastqTest.fastq -o ./bin -p /DATA/t.stohn/SCDemultiplexing/src/test/test_data/pattern.txt -m /DATA/t.stohn/SCDemultiplexing/src/test/test_data/mismatches.txt -t 4 -q 1
+	(head -n 1 ./bin/PATTERN_0.tsv && tail -n +2 ./bin/PATTERN_0.tsv | LC_ALL=c sort)  > ./bin/sorted_PATTERN_0.tsv
+	diff ./src/test/test_data/test_1/BarcodeMappingSorted_output.tsv ./bin/sorted_PATTERN_0.tsv
+	
+	#test for UMI collapsing
+	./bin/demultiplex -i ./src/test/test_data/test_umi/inputUmiTest.txt -o ./bin/ -p ./src/test/test_data/test_umi/pattern.txt -m ./src/test/test_data/test_umi/mismatches.txt -t 1 -n TEST
+	./bin/count -i /DATA/t.stohn/SCDemultiplexing/bin/TEST_UMITEST.tsv -o ./bin/UMITEST.tsv -t 1 -d ./src/test/test_data/test_umi -c 1 -a ./src/test/test_data/test_umi/protein.txt -x 2 -u 0 -m 1 -s 1
+	(head -n 1 ./bin/ABUMITEST.tsv && tail -n +2 ./bin/ABUMITEST.tsv | LC_ALL=c sort) > ./bin/sortedABUMITEST.tsv
+	(head -n 1 ./bin/UMIUMITEST.tsv && tail -n +2 ./bin/UMIUMITEST.tsv | LC_ALL=c sort) > ./bin/sortedUMIUMITEST.tsv
+	diff /DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_umi/result_sorted_ABUMITEST.tsv ./bin/sortedABUMITEST.tsv
+	diff /DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_umi/result_sorted_UMIUMITEST.tsv ./bin/sortedUMIUMITEST.tsv
 
+	#test paired end mapping
+	./bin/demultiplex -i ./src/test/test_data/smallTestPair_R1.fastq.gz -r ./src/test/test_data/smallTestPair_R2.fastq.gz -o ./bin -n PairedEndTest -p /DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_2/pattern.txt -m /DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_2/mismatches.txt -t 1 -q 1
+	diff ./bin/PairedEndTest_PATTERN_0.tsv ./src/test/test_data/result_pairedEnd
+	
+	
 #sometimes several barcodes can encode for the same cell (e.g., look at SIGNALseq where two different barcodes tag
 #poly-A and randomHexamer reads with two different barcodes), we can tell the 'count' tool to collapse those SC-barcodes
 test_barcode_merging:
@@ -206,32 +225,22 @@ test_barcode_merging:
 
 #TO DO:
 move_this_to_test_ezgi:
-	#test order with more threads
-	./bin/demultiplexing -i ./src/test/test_data/inFastqTest.fastq -o ./bin/output.tsv -p [NNNN][ATCAGTCAACAGATAAGCGA][NNNN][XXX][GATCAT] -m 1,4,1,1,2 -t 4 -b ./src/test/test_data/barcodeFile.txt
-	(head -n 1 ./bin/Demultiplexed_output.tsv && tail -n +2 ./bin/Demultiplexed_output.tsv | LC_ALL=c sort)  > ./bin/DemultiplexedSorted_output.tsv
-	(head -n 1 ./src/test/test_data/BarcodeMapping_output.tsv && tail -n +2 ./src/test/test_data/BarcodeMapping_output.tsv | LC_ALL=c sort)  > ./src/test/test_data/BarcodeMappingSorted_output.tsv
-	diff ./src/test/test_data/BarcodeMappingSorted_output.tsv ./bin/DemultiplexedSorted_output.tsv
-	#test paired end mapping
-	./bin/demultiplexing -i ./src/test/test_data/smallTestPair_R1.fastq.gz -r ./src/test/test_data/smallTestPair_R2.fastq.gz -o ./bin/PairedEndTest -p [NNNNNNNN][CTTGTGGAAAGGACGAAACACCG][XXXXXXXXXXXXXXX][NNNNNNNNNN][GTTTTAGAGCTAGAAATAGCAA][NNNNNNNN][CGAATGCTCTGGCCTACGC][NNNNNNNN][CGAAGTCGTACGCCGATG][NNNNNNNN] -m 1,0,0,1,0,1,0,1,0,1 -t 1 -b ./src/test/test_data/processingBarcodeFile.txt
-	diff ./bin/Demultiplexed_PairedEndTest ./src/test/test_data/result_pairedEnd
+
+
 	#test paired end, where the overlapping barcode is a different one in forward/ reverse: example incldues also one read with forward barcode and reverse PhiX
 	./bin/demultiplexing -i ./src/test/test_data/pairedtestR1.fastq -r ./src/test/test_data/pairedtestR2.fastq -o ./bin/Pairedtest2 -p [NNNNNNNNN][CTTGTGGAAAGGACGAAACACCG][XXXXXXXXXXXXXXX][NNNNNNNNNN][GTTTTAGAGCTAGAAATAGCAA][NNNNNNNN][CGAATGCTCTGGCCTCTCAAGCACGTGGAT][NNNNNNNN][AGTCGTACGCCGATGCGAAACATCGGCCAC][NNNNNNNN] -m 1,2,0,1,2,1,2,1,15,2 -t 1 -b ./src/test/test_data/processingBarcodefilewithStagger.txt
 	diff ./bin/Demultiplexed_Pairedtest2 ./src/test/test_data/Demultiplexed_Pairedtest2.txt
-
 	#test the offset for a next sequence after deletions at end of previous barcode
 	./bin/demultiplexing -i ./src/test/test_data/inFastqTest_4.fastq -o ./bin/output.tsv -p [NNNN][XXXX][ATATCAGTCGAAA][NNNN][AAAGCTCGATCAT] -m 1,1,2,1,2 -t 1 -b ./src/test/test_data/barcodeFile.txt -q true
 	(head -n 1 ./bin/Demultiplexed_output.tsv && tail -n +2 ./bin/Demultiplexed_output.tsv | LC_ALL=c sort)  > ./bin/DemultiplexedSorted_output.tsv
 	diff ./src/test/test_data/DemultiplexedSortedElongationTest_output.tsv ./bin/DemultiplexedSorted_output.tsv
-
 	#test the deletion of the barcode end (if a barcode is not mapped fully, the next one should have
 	#variable starting points...)
 	./bin/demultiplexing -i ./src/test/test_data/testDeletionsAtBarcodeEnd.fastq -o ./bin/testBarcodeDeletionsEnd.tsv -p [AGCTAGCTAAAA][TATA] -m 4,0 -t 1
 	diff ./bin/Demultiplexed_testBarcodeDeletionsEnd.tsv ./src/test/test_data/result_barcodeDeletionEnd.tsv
-
 	#test for double-UMI patterns
 	./bin/demultiplexing -i ./src/test/test_data/inFastqDoubleUmiTest.fastq -o ./bin/testMultipleUmis.tsv -p [AAAA][XXXX][XXXX][TTTT] -m 1,1,1,1 -t 1
 	diff ./bin/Demultiplexed_testMultipleUmis.tsv ./src/test/test_data/result_testMultipleUmis.tsv
-
 	#paired end we do not find the UMIs with insertion/ deletion bcs from both sides we map different UMIs
 	./bin/demultiplexing -i ./src/test/test_data/inFastqDoubleUmiTest_1.fastq -r ./src/test/test_data/inFastqDoubleUmiTest_2.fastq -o ./bin/testMultipleUmis_PairedEnd.tsv -p [AAAA][XXXX][XXXX][TTTT] -m 1,1,1,1 -t 1
 	diff ./bin/Demultiplexed_testMultipleUmis_PairedEnd.tsv ./src/test/test_data/result_testMultipleUmis_PairedEnd.tsv
