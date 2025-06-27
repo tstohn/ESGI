@@ -1,1 +1,1 @@
-[/DATA/t.stohn/SCDemultiplexing/src/test/test_data/barcodeFile1.txt][ATCAGTCAACAGATAAGCGA][/DATA/t.stohn/SCDemultiplexing/src/test/test_data/barcodeFile2.txt][3X][GATCAT]
+[./src/test/test_data/barcodeFile1.txt][ATCAGTCAACAGATAAGCGA][./src/test/test_data/barcodeFile2.txt][3X][GATCAT]

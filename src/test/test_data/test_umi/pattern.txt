@@ -1,1 +1,1 @@
-UMITEST:[5X][/DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_umi/BC1.txt][/DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_umi/AB.txt]
+UMITEST:[5X][./src/test/test_data/test_umi/BC1.txt][./src/test/test_data/test_umi/AB.txt]

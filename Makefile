@@ -81,6 +81,7 @@ install:
 	#build htslib manually
 	#cd ./include; git clone --recurse-submodules https://github.com/samtools/htslib.git; cd htslib; $(MAKE); $(MAKE) -C htslib install; cd ..
 
+#TODO: we need to make annotate for Linux/OS if we want to also do annotate/ count RNA mapped reads
 ESGI:
 	make demultiplex
 	make count
@@ -245,6 +246,7 @@ testProcessing:
 	(head -n 1 ./bin/UMIprocessed_out.tsv && tail -n +2 ./bin/UMIprocessed_out.tsv | LC_ALL=c sort) > ./bin/sortedUMIprocessed_out.tsv
 	diff ./bin/sortedABprocessed_out.tsv ./src/test/test_data/sortedABprocessed_2_out.tsv
 	diff ./bin/sortedUMIprocessed_out.tsv ./src/test/test_data/sortedUMIprocessed_2_out.tsv
+
 #testing removal of two reads bcs both have different treatments for same SC
 	./bin/processing -i ./src/test/test_data/test_treatmentReadRemoval.txt.gz -o ./bin/processed_out.tsv -t 2 -d ./src/test/test_data/processingBarcodeFile_2.txt  -c 0,2 -a ./src/test/test_data/antibody_2.txt -x 1 -g ./src/test/test_data/treatment_2.txt -y 2 -u 2 -f 0.9
 	(head -n 1 ./bin/ABprocessed_out.tsv && tail -n +2 ./bin/ABprocessed_out.tsv | LC_ALL=c sort) > ./bin/sortedABprocessed_out.tsv
