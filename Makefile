@@ -85,7 +85,6 @@ ESGI:
 	make demultiplex
 	make count
 	
-
 #parse fastq lines and map abrcodes to each sequence
 demultiplex:
 	g++ -c ./include/edlib/edlib/src/edlib.cpp -I ./include/edlib/edlib/include/ -I ./src/lib $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
@@ -199,23 +198,23 @@ test_demultiplex:
 	diff ./src/test/test_data/BarcodeMapping_output.tsv ./bin/TEST_TEST1.tsv
 	
 	#test order with more threads
-	./bin/demultiplex -i ./src/test/test_data/inFastqTest.fastq -o ./bin -p /DATA/t.stohn/SCDemultiplexing/src/test/test_data/pattern.txt -m /DATA/t.stohn/SCDemultiplexing/src/test/test_data/mismatches.txt -t 4 -q 1
+	./bin/demultiplex -i ./src/test/test_data/inFastqTest.fastq -o ./bin -p ./src/test/test_data/pattern.txt -m ./src/test/test_data/mismatches.txt -t 4 -q 1
 	(head -n 1 ./bin/PATTERN_0.tsv && tail -n +2 ./bin/PATTERN_0.tsv | LC_ALL=c sort)  > ./bin/sorted_PATTERN_0.tsv
 	diff ./src/test/test_data/test_1/BarcodeMappingSorted_output.tsv ./bin/sorted_PATTERN_0.tsv
 	
 	#test for UMI collapsing
 	./bin/demultiplex -i ./src/test/test_data/test_umi/inputUmiTest.txt -o ./bin/ -p ./src/test/test_data/test_umi/pattern.txt -m ./src/test/test_data/test_umi/mismatches.txt -t 1 -n TEST
-	./bin/count -i /DATA/t.stohn/SCDemultiplexing/bin/TEST_UMITEST.tsv -o ./bin/UMITEST.tsv -t 1 -d ./src/test/test_data/test_umi -c 1 -a ./src/test/test_data/test_umi/protein.txt -x 2 -u 0 -m 1 -s 1
+	./bin/count -i ./bin/TEST_UMITEST.tsv -o ./bin/UMITEST.tsv -t 1 -d ./src/test/test_data/test_umi -c 1 -a ./src/test/test_data/test_umi/protein.txt -x 2 -u 0 -m 1 -s 1
 	(head -n 1 ./bin/ABUMITEST.tsv && tail -n +2 ./bin/ABUMITEST.tsv | LC_ALL=c sort) > ./bin/sortedABUMITEST.tsv
 	(head -n 1 ./bin/UMIUMITEST.tsv && tail -n +2 ./bin/UMIUMITEST.tsv | LC_ALL=c sort) > ./bin/sortedUMIUMITEST.tsv
-	diff /DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_umi/result_sorted_ABUMITEST.tsv ./bin/sortedABUMITEST.tsv
-	diff /DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_umi/result_sorted_UMIUMITEST.tsv ./bin/sortedUMIUMITEST.tsv
+	diff ./src/test/test_data/test_umi/result_sorted_ABUMITEST.tsv ./bin/sortedABUMITEST.tsv
+	diff ./src/test/test_data/test_umi/result_sorted_UMIUMITEST.tsv ./bin/sortedUMIUMITEST.tsv
 
 	#test paired end mapping
-	./bin/demultiplex -i ./src/test/test_data/smallTestPair_R1.fastq.gz -r ./src/test/test_data/smallTestPair_R2.fastq.gz -o ./bin -n PairedEndTest -p /DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_2/pattern.txt -m /DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_2/mismatches.txt -t 1 -q 1
-	diff ./bin/PairedEndTest_PATTERN_0.tsv ./src/test/test_data/result_pairedEnd
+	./bin/demultiplex -i ./src/test/test_data/smallTestPair_R1.fastq.gz -r ./src/test/test_data/smallTestPair_R2.fastq.gz -o ./bin -n PairedEndTest -p ./src/test/test_data/test_2/pattern.txt -m ./src/test/test_data/test_2/mismatches.txt -t 1 -q 1
+	diff ./bin/PairedEndTest_PATTERN_0.tsv ./src/test/test_data/test_2/result_pairedEnd.tsv
 	
-	
+
 #sometimes several barcodes can encode for the same cell (e.g., look at SIGNALseq where two different barcodes tag
 #poly-A and randomHexamer reads with two different barcodes), we can tell the 'count' tool to collapse those SC-barcodes
 test_barcode_merging:
@@ -317,9 +316,9 @@ bigTest:
 	./bin/demultiplex -i ./src/test/test_data/test_input/testBig.fastq.gz -o ./bin/ -p ./src/test/test_data/test_input/barcodePatternsBig.txt -m ./src/test/test_data/test_input/barcodeMismatchesBig.txt -t 1 -f 1 -q 1
 
 bigTest2:
-	time ./bin/demultiplex -i ./src/test/test_data/test_input/testBig2.fastq.gz -o ./bin/ -p ./src/test/test_data/test_input/barcodePatternsBig.txt -m /DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_input/barcodeMismatchesBig.txt -t 50 -f 1
+	time ./bin/demultiplex -i ./src/test/test_data/test_input/testBig2.fastq.gz -o ./bin/ -p ./src/test/test_data/test_input/barcodePatternsBig.txt -m ./src/test/test_data/test_input/barcodeMismatchesBig.txt -t 50 -f 1
 bigTest3:
-	time ./bin/demultiplex -i ./src/test/test_data/test_input/testBig3.fastq.gz -o ./bin/ -p /DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_input/barcodePatternsBig.txt -m /DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_input/barcodeMismatchesBig.txt -t 70 -f 1
+	time ./bin/demultiplex -i ./src/test/test_data/test_input/testBig3.fastq.gz -o ./bin/ -p ./src/test/test_data/test_input/barcodePatternsBig.txt -m ./src/test/test_data/test_input/barcodeMismatchesBig.txt -t 70 -f 1
 
 #makes no sense since we have only forward reads...
 #make a small test and use fw and rv files
