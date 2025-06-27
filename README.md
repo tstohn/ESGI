@@ -38,7 +38,10 @@ After compilation of the tools you can run *php src/Pipelines/analyze.php* to ru
 After compilation tools are found in *./bin*
   - **Demultiplexing**: Splitting the fastq-reads into tab seperated sequences. in the order of the barcode pattern
   - **READ PROCESSING**: Generating a Cell * Gene Matrix for the mapped reads
-   
+
+# Documentation
+
+Check out the [ESGI website](https://tstohn.github.io/ESGI.documentation/) to download the tool without building it from scratch and useful information how to run it.
   
 # Get started:
 
