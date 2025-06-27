@@ -274,7 +274,8 @@ class UnprocessedDemultiplexedData
         }
         inline std::string getTreatmentName(const std::string& barcode) const
         {
-            if ( treatmentDict.find(barcode) == treatmentDict.end() ) {
+            if ( treatmentDict.find(barcode) == treatmentDict.end() ) 
+            {
                 std::cerr << "Barcode is not in treatment dict, check treatment barcodes, treatmend ID and treatment File:\n" << barcode << "\n";
                 exit(EXIT_FAILURE);
             }

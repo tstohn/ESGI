@@ -166,7 +166,12 @@ std::unordered_map<std::string, std::string > generateTreatmentDict(std::string 
         seq = line;
         treatmentNames.push_back(seq);
     }
-    assert(treatmentNames.size() == treatmentBarcodes.size());
+    if(treatmentNames.size() != treatmentBarcodes.size())
+    {
+        std::cout << "The list of condition-barcodes and condition-names has not the same length1\n";
+        std::cout << "Please make sure both lists are of the same size and every condition-barcode is assigned a contidion-name\n";
+        exit(EXIT_FAILURE);
+    }
     for(size_t i = 0; i < treatmentBarcodes.size(); ++i)
     {
         map.insert(std::make_pair(treatmentBarcodes.at(i), treatmentNames.at(i)));
@@ -251,7 +256,6 @@ int main(int argc, char** argv)
     {
         featureMap = generateProteinDict(abFile, abBarcodes);
     }
-
     //featureMap is empty if the feature name should stay as they are (no mapping of e.g. barcodes to proteins)
     dataParser.addProteinData(featureMap);
     if(!treatmentFile.empty() && treatmentIdx != -1)

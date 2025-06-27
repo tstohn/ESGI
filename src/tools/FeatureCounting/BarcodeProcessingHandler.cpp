@@ -226,11 +226,23 @@ void generateBarcodeDicts(const std::string& headerLine, const std::string& barc
             int barcodeCount = 0;
             std::unordered_map<std::string, int> barcodeMap;
             //map all barcode strings to numbers
-            for(const std::string& barcodeEntry : barcodeList.at(scIdx))
+            try
             {
-                barcodeMap.insert(std::pair<std::string, int>(barcodeEntry, barcodeCount));
-                ++barcodeCount;
+                for(const std::string& barcodeEntry : barcodeList.at(scIdx))
+                {
+                    barcodeMap.insert(std::pair<std::string, int>(barcodeEntry, barcodeCount));
+                    ++barcodeCount;
+                }
+            }catch (const std::out_of_range& e) 
+            {
+                std::cout << "Could not retrieve dictionaries of possible single-cell barcodes\n";
+                std::cout << "Please ensure that the lists of single-cell barcodes can be correctly parsed\n";
+                std::cout << "Therefore, make sure that the directory for barcode files exists (-d), \n";
+                std::cout << "and that the files containing the barcodes are in this directory.\n";
+                std::cout << "The file names must be the headers of the input demultiplexed tsv-file\n";
+                exit(EXIT_FAILURE);
             }
+
             barcodeIdData.barcodeIdMaps.push_back(barcodeMap);
         }
     }
@@ -258,11 +270,25 @@ void generateBarcodeDicts(const std::string& headerLine, const std::string& barc
     //assign the final dictionaries of variable barcodes
     if(parseAbBarcodes)
     {
-        proteinNamelist = barcodeList.at(featureIdx);
+        try 
+        {
+            proteinNamelist = barcodeList.at(featureIdx);
+        } catch (const std::out_of_range& e) 
+        {
+            std::cout << "Please double check your input: Especially where is the feature column\n";
+            throw std::runtime_error("There is no match for feature names in the assigned feature-barcode column: " + barcodeHeader.at(featureIdx));
+        }
     }
     if(treatmentIdx!=-1)
     {
-        *treatmentDict = barcodeList.at(treatmentIdx);
+        try 
+        {
+            *treatmentDict = barcodeList.at(treatmentIdx);
+        } catch (const std::out_of_range& e) 
+        {
+            std::cout << "Please double check your input: Especially where is the treatment column\n";
+            throw std::runtime_error("There is no match for treatment names in the assigned treatment-barcode column: " + barcodeHeader.at(treatmentIdx));
+        }
     }
 
 }
@@ -359,7 +385,6 @@ void BarcodeProcessingHandler::parseBarcodeLines(const std::string& inFile, cons
             ++currentReads; 
             continue;
         }
-
         add_line_to_temporary_data(line, elements, readCount);   
 
         double perc = currentReads/ (double)totalReads;
@@ -469,7 +494,19 @@ std::string BarcodeProcessingHandler::generateSingleCellIndexFromBarcodes(const 
     for(size_t i = 0; i < barcodeInformation.scBarcodeIndices.size(); ++i)
     {
         //first is the column idx of the barcode, second is the actual barcode that we want to map to a number
-        int tmpIdx = (barcodeInformation.barcodeIdMaps.at(i)).at(ciBarcodes.at(i));
+        int tmpIdx;
+        //if we can not access this map, the barcode is invalid and has no index assigned
+        try 
+        {
+            tmpIdx = (barcodeInformation.barcodeIdMaps.at(i)).at(ciBarcodes.at(i));
+        } catch (const std::out_of_range& e) 
+        {
+            std::cout << "\nIt seems like there is an invalid barcode in the input table: " << ciBarcodes.at(i) << "\n";
+            std::cout << "Please double check your input barcodes\n";
+            throw std::runtime_error("Barcode not found in map assigning single-cell indices to barcodes: " + ciBarcodes.at(i));
+            exit(EXIT_FAILURE);
+        }
+
         scIdx += std::to_string(tmpIdx);
         if(i < ciBarcodes.size() - 1)
         {
