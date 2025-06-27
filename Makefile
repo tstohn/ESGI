@@ -5,7 +5,7 @@
 #STAR with a minimum version of  2.7.9, to also annotate gene ids (GX)
 #WARNING:
 # FOR NOW RNA-MAPPING IS NOT SUPPORTED UNDER WINDOWS: missing htslib installation!
-#we need htslib to annotate mapped barcodes to the mapped genes in the BAM file
+# we need htslib to annotate mapped barcodes to the mapped genes in the BAM file
 
 UNAME_S := $(shell uname -s)
 VCPKG_ROOT ?= C:/vcpkg
@@ -132,6 +132,7 @@ umiqual:
 
 #this test is run on github.com
 test:
+	#test cases for demultiplexing
 	make demultiplex
 	make test_demultiplex
 	make test_big
@@ -139,6 +140,7 @@ test:
 	make test_barcode_merging
 	make test_detached
 
+	#test cases for counting single-cell features with UMI collapsing
 	make count
 	make test_count
 
