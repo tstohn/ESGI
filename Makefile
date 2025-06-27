@@ -144,6 +144,7 @@ test:
 	#test cases for counting single-cell features with UMI collapsing
 	make count
 	make test_count
+	make test_umiCollapse
 
 test_detached:
 	./bin/demultiplex -i ./src/test/test_data/test_detached/input_fw.fastq -r ./src/test/test_data/test_detached/input_rv.fastq -d 1 -o ./bin/ -p ./src/test/test_data/test_detached/patterns.txt -m ./src/test/test_data/test_detached/mismatches.txt -t 1 -n DETACHED -q 1 -f 1
@@ -165,18 +166,18 @@ test_demultiplex:
 	(head -n 1 ./bin/PATTERN_0.tsv && tail -n +2 ./bin/PATTERN_0.tsv | LC_ALL=c sort)  > ./bin/sorted_PATTERN_0.tsv
 	diff ./src/test/test_data/test_1/BarcodeMappingSorted_output.tsv ./bin/sorted_PATTERN_0.tsv
 	
-	#test for UMI collapsing
+	#test paired end mapping
+	./bin/demultiplex -i ./src/test/test_data/smallTestPair_R1.fastq.gz -r ./src/test/test_data/smallTestPair_R2.fastq.gz -o ./bin -n PairedEndTest -p ./src/test/test_data/test_2/pattern.txt -m ./src/test/test_data/test_2/mismatches.txt -t 1 -q 1
+	diff ./bin/PairedEndTest_PATTERN_0.tsv ./src/test/test_data/test_2/result_pairedEnd.tsv
+	
+test_umiCollapse:
+	#test for UMI collapsing: needs demultiplex & count
 	./bin/demultiplex -i ./src/test/test_data/test_umi/inputUmiTest.txt -o ./bin/ -p ./src/test/test_data/test_umi/pattern.txt -m ./src/test/test_data/test_umi/mismatches.txt -t 1 -n TEST
 	./bin/count -i ./bin/TEST_UMITEST.tsv -o ./bin/UMITEST.tsv -t 1 -d ./src/test/test_data/test_umi -c 1 -a ./src/test/test_data/test_umi/protein.txt -x 2 -u 0 -m 1 -s 1
 	(head -n 1 ./bin/ABUMITEST.tsv && tail -n +2 ./bin/ABUMITEST.tsv | LC_ALL=c sort) > ./bin/sortedABUMITEST.tsv
 	(head -n 1 ./bin/UMIUMITEST.tsv && tail -n +2 ./bin/UMIUMITEST.tsv | LC_ALL=c sort) > ./bin/sortedUMIUMITEST.tsv
 	diff ./src/test/test_data/test_umi/result_sorted_ABUMITEST.tsv ./bin/sortedABUMITEST.tsv
 	diff ./src/test/test_data/test_umi/result_sorted_UMIUMITEST.tsv ./bin/sortedUMIUMITEST.tsv
-
-	#test paired end mapping
-	./bin/demultiplex -i ./src/test/test_data/smallTestPair_R1.fastq.gz -r ./src/test/test_data/smallTestPair_R2.fastq.gz -o ./bin -n PairedEndTest -p ./src/test/test_data/test_2/pattern.txt -m ./src/test/test_data/test_2/mismatches.txt -t 1 -q 1
-	diff ./bin/PairedEndTest_PATTERN_0.tsv ./src/test/test_data/test_2/result_pairedEnd.tsv
-	
 
 #sometimes several barcodes can encode for the same cell (e.g., look at SIGNALseq where two different barcodes tag
 #poly-A and randomHexamer reads with two different barcodes), we can tell the 'count' tool to collapse those SC-barcodes
