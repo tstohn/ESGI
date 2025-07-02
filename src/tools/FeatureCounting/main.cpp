@@ -47,7 +47,8 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             ("barcodeDir,d", value<std::string>(&(barcodeDir)), " path to a directory which must contain all the barcode files (for variable barcodes). When running <demultiplex> we \
             provided files for variable barcodes in the pattern-file, these files are now in the header of the output of <demultiplex>, but we still need to access those files again to assign features (e.g., protein names) or single-cell IDs to the barcode.")
             
-            ("antibodyList,a", value<std::string>(&(abFile)), "file with a list of all feature names (e.g., protein names), should be in same order as the feature-barcodes in the barcode file.")
+            ("antibodyList,a", value<std::string>(&(abFile)), "file with a list of all feature names (e.g., protein names), should be in same order as the feature-barcodes in the barcode file.\
+            If this list is not given the features will simply be the nucleotide sequences of the feature column (-x) in the input file")
             ("featureIndex,x", value<int>(&featureIdx)->required(), "Index used for feature counting (e.g., index of the protein barcode). This is the index of the column that should be used for features (0 indexed)")
             
             ("groupList,g", value<std::string>(&(treatmentFile)), "file with a list of all single-cell group assignments (e.g.treatments in specific wells). This is just a file with group names, comma seperated and should be in same order as the specific barcodes for the grouping barcode. \
