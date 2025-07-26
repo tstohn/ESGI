@@ -178,16 +178,29 @@ class ConstantBarcode : public Barcode
     {
         bool foundAlignment = false;
 
+        //set the pattern to use for reverse or forward mapping
+        std::string usedPattern = pattern;
+        if(reverse){usedPattern = revCompPattern;}
+
+        //if we allow for zero mismathces check if we can map it immediately
+        std::string exactTarget = fastqLine.substr(targetOffset, usedPattern.length());
+        if(exactTarget == usedPattern)
+        {
+            targetEnd = usedPattern.length();
+            matchedBarcode = pattern;
+            return true;
+        }
+        else if(mismatches == 0) //return false if we do not allowe for any mismatches
+        {
+            return false;
+        }
+
         //get length of substring, length does not depend on reverse/ forward pattern
         std::string target;
         int substringLength = pattern.length()+mismatches;
         if(targetOffset + substringLength > fastqLine.size()){substringLength = fastqLine.size()-targetOffset;};
         //std::cout << "\t LENGTH: " <<substringLength << " seq: " << fastqLine.size()<< "\n";
         target = fastqLine.substr(targetOffset, substringLength);
-
-        //set the pattern to use for reverse or forward mapping
-        std::string usedPattern = pattern;
-        if(reverse){usedPattern = revCompPattern;}
 
         //map the pattern to the target sequence
         foundAlignment = run_alignment(usedPattern, target, targetEnd, config, delNum,  insNum, substNum);
@@ -249,8 +262,33 @@ class VariableBarcode : public Barcode
         }
 
         //calculate minimum conversion rates of barcodes
-        calculate_barcode_conversionRates();
+        //for now this is only calculated if the number of barcodes is less than 1000, 
+        // to avoid billions of comaprisons for 10X data
+        if(patterns.size() < 100000)
+        {
+            calculateConversionRate = true;
+            calculate_barcode_conversionRates();
+        }
+        else
+        {
+            calculate_prefix_hash(5);
+            pefixMapCalculated = true;
+        }
+    }
 
+    void calculate_prefix_hash(const int prefixLen)
+    {
+        for (const std::string& seq : patterns) 
+        {
+            //make forward prefix
+            std::string fwPrefix = seq.substr(0, prefixLen);
+            fwPrefixMap[fwPrefix].push_back(seq);
+
+            //make reverse prefix
+            std::string rvSeq = generate_reverse_complement(seq);
+            std::string rvPrefix = rvSeq.substr(0, prefixLen);
+            rvPrefixMap[rvPrefix].push_back(rvSeq);
+        }
     }
 
     void calculate_barcode_conversionRates()
@@ -324,17 +362,23 @@ class VariableBarcode : public Barcode
         //check if we can instantly match pattern
         if(equalLengthBarcodes && (fastqLine.size() >= (targetOffset + patterns.at(0).size())))
         {
-            std::string target = fastqLine.substr(targetOffset, patterns.at(0).size());
-            if(reverse){target = generate_reverse_complement(target);}
-            if (barcodeSet.find(target) != barcodeSet.end()) 
+            std::string exactTarget = fastqLine.substr(targetOffset, patterns.at(0).size());
+            if(reverse){exactTarget = generate_reverse_complement(exactTarget);}
+            if (barcodeSet.find(exactTarget) != barcodeSet.end()) 
             {
                 targetEnd = patterns.at(0).size();
-                matchedBarcode = target;
+                matchedBarcode = exactTarget;
                 return true;
             }  
+            else if(mismatches == 0)
+            {
+                return false;
+            }
         }
 
         std::vector<std::string> patternsToMap = patterns;
+        std::vector<std::string> patternsToStore = patterns;
+
         //get the reverse pattern list if we have reverse string
         if(reverse){patternsToMap = revCompPatterns;}
 
@@ -344,6 +388,48 @@ class VariableBarcode : public Barcode
         int bestEditDist = mismatches+1;
         bool severalMatches = false; //if there are several best-fitting solutions (only the case when the number of allowed mismatches
         //is bigger than possible barcode-conversion numbers) we discard the solution
+
+        //if we have a hash map, fill the patterns that we need to check
+        if(pefixMapCalculated)
+        {
+            std::vector<std::string> prefixPatterns;
+            std::vector<std::string> fwPrefixPatterns;
+
+            std::unordered_map<std::string, std::vector<std::string>> prefixMap = fwPrefixMap;
+            if(reverse)
+            {
+                prefixMap = rvPrefixMap;
+            }
+            for (const auto& pair : prefixMap) 
+            {
+                std::string usedPattern = pair.first;
+
+                int delNumTmp;
+                int insNumTmp;
+                int substNumTmp;
+                delNumTmp=insNumTmp=substNumTmp=targetEnd=0;
+                std::string target;
+                int substringLength = usedPattern.length()+mismatches;
+                target = fastqLine.substr(targetOffset, substringLength);
+                bool foundAlignment = run_alignment(usedPattern, target, targetEnd, config, delNumTmp,  insNumTmp, substNumTmp);
+                if(foundAlignment)
+                {
+                    for (const std::string& seq : pair.second) 
+                    {
+                            prefixPatterns.push_back(seq);
+                            std::string storePattern = seq;
+                            if(reverse){storePattern = generate_reverse_complement(seq);}
+                            fwPrefixPatterns.push_back(storePattern);
+                    }
+                }
+            }
+            //normally patternsToMap is just all FW or RV patterns, here we create these vectors new to only include patterns with a prefix that
+            //is possible given a number of MM
+            patternsToMap = prefixPatterns;
+            //same goes for patternsToStore, this is normally just a list of patterns (FW), but now needs to be manually adjusted,
+            //it is same as patternsToMap in case of FW mapping
+            patternsToStore = fwPrefixPatterns;
+        }
 
         for(size_t patternIdx = 0; patternIdx!= patternsToMap.size(); ++patternIdx)
         {
@@ -388,7 +474,7 @@ class VariableBarcode : public Barcode
                 }
 
                 bestFoundAlignment = foundAlignment;
-                bestFoundPattern = patterns.at(patternIdx); //the barcode is the TRUE forward barcode, not the reverse complement
+                bestFoundPattern = patternsToStore.at(patternIdx); //the barcode is the TRUE forward barcode, not the reverse complement
                 bestTargetEnd = targetEnd;
                 bestEditDist = (delNumTmp+insNumTmp+substNumTmp);
                 delNum = delNumTmp;
@@ -396,16 +482,19 @@ class VariableBarcode : public Barcode
                 substNum = substNumTmp;
 
                 //if we found a new best match, check if this is already the best match we can ever get (minimal conversion dist between barcodes)
-                int minConversion = pattern_conversionrates.at(patterns.at(patternIdx));
-                //we can do this since levenshtein distance fullfills the triangle inequality is a distance metric
-                //imagine there is a second barcode that could fit better: this second barcode must have a shorter distance to target sequence
-                //than our pattern. Now there r two options 1.) while converting pattern to target we would 'go through' the second barcode. In this
-                //case minConversion/2 is always bigger than the editDist and we don t break
-                //2.) the minconversion is the maximum conversion from pattern to second barcode and target is inbetween converting these two
-                //now if the current barcode is however closer to target (minConversion/2), then this is the best match we cna ever find...
-                if(bestEditDist < (minConversion/2))
+                if(calculateConversionRate)
                 {
-                    break;
+                    int minConversion = pattern_conversionrates.at(patternsToStore.at(patternIdx));
+                    //we can do this since levenshtein distance fullfills the triangle inequality is a distance metric
+                    //imagine there is a second barcode that could fit better: this second barcode must have a shorter distance to target sequence
+                    //than our pattern. Now there r two options 1.) while converting pattern to target we would 'go through' the second barcode. In this
+                    //case minConversion/2 is always bigger than the editDist and we don t break
+                    //2.) the minconversion is the maximum conversion from pattern to second barcode and target is inbetween converting these two
+                    //now if the current barcode is however closer to target (minConversion/2), then this is the best match we cna ever find...
+                    if(bestEditDist < (minConversion/2))
+                    {
+                        break;
+                    }
                 }
             }
 
@@ -440,6 +529,12 @@ class VariableBarcode : public Barcode
         bool equalLengthBarcodes;
 
         std::unordered_map<std::string, int> pattern_conversionrates;
+        bool calculateConversionRate = false;
+
+        // Map: first 5 bases → list of sequences
+        std::unordered_map<std::string, std::vector<std::string>> fwPrefixMap;
+        std::unordered_map<std::string, std::vector<std::string>> rvPrefixMap;
+        bool pefixMapCalculated = false;
 
         EdlibAlignConfig config;
 };

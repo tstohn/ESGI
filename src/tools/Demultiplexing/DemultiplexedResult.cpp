@@ -290,8 +290,6 @@ void DemultiplexedResult::initialize_output_for_pattern(const std::string& outpu
         finalFiles[pattern->patternName] = patternOutputs;
     }
 
-
-
     //2) WRITE HEADER OF BARCODE DATA   (if barcodes correspont to a fastq, the first column stores the read names)
     //write header line for barcode file: e.g.: [ACGGCATG][BC1.txt][15X]
     std::ofstream barcodeOutputStream;   
@@ -302,11 +300,13 @@ void DemultiplexedResult::initialize_output_for_pattern(const std::string& outpu
     {
         barcodeOutputStream << "READNAME\t";
     }
-    
+
+    //print header for the general pattern
     for(size_t bidx = 0; bidx < (pattern->barcodePattern)->size(); ++bidx)
     {
         BarcodePtr bptr = (pattern->barcodePattern)->at(bidx);
         //stop and DNA pattern should not be written
+
         if( (bptr->name != "*") && (bptr->name != "DNA") && (bptr->name != "-"))
         {
 
@@ -327,10 +327,38 @@ void DemultiplexedResult::initialize_output_for_pattern(const std::string& outpu
             }
         }
     }
+    //if we are in detached mode (seperate mapping of reverse and forward read, both 5'->3' direction)
+    //the headers are stored in seperate vector
+    // IMPORTANT: the [-] pattern-elemnt is ALWAYS ONLY stored in the forward read
+    if(pattern->detachedReversePattern)
+    {
+        for(size_t bidx = 0; bidx < (pattern->detachedReversePattern)->size(); ++bidx)
+        {
+            BarcodePtr bptr = (pattern->detachedReversePattern)->at(bidx);
+            //stop and DNA pattern should not be written
+
+            if( (bptr->name != "*") && (bptr->name != "DNA") && (bptr->name != "-"))
+            {
+                //get the short name for the barcode (instead of whole path) if it copntains a slash
+                std::string filename;
+                if (bptr->name.find('/') != std::string::npos || bptr->name.find('\\') != std::string::npos) 
+                {
+                    filename = std::filesystem::path(bptr->name).filename().string();
+                } else 
+                {
+                    filename = bptr->name;
+                }
+
+                barcodeOutputStream << filename;
+                if(bidx != ((pattern->detachedReversePattern)->size()-1))
+                {
+                    barcodeOutputStream << "\t";
+                }
+            }
+        }
+    }
     barcodeOutputStream << "\n";
     barcodeOutputStream.close();
-
-
 }
 
 /// calls output initializer functions and gets the barcode mapping structure from Mapping object, since this will the header of the output file

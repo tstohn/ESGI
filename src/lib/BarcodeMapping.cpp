@@ -300,7 +300,8 @@ BarcodePatternPtr Mapping<MappingPolicy, FilePolicy>::create_barcodeVector_from_
         {
             ConstantBarcode barcode(patternElement, mismatchList.at(barcodeIdx));
             std::shared_ptr<ConstantBarcode> barcodePtr(std::make_shared<ConstantBarcode>(barcode));
-            if (input.detachedReverseMapping && isReversePattern) {
+            if (input.detachedReverseMapping && isReversePattern) 
+            {
                 detachedReverseVector.push_back(barcodePtr);
             } else {
                 barcodeVector.push_back(barcodePtr);
@@ -332,7 +333,8 @@ BarcodePatternPtr Mapping<MappingPolicy, FilePolicy>::create_barcodeVector_from_
         {
             VariableBarcode barcode(fileToBarcodesMap.at(patternElement), patternElement, mismatchList.at(barcodeIdx));
             std::shared_ptr<VariableBarcode> barcodePtr(std::make_shared<VariableBarcode>(barcode));
-            if (input.detachedReverseMapping && isReversePattern) {
+            if (input.detachedReverseMapping && isReversePattern) 
+            {
                 detachedReverseVector.push_back(barcodePtr);
             } else {
                 barcodeVector.push_back(barcodePtr);
@@ -352,9 +354,11 @@ BarcodePatternPtr Mapping<MappingPolicy, FilePolicy>::create_barcodeVector_from_
                 //For random sequences we MUST specific the length of this sequence
                 WildcardBarcode barcode(mismatchList.at(barcodeIdx), patternElement, barcodeLength);
                 std::shared_ptr<WildcardBarcode> barcodePtr(std::make_shared<WildcardBarcode>(barcode));
-                if (input.detachedReverseMapping && isReversePattern) {
+                if (input.detachedReverseMapping && isReversePattern) 
+                {
                     detachedReverseVector.push_back(barcodePtr);
-                } else {
+                } else 
+                {
                     barcodeVector.push_back(barcodePtr);
                 }
                 barcodeFound = true;
@@ -375,7 +379,8 @@ BarcodePatternPtr Mapping<MappingPolicy, FilePolicy>::create_barcodeVector_from_
         {
             DNABarcode barcode(mismatchList.at(barcodeIdx));
             std::shared_ptr<DNABarcode> barcodePtr(std::make_shared<DNABarcode>(barcode));
-            if (input.detachedReverseMapping && isReversePattern) {
+            if (input.detachedReverseMapping && isReversePattern) 
+            {
                 detachedReverseVector.push_back(barcodePtr);
             } else {
                 barcodeVector.push_back(barcodePtr);
@@ -389,9 +394,11 @@ BarcodePatternPtr Mapping<MappingPolicy, FilePolicy>::create_barcodeVector_from_
         {
             StopBarcode barcode(patternElement, mismatchList.at(barcodeIdx));
             std::shared_ptr<StopBarcode> barcodePtr(std::make_shared<StopBarcode>(barcode));
-            if (input.detachedReverseMapping && isReversePattern) {
+            if (input.detachedReverseMapping && isReversePattern) 
+            {
                 detachedReverseVector.push_back(barcodePtr);
-            } else {
+            } else 
+            {
                 barcodeVector.push_back(barcodePtr);
             }
             barcodeFound = true;
