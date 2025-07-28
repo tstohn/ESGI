@@ -211,6 +211,18 @@ void generateBarcodeDicts(const std::string& headerLine, const std::string& barc
             barcodeIdData.scBarcodeIndices.push_back(stoi(substr));
         }
 
+        //test validity of single-cell indices (do we have enough headers)
+        int max_scIdx = barcodeIdData.scBarcodeIndices.empty() 
+                            ? 0 
+                            : *std::max_element(barcodeIdData.scBarcodeIndices.begin(), 
+                                                barcodeIdData.scBarcodeIndices.end());
+        if (max_scIdx >= colIdx)
+        {
+            std::cout << "Double check the input file and indices for single-cells.\n";
+            std::cout << "There is at least one single-cell index bigger than the number of headers in the input file!\n";
+            exit(EXIT_FAILURE);
+        }
+
         std::cout << "Assigning single-cells according to columns: ";
         for(size_t i = 0; i < barcodeIdData.scBarcodeIndices.size()-1; ++i)
         {
@@ -250,11 +262,23 @@ void generateBarcodeDicts(const std::string& headerLine, const std::string& barc
     //print assigned grouping index
     if(treatmentIdx!=-1)
     {
+        if (treatmentIdx >= colIdx)
+        {
+            std::cout << "Double check the input file and treatment index.\n";
+            std::cout << "The treatment index is bigger than the number of headers in the input file!\n";
+            exit(EXIT_FAILURE);
+        }
         std::cout << "Assigning treatment to column: " << barcodeHeader.at(treatmentIdx) << "\n";
         barcodeIdData.treatmentIdx = treatmentIdx;    
     }
 
     //print the used feature index
+    if (featureIdx >= colIdx)
+    {
+        std::cout << "Double check the input file and feature index.\n";
+        std::cout << "The feature index is bigger than the number of headers in the input file!\n";
+        exit(EXIT_FAILURE);
+    }
     std::cout << "Assigning feature to column: " << barcodeHeader.at(featureIdx) << "\n";
     barcodeIdData.featureIdx = featureIdx;
 
@@ -431,6 +455,7 @@ void BarcodeProcessingHandler::add_line_to_temporary_data(const std::string& lin
             ++position;
         }
     }
+
     if(result.size() != elements)
     {
         std::cout << "WARNING in barcode file, following row has not the correct number of sequences: " << line << "\n";
