@@ -16,6 +16,7 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper(const std::pa
     //FOR EVERY BARCODE-PATTERN (GET PATTERNID)
     //try to map read to this pattern until it matches and exit
     bool result = false;
+
     std::string foundPatternName;
     DemultiplexedLine finalDemultiplexedLine;
     OneLineDemultiplexingStatsPtr finalLineStatsPtr; //result for a single line
@@ -60,7 +61,6 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper(const std::pa
         {
             finalLineStatsPtr = lineStatsPtr;
         }
-
     }
 
     //BARCODE only information is stored (e.g., protein+barcode, guide+barcode)
@@ -113,7 +113,7 @@ void Demultiplexer<MappingPolicy, FilePolicy>::run_mapping(const input& input)
     std::atomic<long long int> elementsInQueue(0);
     unsigned long long totalReadCount = FilePolicy::get_read_number();
 
-    while(FilePolicy::get_next_line(line))
+    /*while(FilePolicy::get_next_line(line))
     {
         //wait to enqueue new elements in case we have a maximum bucket size
         if(input.fastqReadBucketSize>0)
@@ -121,9 +121,48 @@ void Demultiplexer<MappingPolicy, FilePolicy>::run_mapping(const input& input)
             while(input.fastqReadBucketSize <= elementsInQueue.load()){}
         }
         //increase job count and push the job in the queue
+        
         ++elementsInQueue;
         boost::asio::post(pool, std::bind(&Demultiplexer::demultiplex_wrapper, this, line, input, ++lineCount, totalReadCount, std::ref(elementsInQueue)));
+    }*/
+
+    //new try to run batches
+    const size_t batchSize = 1000;
+    std::vector<std::pair<fastqLine, fastqLine>> batch;
+    batch.reserve(batchSize);
+    while (FilePolicy::get_next_line(line)) {
+        batch.push_back(line);
+
+        if (batch.size() == batchSize) {
+            while (input.fastqReadBucketSize > 0 && elementsInQueue.load() >= input.fastqReadBucketSize) {}
+
+            ++elementsInQueue;
+            auto batchCopy = std::move(batch);  // move for efficiency
+            batch.clear();
+            boost::asio::post(pool, [this, batchCopy, input, &elementsInQueue, &lineCount, totalReadCount]() mutable {
+                for (auto& l : batchCopy) {
+                    this->demultiplex_wrapper(l, input, ++lineCount, totalReadCount, elementsInQueue);
+                }
+                --elementsInQueue;
+            });
+        }
     }
+
+    // Submit remaining lines
+    if (!batch.empty()) {
+        while (input.fastqReadBucketSize > 0 && elementsInQueue.load() >= input.fastqReadBucketSize) {}
+
+        ++elementsInQueue;
+        boost::asio::post(pool, [this, batchCopy = std::move(batch), input, &elementsInQueue, &lineCount, totalReadCount]() mutable {
+            for (auto& l : batchCopy) {
+                this->demultiplex_wrapper(l, input, ++lineCount, totalReadCount, elementsInQueue);
+            }
+            --elementsInQueue;
+        });
+    }
+
+
+
     //iterate through the barcode map and let threads 
     pool.join();
 
