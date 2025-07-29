@@ -19,7 +19,8 @@ class Demultiplexer : private Mapping<MappingPolicy, FilePolicy>
         void demultiplex_wrapper(const std::pair<fastqLine, fastqLine>& line,
                                 const input& input,
                                 const unsigned long long lineCount,
-                                const unsigned long long& totalReadCount);
+                                const unsigned long long& totalReadCount,
+                                std::atomic<long long int>& elementsInQueue);
         void run_mapping(const input& input);
 
         //map to store the temporary output files (e.g., for RAM efficient laptop usage)
