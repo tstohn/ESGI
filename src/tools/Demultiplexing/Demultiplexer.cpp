@@ -9,8 +9,7 @@ template <typename MappingPolicy, typename FilePolicy>
 void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper(const std::pair<fastqLine, fastqLine>& line,
                                                                     const input& input,
                                                                     const unsigned long long lineCount,
-                                                                    const unsigned long long& totalReadCount,
-                                                                    std::atomic<long long int>& elementsInQueue)
+                                                                    const unsigned long long& totalReadCount)
 {
 
     //FOR EVERY BARCODE-PATTERN (GET PATTERNID)
@@ -89,9 +88,6 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper(const std::pa
         fileWriter->update_stats(finalLineStatsPtr, result, foundPatternName, finalDemultiplexedLine.barcodeList);
     }
 
-    //count down elements to process
-    --elementsInQueue;
-
 }
 
 /// overwritten run_mapping function to allow processing of only a subset of fastq lines at a time
@@ -109,52 +105,34 @@ void Demultiplexer<MappingPolicy, FilePolicy>::run_mapping(const input& input)
     this->FilePolicy::init_file(input.inFile, input.reverseFile);
     std::pair<fastqLine, fastqLine> line;
     unsigned long long lineCount = 0; //using atomic<int> as thread safe read count
-    std::atomic<long long int> elementsInQueue(0);
     unsigned long long totalReadCount = FilePolicy::get_read_number();
-
-    
-   /* while(FilePolicy::get_next_line(line))
-    {
-        //wait to enqueue new elements in case we have a maximum bucket size
-        if(input.fastqReadBucketSize>0)
-        {
-            while(input.fastqReadBucketSize <= elementsInQueue.load()){}
-        }
-        //increase job count and push the job in the queue
-        
-        ++elementsInQueue;
-        boost::asio::post(pool, std::bind(&Demultiplexer::demultiplex_wrapper, this, line, input, ++lineCount, totalReadCount, std::ref(elementsInQueue)));
-    }*/
 
     //new try to run batches
     const size_t batchSize = input.fastqReadBucketSize;
     std::vector<std::pair<fastqLine, fastqLine>> batch;
     batch.reserve(batchSize);
-    while (FilePolicy::get_next_line(line)) {
+    while (FilePolicy::get_next_line(line)) 
+    {
         batch.push_back(line);
-
         if (batch.size() == batchSize) {
-            while (input.fastqReadBucketSize > 0 && elementsInQueue.load() >= input.fastqReadBucketSize) {}
-
-            ++elementsInQueue;
             auto batchCopy = std::move(batch);  // move for efficiency
             batch.clear();
-            boost::asio::post(pool, [this, batchCopy, input, &elementsInQueue, &lineCount, totalReadCount]() mutable {
+            boost::asio::post(pool, [this, batchCopy, input, &lineCount, totalReadCount]() mutable 
+            {
                 for (auto& l : batchCopy) 
                 {
-                    this->demultiplex_wrapper(l, input, ++lineCount, totalReadCount, elementsInQueue);
+                    this->demultiplex_wrapper(l, input, ++lineCount, totalReadCount);
                 }
             });
         }
     }
     // Submit remaining lines
-    if (!batch.empty()) {
-        while (input.fastqReadBucketSize > 0 && elementsInQueue.load() >= input.fastqReadBucketSize) {}
-        ++elementsInQueue;
-        boost::asio::post(pool, [this, batchCopy = std::move(batch), input, &elementsInQueue, &lineCount, totalReadCount]() mutable {
+    if (!batch.empty()) 
+    {
+        boost::asio::post(pool, [this, batchCopy = std::move(batch), input, &lineCount, totalReadCount]() mutable {
             for (auto& l : batchCopy) 
             {
-                this->demultiplex_wrapper(l, input, ++lineCount, totalReadCount, elementsInQueue);
+                this->demultiplex_wrapper(l, input, ++lineCount, totalReadCount);
             }
         });
     }

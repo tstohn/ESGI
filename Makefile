@@ -305,7 +305,7 @@ CITest:
 bigTest2:
 	time ./bin/demultiplex -i ./src/test/test_data/test_input/testBig2.fastq.gz -o ./bin/ -p ./src/test/test_data/test_input/barcodePatternsBig.txt -m ./src/test/test_data/test_input/barcodeMismatchesBig.txt -t 50 -f 1
 bigTest3:
-	time ./bin/demultiplex -i ./src/test/test_data/test_input/testBig3.fastq.gz -o ./bin/ -p ./src/test/test_data/test_input/barcodePatternsBig.txt -m ./src/test/test_data/test_input/barcodeMismatchesBig.txt -t 70 -f 1
+	time ./bin/demultiplex -i ./src/test/test_data/test_input/testBig3.fastq.gz -o ./bin/ -p ./src/test/test_data/test_input/barcodePatternsBig.txt -m ./src/test/test_data/test_input/barcodeMismatchesBig.txt -t 10 -f 1
 
 #makes no sense since we have only forward reads...
 #make a small test and use fw and rv files
