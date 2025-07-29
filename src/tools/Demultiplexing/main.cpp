@@ -103,7 +103,7 @@ bool parse_arguments(char** argv, int argc, input& input)
 
             ("threat,t", value<int>(&(input.threads))->default_value(5), "number of threads")
             ("fastqReadBucketSize,s", value<long long int>(&(input.fastqReadBucketSize))->default_value(-1), "number of lines of the fastQ file that should be read into RAM \
-            and be processed, before the next fastq read is processed. By default it equal to 1000X the thread number.")
+            and be processed, before the next fastq read is processed. By default it equal to 100X the thread number.")
             ("writeStats,q", value<bool>(&(input.writeStats))->default_value(false), "writing Statistics about the barcode mapping. This creates three files: \
             ..._Quality_lastPositionMapped.txt stores how often mapping failed at which position for reads that could not be mapped (THIS IS ONLY WRITTEN IF WE HAVE ONLY ONE PATTERN) \
             ..._Quality_typeMM.txt stores for every barcode how often we observed a Subst, Ins, Del \
@@ -212,7 +212,7 @@ int main(int argc, char** argv)
         //set the number of reads in the processing queue by default to 10X number of threads
         if(input.fastqReadBucketSize == -1)
         {
-            input.fastqReadBucketSize = input.threads * 1000;
+            input.fastqReadBucketSize = input.threads * 100;
         }
 
         // run demultiplexing

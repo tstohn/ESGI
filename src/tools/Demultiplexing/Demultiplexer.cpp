@@ -78,8 +78,7 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper(const std::pa
     else if(!result && input.writeFailedLines)
     {
         //write failed line to file, get the filestreams for thread
-        std::pair<std::shared_ptr<std::ofstream>, std::shared_ptr<std::ofstream>> failedFileStream = fileWriter->get_failedStream_for_threadID_at(boost::this_thread::get_id());
-        
+        std::pair<std::shared_ptr<std::ofstream>, std::shared_ptr<std::ofstream>> failedFileStream = fileWriter->get_failedStream_for_threadID_at(boost::this_thread::get_id());  
         fileWriter->write_failed_line(failedFileStream, line);
     }
 
@@ -113,7 +112,8 @@ void Demultiplexer<MappingPolicy, FilePolicy>::run_mapping(const input& input)
     std::atomic<long long int> elementsInQueue(0);
     unsigned long long totalReadCount = FilePolicy::get_read_number();
 
-    /*while(FilePolicy::get_next_line(line))
+    
+   /* while(FilePolicy::get_next_line(line))
     {
         //wait to enqueue new elements in case we have a maximum bucket size
         if(input.fastqReadBucketSize>0)
@@ -127,7 +127,7 @@ void Demultiplexer<MappingPolicy, FilePolicy>::run_mapping(const input& input)
     }*/
 
     //new try to run batches
-    const size_t batchSize = 1000;
+    const size_t batchSize = input.fastqReadBucketSize;
     std::vector<std::pair<fastqLine, fastqLine>> batch;
     batch.reserve(batchSize);
     while (FilePolicy::get_next_line(line)) {
@@ -140,29 +140,24 @@ void Demultiplexer<MappingPolicy, FilePolicy>::run_mapping(const input& input)
             auto batchCopy = std::move(batch);  // move for efficiency
             batch.clear();
             boost::asio::post(pool, [this, batchCopy, input, &elementsInQueue, &lineCount, totalReadCount]() mutable {
-                for (auto& l : batchCopy) {
+                for (auto& l : batchCopy) 
+                {
                     this->demultiplex_wrapper(l, input, ++lineCount, totalReadCount, elementsInQueue);
                 }
-                --elementsInQueue;
             });
         }
     }
-
     // Submit remaining lines
     if (!batch.empty()) {
         while (input.fastqReadBucketSize > 0 && elementsInQueue.load() >= input.fastqReadBucketSize) {}
-
         ++elementsInQueue;
         boost::asio::post(pool, [this, batchCopy = std::move(batch), input, &elementsInQueue, &lineCount, totalReadCount]() mutable {
-            for (auto& l : batchCopy) {
+            for (auto& l : batchCopy) 
+            {
                 this->demultiplex_wrapper(l, input, ++lineCount, totalReadCount, elementsInQueue);
             }
-            --elementsInQueue;
         });
     }
-
-
-
     //iterate through the barcode map and let threads 
     pool.join();
 
