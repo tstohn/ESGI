@@ -1144,7 +1144,8 @@ bool Mapping<MappingPolicy, FilePolicy>::demultiplex_read(const std::pair<fastqL
     result = this->split_line_into_barcode_patterns(seq, demultiplexedLine, input, pattern, mmScore, stats);
 
     //update status bar
-    if(count%1000==0 && totalReadCount!=ULLONG_MAX && count<totalReadCount) //update at every 1,000th entry
+    
+    if(count%(totalReadCount + 50/100)==0 && totalReadCount!=ULLONG_MAX && count<totalReadCount) //update at every 1,000th entry
     {
         double perc = count/(double)totalReadCount;
         std::lock_guard<std::mutex> guard(*printProgressLock);

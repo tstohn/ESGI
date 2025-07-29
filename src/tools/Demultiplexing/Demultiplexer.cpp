@@ -79,6 +79,7 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper(const std::pa
     {
         //write failed line to file, get the filestreams for thread
         std::pair<std::shared_ptr<std::ofstream>, std::shared_ptr<std::ofstream>> failedFileStream = fileWriter->get_failedStream_for_threadID_at(boost::this_thread::get_id());
+        
         fileWriter->write_failed_line(failedFileStream, line);
     }
 
