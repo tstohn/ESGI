@@ -22,8 +22,10 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper(const std::pa
     OneLineDemultiplexingStatsPtr finalLineStatsPtr; //result for a single line
     int bestPatternScore = std::numeric_limits<int>::max();
 
-    //map every pattern and save the overall score per pattern *this->get_barcode_pattern() for global pattern that is shared
-    for(BarcodePatternPtr pattern : *this->get_barcode_pattern() ) //*(thread_pattern[boost::this_thread::get_id()]) )
+    //map every pattern and save the overall score per pattern 
+    //*this->get_barcode_pattern() for global pattern that is shared
+    //*(thread_pattern[boost::this_thread::get_id()])
+    for(BarcodePatternPtr pattern : *(thread_pattern[boost::this_thread::get_id()]) )
     {
         //score for this specific pattern
         int tmpPatternScore = std::numeric_limits<int>::max();
@@ -67,7 +69,7 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper(const std::pa
     if(result && !finalDemultiplexedLine.containsDNA)
     {
         //store in a shared object
-        this->fileWriter->add_demultiplexed_line(foundPatternName, finalDemultiplexedLine.barcodeList);
+        //this->fileWriter->add_demultiplexed_line(foundPatternName, finalDemultiplexedLine.barcodeList);
     }
     else if(result && finalDemultiplexedLine.containsDNA)
     {

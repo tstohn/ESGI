@@ -20,81 +20,6 @@ enum class PatternType
     Forward,
     Reverse
 };
-//class to handle a barcode pattern 
-//can be used to iterate through the barcode, and stores additional information like:
-//it stores if the pattern contains DNA barcodes which require different handling
-class BarcodePattern
-{
-    public:
-        //constructor
-        BarcodePattern(bool dna, std::string name, BarcodeVectorPtr pattern) :  
-        containsDNA(dna), patternName(name), barcodePattern(pattern) {}
-
-        //class variables
-        bool containsDNA;
-        std::string patternName; //this is also the file this pattern will be written to
-        BarcodeVectorPtr barcodePattern;
-        BarcodeVectorPtr detachedReversePattern; //in case we do not have one long pattern with a fw&rv read
-        //but more two independent read that should be mapped seperately
-
-        //class functions
-        //write multiplexed lines to file (must be specific for DNA, AB-barcodes, etc.)
-        void write_demultiplexed_line(const std::vector<std::string> barcodeList, std::string dna = "");
-
-        //barcodeVector/ iterator functions
-        // Add a barcode to the barcodePattern
-        void add_barcode(const BarcodePtr& barcode, PatternType type = PatternType::Forward) 
-        {
-            get_pattern(type)->push_back(barcode);
-        }
-        // Get the size of the barcodePattern
-        std::size_t size(PatternType type = PatternType::Forward) const 
-        {
-            return get_pattern(type)->size();
-        }
-
-        // Iterator types
-        using iterator = typename std::vector<BarcodePtr>::iterator;
-        using const_iterator = typename std::vector<BarcodePtr>::const_iterator;
-        using reverse_iterator = typename std::vector<BarcodePtr>::reverse_iterator;
-        using const_reverse_iterator = typename std::vector<BarcodePtr>::const_reverse_iterator;
-        // Begin and end iterators
-        iterator begin(PatternType type = PatternType::Forward) {
-            return get_pattern(type)->begin();
-        }
-        const_iterator begin(PatternType type = PatternType::Forward) const {
-            return get_pattern(type)->begin();
-        }
-        iterator end(PatternType type = PatternType::Forward) {
-            return get_pattern(type)->end();
-        }
-        const_iterator end(PatternType type = PatternType::Forward) const {
-            return get_pattern(type)->end();
-        }
-        // Reverse iterators
-        reverse_iterator rbegin(PatternType type = PatternType::Forward) {
-            return get_pattern(type)->rbegin();
-        }
-        const_reverse_iterator rbegin(PatternType type = PatternType::Forward) const {
-            return get_pattern(type)->rbegin();
-        }
-        reverse_iterator rend(PatternType type = PatternType::Forward) {
-            return get_pattern(type)->rend();
-        }
-        const_reverse_iterator rend(PatternType type = PatternType::Forward) const {
-            return get_pattern(type)->rend();
-        }
-
-    private:
-        BarcodeVectorPtr get_pattern(PatternType type) const 
-        {
-            if(type == PatternType::Reverse){return detachedReversePattern;}
-            return barcodePattern; //if not reverse return forward pattern
-        }
-};
-
-typedef std::shared_ptr<BarcodePattern> BarcodePatternPtr; 
-typedef std::shared_ptr<std::vector<BarcodePatternPtr>> MultipleBarcodePatternVectorPtr; 
 
 struct mappingSolution{             
     int seq_start;
@@ -112,6 +37,7 @@ class Barcode
     Barcode(std::string name, int inMismatches, int inLength = 0) : name(name), mismatches(inMismatches), length(inLength) {}
     //virtual destructor, needed to be called when destructing classes that inherit from Barcode
     virtual ~Barcode() = default;
+    virtual std::shared_ptr<Barcode> clone() const = 0;
 
     std::string name;
     int mismatches;
@@ -170,6 +96,9 @@ class ConstantBarcode : public Barcode
             EDLIB_TASK_PATH,    // Request full alignment path (M, I, D, S)
             NULL, 0             // No custom alphabet
         );
+    }
+    std::shared_ptr<Barcode> clone() const override {
+        return std::make_shared<ConstantBarcode>(*this);
     }
 
     bool align(std::string& matchedBarcode, const std::string& fastqLine,const unsigned int targetOffset,
@@ -274,6 +203,10 @@ class VariableBarcode : public Barcode
             calculate_prefix_hash(5);
             pefixMapCalculated = true;
         }
+    }
+    std::shared_ptr<Barcode> clone() const override 
+    {
+        return std::make_shared<VariableBarcode>(*this);
     }
 
     void calculate_prefix_hash(const int prefixLen)
@@ -546,6 +479,9 @@ class WildcardBarcode : public Barcode
     //therefore its an unused parameter, just set for completeness as these classes derive from Barcode (initialized with mismatches, see up...)
     public:
     WildcardBarcode(int inMismatches, std::string name, int inLength) : Barcode(name, inMismatches, inLength) {}
+    std::shared_ptr<Barcode> clone() const override {
+        return std::make_shared<WildcardBarcode>(*this);
+    }
 
     bool align(std::string& matchedBarcode, const std::string& target, const unsigned int positionInFastqLine,
         int& targetEnd, int& delNum, int& insNum, int& substNum,
@@ -581,7 +517,9 @@ class StopBarcode : public Barcode
 {
     public:
     StopBarcode(std::string inPattern, int inMismatches) : Barcode("*", inMismatches),pattern(inPattern) {}
-
+    std::shared_ptr<Barcode> clone() const override {
+        return std::make_shared<StopBarcode>(*this);
+    }
     bool align(std::string& matchedBarcode, const std::string& target, const unsigned int targetOffset,
         int& targetEnd, int& delNum, int& insNum, int& substNum,
         bool reverse = false)
@@ -619,7 +557,9 @@ class ReadSeperatorBarcode : public Barcode
 {
     public:
     ReadSeperatorBarcode(std::string inPattern, int inMismatches) : Barcode("-", inMismatches),pattern(inPattern) {}
-
+    std::shared_ptr<Barcode> clone() const override {
+        return std::make_shared<ReadSeperatorBarcode>(*this);
+    }
     bool align(std::string& matchedBarcode, const std::string& target, const unsigned int targetOffset,
         int& targetEnd, int& delNum, int& insNum, int& substNum,
         bool reverse = false)
@@ -658,7 +598,9 @@ class DNABarcode : public Barcode
 {
     public:
     DNABarcode(int inMismatches = -1) : Barcode("DNA", inMismatches) {pattern = "DNA";}
-
+    std::shared_ptr<Barcode> clone() const override {
+        return std::make_shared<DNABarcode>(*this);
+    }
     bool align(std::string& matchedBarcode, const std::string& target, const unsigned int targetOffset,
         int& targetEnd, int& delNum, int& insNum, int& substNum,
         bool reverse = false)
@@ -689,3 +631,101 @@ class DNABarcode : public Barcode
     private:
     std::string pattern; //just a string of "DNA"
 };
+
+//class to handle a barcode pattern 
+//can be used to iterate through the barcode, and stores additional information like:
+//it stores if the pattern contains DNA barcodes which require different handling
+class BarcodePattern
+{
+    public:
+        //constructor
+        BarcodePattern(bool dna, std::string name, BarcodeVectorPtr pattern) :  
+        containsDNA(dna), patternName(name), barcodePattern(pattern) {}
+
+        // Deep copy constructor for barcode pattern
+        BarcodePattern(const BarcodePattern& other)
+            : containsDNA(other.containsDNA),
+            patternName(other.patternName),
+            barcodePattern(copy_barcode_vector(other.barcodePattern)),
+            detachedReversePattern(copy_barcode_vector(other.detachedReversePattern)) {}
+
+
+        //class variables
+        bool containsDNA;
+        std::string patternName; //this is also the file this pattern will be written to
+        BarcodeVectorPtr barcodePattern;
+        BarcodeVectorPtr detachedReversePattern; //in case we do not have one long pattern with a fw&rv read
+        //but more two independent read that should be mapped seperately
+
+        //class functions
+        //write multiplexed lines to file (must be specific for DNA, AB-barcodes, etc.)
+        void write_demultiplexed_line(const std::vector<std::string> barcodeList, std::string dna = "");
+
+        //barcodeVector/ iterator functions
+        // Add a barcode to the barcodePattern
+        void add_barcode(const BarcodePtr& barcode, PatternType type = PatternType::Forward) 
+        {
+            get_pattern(type)->push_back(barcode);
+        }
+        // Get the size of the barcodePattern
+        std::size_t size(PatternType type = PatternType::Forward) const 
+        {
+            return get_pattern(type)->size();
+        }
+
+        // Iterator types
+        using iterator = typename std::vector<BarcodePtr>::iterator;
+        using const_iterator = typename std::vector<BarcodePtr>::const_iterator;
+        using reverse_iterator = typename std::vector<BarcodePtr>::reverse_iterator;
+        using const_reverse_iterator = typename std::vector<BarcodePtr>::const_reverse_iterator;
+        // Begin and end iterators
+        iterator begin(PatternType type = PatternType::Forward) {
+            return get_pattern(type)->begin();
+        }
+        const_iterator begin(PatternType type = PatternType::Forward) const {
+            return get_pattern(type)->begin();
+        }
+        iterator end(PatternType type = PatternType::Forward) {
+            return get_pattern(type)->end();
+        }
+        const_iterator end(PatternType type = PatternType::Forward) const {
+            return get_pattern(type)->end();
+        }
+        // Reverse iterators
+        reverse_iterator rbegin(PatternType type = PatternType::Forward) {
+            return get_pattern(type)->rbegin();
+        }
+        const_reverse_iterator rbegin(PatternType type = PatternType::Forward) const {
+            return get_pattern(type)->rbegin();
+        }
+        reverse_iterator rend(PatternType type = PatternType::Forward) {
+            return get_pattern(type)->rend();
+        }
+        const_reverse_iterator rend(PatternType type = PatternType::Forward) const {
+            return get_pattern(type)->rend();
+        }
+
+    private:
+        BarcodeVectorPtr get_pattern(PatternType type) const 
+        {
+            if(type == PatternType::Reverse){return detachedReversePattern;}
+            return barcodePattern; //if not reverse return forward pattern
+        }
+
+        //copy barcodeVectors of the barcodePattern
+        static BarcodeVectorPtr copy_barcode_vector(const BarcodeVectorPtr& original) 
+        {
+            if (!original) return nullptr;
+            auto copy = std::make_shared<BarcodeVector>();
+            copy->reserve(original->size());
+            for (const auto& barcode : *original) 
+            {
+                copy->push_back(barcode ? barcode->clone() : nullptr);
+            }
+
+            return copy;
+        }
+};
+
+typedef std::shared_ptr<BarcodePattern> BarcodePatternPtr; 
+typedef std::shared_ptr<std::vector<BarcodePatternPtr>> MultipleBarcodePatternVectorPtr; 
