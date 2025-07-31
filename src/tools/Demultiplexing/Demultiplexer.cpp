@@ -22,8 +22,8 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper(const std::pa
     OneLineDemultiplexingStatsPtr finalLineStatsPtr; //result for a single line
     int bestPatternScore = std::numeric_limits<int>::max();
 
-    //map every pattern and save the overall score per pattern
-    for(BarcodePatternPtr pattern : *this->get_barcode_pattern())
+    //map every pattern and save the overall score per pattern *this->get_barcode_pattern() for global pattern that is shared
+    for(BarcodePatternPtr pattern : *this->get_barcode_pattern() ) //*(thread_pattern[boost::this_thread::get_id()]) )
     {
         //score for this specific pattern
         int tmpPatternScore = std::numeric_limits<int>::max();
@@ -104,6 +104,8 @@ void Demultiplexer<MappingPolicy, FilePolicy>::run_mapping(const input& input)
     boost::asio::thread_pool pool(input.threads); //create thread pool
     //initialize thread-dependent tmp files
     fileWriter->initialize_thread_streams(pool, input.threads);
+    //initialize copies of Mapping pattern for all threads
+    initialize_thread_patterns(pool, input.threads);
 
     //read line by line and add to thread pool
     this->FilePolicy::init_file(input.inFile, input.reverseFile);

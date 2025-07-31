@@ -29,6 +29,64 @@ class Demultiplexer : private Mapping<MappingPolicy, FilePolicy>
         //to avoid another string-hash as we can also simply keep the order of patterns
         DemultiplexedResultPtr fileWriter;
 
+        std::unordered_map<boost::thread::id, MultipleBarcodePatternVectorPtr, thread_id_hash> thread_pattern;
+        
+        void create_pattern_copy_in_thread(std::shared_ptr<std::mutex> threadFillMutex,
+                                           std::shared_ptr<std::mutex> threadWaitingMutex,
+                                           std::shared_ptr<std::atomic<unsigned int> > threadToInitializePtr,
+                                           std::shared_ptr<std::condition_variable> cvPtr)
+        {
+            MultipleBarcodePatternVectorPtr origional = this->get_barcode_pattern();
+            MultipleBarcodePatternVectorPtr copy = std::make_shared<std::vector<BarcodePatternPtr>>();
+            for (const auto& pattern : *origional)
+            {
+                BarcodePatternPtr patternCopy(pattern);
+                copy->push_back(pattern ? patternCopy : nullptr);
+            }
+
+            std::unique_lock<std::mutex> threadFillLock(*threadFillMutex);
+            --(*threadToInitializePtr);
+            //add the pattern copy to thead->copy map
+            thread_pattern.emplace(boost::this_thread::get_id(), copy);
+
+            //decrease number of threads that need initialization, when all are initialized we can continue program in main function
+            if (*threadToInitializePtr == 0) 
+            {
+                cvPtr->notify_all();  // Notify when all tasks are done
+                threadFillLock.unlock();
+            }
+            else
+            {
+                //lock threads if we did not finish them - like this we can be 100% sure that evey thread gets called EXACTLY ONCE
+                // for initialization
+                threadFillLock.unlock();
+                //wait until all threads are here
+                std::unique_lock<std::mutex> lock(*threadWaitingMutex);
+                cvPtr->wait(lock, [&] { return (*threadToInitializePtr) == 0; });
+                lock.unlock();
+            }
+        }
+
+        void initialize_thread_patterns(boost::asio::thread_pool& pool, const int threadNum)
+        {
+            std::shared_ptr<std::mutex> threadFillMutex = std::make_shared<std::mutex>();
+            std::shared_ptr<std::mutex> threadWaitingMutex = std::make_shared<std::mutex>();
+            std::shared_ptr<std::atomic<unsigned int>> threadToInitializePtr = std::make_shared<std::atomic<unsigned int>>(threadNum);
+            std::shared_ptr<std::condition_variable> cvPtr = std::make_shared<std::condition_variable>();
+  
+            for(int i = 0; i < threadNum; ++i)
+            {
+                boost::asio::post(pool, std::bind(&Demultiplexer::create_pattern_copy_in_thread, this, threadFillMutex, threadWaitingMutex, 
+                threadToInitializePtr, cvPtr));
+            }
+
+            //only continue once all htreads have finished 
+            // (we can NOT join, to not change the thread_ids, and waiting within thread only might let threadToInitialize go out of scope)
+            std::unique_lock<std::mutex> lock(*threadWaitingMutex);
+            cvPtr->wait(lock, [&] { return (*threadToInitializePtr) == 0; });
+            lock.unlock();
+        }
+
     public:
         void run(const input& input);
 

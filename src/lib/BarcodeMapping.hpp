@@ -310,6 +310,7 @@ class Mapping : protected MappingPolicy, protected FilePolicy
 
         //list of all the possible barcode patterns
         MultipleBarcodePatternVectorPtr barcodePatternList;
+
         //dictionary mapping the barcodePattern-name to its list of succesfully demultiplexed reads
         std::vector<DemultiplexedReads> demultiplexReadsList;
 
