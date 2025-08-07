@@ -7,8 +7,6 @@
 //one for more mismatches than the max allowed number of mismathces
 void DemultiplexingStats::initializeStats(const MultipleBarcodePatternVectorPtr& barcodePatternList)
 {
-    //initialize lock
-    statsLock = std::make_unique<std::mutex>();
 
     //INITIALiZE THE FAILED LINE DICTIONARIES (one for FW and RV): <PATTERN_NAME> => <LAST_POSITION_MAPPED>
     //for pattern
@@ -28,7 +26,7 @@ void DemultiplexingStats::initializeStats(const MultipleBarcodePatternVectorPtr&
             failedLinesMappingRv.insert(std::make_pair(pattern_position, 0));
 
             int mismatches = patternPtr->barcodePattern->at(barcodePos)->mismatches;
-            const std::vector<std::string> variableBarcodesVec = patternPtr->barcodePattern->at(barcodePos)->get_patterns();
+            const std::vector<std::shared_ptr<std::string>> variableBarcodesVec = patternPtr->barcodePattern->at(barcodePos)->get_patterns();
 
             //if pattern is a wildcard, then this pattern WILL BE in the demultiplexed barcode list, therefore the actualPatternPos
             //has to increase, however, we do not store this as a valid abrcode position with IN/DEL/MIS
@@ -42,10 +40,10 @@ void DemultiplexingStats::initializeStats(const MultipleBarcodePatternVectorPtr&
                     validPositions[patternPtr->patternName].push_back(actualPatternPos);
 
                     //for variable barcodes // (or single constant one)
-                    for(const std::string& barcodeString : variableBarcodesVec)
+                    for(std::shared_ptr<std::string> barcodeString : variableBarcodesVec)
                     {
                         //create key for dictionaries: <pattern=name>_<barcodePosition>_<actual Barcode>
-                        std::string pattern_position_barcode = patternPtr->patternName + "_" + std::to_string(actualPatternPos) + "_" + barcodeString;
+                        std::string pattern_position_barcode = patternPtr->patternName + "_" + std::to_string(actualPatternPos) + "_" + *barcodeString;
 
                         //INITIALiZE THE MISMATCH TYPE DICTIONARY
                         insertions.insert(std::make_pair(pattern_position_barcode, 0));
@@ -66,8 +64,6 @@ void DemultiplexingStats::initializeStats(const MultipleBarcodePatternVectorPtr&
 void DemultiplexingStats::update(OneLineDemultiplexingStatsPtr lineStatsPtr, bool result, std::string& foundPatternName, std::vector<std::string>& barcodeList)
 {
 
-    //lock statistics and update, this object is updated across all threads in one shared instance
-    std::lock_guard<std::mutex> guard(*statsLock);
     //update weather the line was mapped perfectly, moderately, or not at all
     update_global_parameters(result, lineStatsPtr);
 
@@ -509,4 +505,61 @@ void DemultiplexingStats::write(const std::string& directory, const std::string&
     {
         write_last_mapped_position(barcodeLastPosMapped);
     }
+}
+
+void DemultiplexingStats::combine_statistics(std::vector<std::shared_ptr<DemultiplexingStats>>& statisticsList)
+{
+    //the vector of valid positions is same for all threads, initialize it once for proper writing of stats later on
+    validPositions = statisticsList.front()->validPositions;
+
+    //iterate through all stats and update the final version
+    for(const std::shared_ptr<DemultiplexingStats> tmpStatPtr : statisticsList)
+    {
+        //HOW FAR IN A PATTERN COULD WE MAP (IF WE HAVE ONE PATTERN ONLY)
+        for (const auto& [key, value] : tmpStatPtr->failedLinesMappingFw) 
+        {
+            failedLinesMappingFw[key] += value; // adds value if key exists, inserts if not
+        }
+        for (const auto& [key, value] : tmpStatPtr->failedLinesMappingRv) 
+        {
+            failedLinesMappingRv[key] += value; // adds value if key exists, inserts if not
+        }
+
+        //global MM parameters
+        perfectMatches += tmpStatPtr->perfectMatches;
+        noMatches += tmpStatPtr->noMatches;
+        moderateMatches += tmpStatPtr->moderateMatches;
+
+        //mismatch types
+        for (const auto& [key, value] : tmpStatPtr->insertions) 
+        {
+            insertions[key] += value;
+        }
+        for (const auto& [key, value] : tmpStatPtr->deletions) 
+        {
+            deletions[key] += value;
+        }
+        for (const auto& [key, value] : tmpStatPtr->substitutions) 
+        {
+            substitutions[key] += value;
+        }
+
+        //number of mismatches per pattern/ barcode/ position
+        for (const std::pair<const std::string, std::vector<int>>& entry : tmpStatPtr->mismatchNumber) 
+        {
+            const std::string& key = entry.first;
+            const std::vector<int>& vec = entry.second;
+
+            std::vector<int>& targetVec = mismatchNumber[key];
+            if (targetVec.size() < vec.size()) 
+            {
+                targetVec.resize(vec.size(), 0);
+            }
+            for (std::size_t i = 0; i < vec.size(); ++i) 
+            {
+                targetVec[i] += vec[i];
+            }
+        }
+    }
+
 }

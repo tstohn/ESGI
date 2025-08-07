@@ -24,14 +24,11 @@ class DemultiplexedLine
 
         std::vector<std::string> barcodeList;
 
-        bool containsDNA = false;
         std::string dna = "";
         std::string dnaQuality = "";
-        std::string dnaName = "";
+        std::string readName = "";
 };
 
-typedef std::vector<const char*> BarcodeMapping;
-typedef std::vector<BarcodeMapping> BarcodeMappingVector;
 /** @brief representation of all the mapped barcodes:
  * basically a vector of all reads, where each read itself is a vector of all mapped barcodes
  * This structures stores each barcode only once, handled by the UniqueCharSet, by that
@@ -41,45 +38,38 @@ class DemultiplexedReads
 {
     public:
 
-        DemultiplexedReads()
+        // Constructor that initializes both vectors with x elements
+        DemultiplexedReads(size_t readNum) 
         {
-            uniqueChars = std::make_shared<UniqueCharSet>();
-            lock = std::make_unique<std::mutex>();
+            lineBatch.reserve(readNum);
         }
 
-        void addVector(std::vector<std::string> barcodeVector)
+        void store_demultiplexed_read(DemultiplexedLine& line)
         {
-            std::lock_guard<std::mutex> guard(*lock);
-            BarcodeMapping uniqueBarcodeVector;
-            for(std::string barcode : barcodeVector)
-            {
-                uniqueBarcodeVector.emplace_back(uniqueChars->getUniqueChar(barcode.c_str()));
-            }
-            mappedBarcodes.push_back(uniqueBarcodeVector);
+            lineBatch.push_back(line);;
         }
 
         size_t size() const
         {
-            return mappedBarcodes.size();
+            return lineBatch.size();
         }
 
-        const BarcodeMapping at(const int& i)
+        const DemultiplexedLine at(const int& i)
         {
-            return(mappedBarcodes.at(i));
+            return(lineBatch.at(i));
         }
-
-        const BarcodeMappingVector get_all_reads()
+        const std::vector<DemultiplexedLine>& get_all_reads() const
         {
-            return(mappedBarcodes);
+            return(lineBatch);
+        }
+        bool contains_DNA()
+        {
+            return containsDNA;
         }
 
     private:
-        BarcodeMappingVector mappedBarcodes;
-        //all the string inside this class are stored only once, 
-        //set of all the unique barcodes we use, and we only pass pointers to those
-        std::shared_ptr<UniqueCharSet> uniqueChars;
-        std::unique_ptr<std::mutex> lock;  
-
+        std::vector<DemultiplexedLine> lineBatch;
+        bool containsDNA = false;
 };
 
 typedef std::shared_ptr<DemultiplexedReads> DemultiplexedReadsPtr; 

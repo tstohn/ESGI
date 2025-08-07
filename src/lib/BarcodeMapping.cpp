@@ -566,7 +566,6 @@ bool MapEachBarcodeSequentiallyPolicy::split_line_into_barcode_patterns(const st
             //set dna, quality (name was already set when getting next line to the name of forward read ONLY)
             demultiplexedLine.dna = seq.first.line.substr(positionInFastqLine, seq.first.line.length()); //extract DNA fragment
             demultiplexedLine.dnaQuality = seq.first.quality.substr(positionInFastqLine, seq.first.line.length()); //extract DNA fragment
-            demultiplexedLine.containsDNA = true;
             continue;
         }
         else if((*patternItr)->is_read_end())
@@ -703,7 +702,6 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const fastqLine& seq,
             //set dna, quality (name was already set when getting next line to the name of forward read ONLY)
             demultiplexedLine.dna = seq.line.substr(positionInFastqLine, seq.line.length()); //extract DNA fragment
             demultiplexedLine.dnaQuality = seq.quality.substr(positionInFastqLine, seq.line.length()); //extract DNA fragment
-            demultiplexedLine.containsDNA = true;
             continue;
         }
         else if((*patternItr)->is_read_end())
@@ -824,7 +822,6 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const fastqLine& seq,
             //set dna, quality (name was already set when getting next line to the name of forward read ONLY)
             demultiplexedLine.dna = seq.line.substr(positionInFastqLine, seq.line.length()); //extract DNA fragment
             demultiplexedLine.dnaQuality = seq.quality.substr(positionInFastqLine, seq.line.length()); //extract DNA fragment
-            demultiplexedLine.containsDNA = true;
             continue;
         }
         else if((*patternItr)->is_read_end())
@@ -891,11 +888,10 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(const BarcodePatt
     unsigned int patternNum = barcodePatterns->size();
 
     //if the reverse read contains DNA co-y the information into the Fw demultiplexed line (the fw line is used as final class)
-    if(demultiplexedLineRv.containsDNA)
+    if(demultiplexedLineRv.dna != "")
     {
         demultiplexedLineFw.dna = demultiplexedLineRv.dna; //extract DNA fragment
         demultiplexedLineFw.dnaQuality = demultiplexedLineRv.dnaQuality; //extract DNA fragment
-        demultiplexedLineFw.containsDNA = true;
     }
 
     //if positions are next to each other just return
@@ -969,7 +965,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(const BarcodePatt
                 //++stats->noMatches;
                 return false;
             }
-            demultiplexedLineFw.barcodeList.push_back(barcodePatterns->barcodePattern->at(i)->get_patterns().at(0));
+            demultiplexedLineFw.barcodeList.push_back(*(barcodePatterns->barcodePattern->at(i)->get_patterns().at(0)));
 
             //in the statistics save this as zero MM, since we can not accurately count the number of MM
             if(stats != nullptr)
@@ -1132,7 +1128,7 @@ bool Mapping<MappingPolicy, FilePolicy>::demultiplex_read(const std::pair<fastqL
                                                           DemultiplexedLine& demultiplexedLine,
                                                           BarcodePatternPtr pattern,
                                                           const input& input, 
-                                                          const unsigned long long& count, const unsigned long long& totalReadCount,
+                                                          std::atomic<int>& count, const unsigned long long& totalReadCount,
                                                           int& mmScore,
                                                           OneLineDemultiplexingStatsPtr stats)
 {
@@ -1151,6 +1147,7 @@ bool Mapping<MappingPolicy, FilePolicy>::demultiplex_read(const std::pair<fastqL
         std::lock_guard<std::mutex> guard(*printProgressLock);
         printProgress(perc);
     }
+
 
     return(result);
 }

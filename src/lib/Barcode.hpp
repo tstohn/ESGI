@@ -7,6 +7,10 @@
 #include <thread>
 #include <unordered_set>
 #include <unordered_map>
+#include <tuple>
+#include <functional>
+#include <array>
+#include <cmath>
 
 #include "helper.hpp"
 
@@ -14,6 +18,9 @@ class Barcode;
 typedef std::shared_ptr<Barcode> BarcodePtr;
 typedef std::vector<BarcodePtr> BarcodeVector; 
 typedef std::shared_ptr<BarcodeVector> BarcodeVectorPtr; 
+
+constexpr bool FORWARD = false;
+constexpr bool REVERSE = true;
 
 enum class PatternType 
 {
@@ -28,6 +35,47 @@ struct mappingSolution{
     std::string realBarcode;
     int differenceInBarcodeLength;
 }; 
+
+struct baseNum
+{
+    int A=0;
+    int T=0;
+    int C=0;
+    int G=0;
+
+    bool operator==(const baseNum& other) const 
+    {
+        return A == other.A && T == other.T &&
+               C == other.C && G == other.G;
+    }
+};
+
+inline void hash_combine(std::size_t& seed, std::size_t val) {
+    seed ^= val + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+}
+namespace std {
+    template <>
+    struct hash<baseNum> {
+        std::size_t operator()(const baseNum& b) const noexcept {
+            size_t seed = 0;
+            hash_combine(seed, std::hash<int>{}(b.A));
+            hash_combine(seed, std::hash<int>{}(b.T));
+            hash_combine(seed, std::hash<int>{}(b.C));
+            hash_combine(seed, std::hash<int>{}(b.G));
+            return seed;
+        }
+    };
+}
+// Custom hash function for std::array<int, 16>
+struct ArrayHash {
+    std::size_t operator()(const std::array<int, 16>& arr) const {
+        std::size_t h = 0;
+        for (int val : arr) {
+            h ^= std::hash<int>{}(val) + 0x9e3779b9 + (h << 6) + (h >> 2);  // boost-style hash combine
+        }
+        return h;
+    }
+};
 
 //new datatypes
 class Barcode
@@ -72,7 +120,7 @@ class Barcode
     virtual bool align(std::string& matchedBarcode, const std::string& fastqLine, const unsigned int targetOffset,
                        int& targetEnd, int& delNum, int& insNum, int& substNum,
                        bool reverse = false) = 0;
-    virtual std::vector<std::string> get_patterns() = 0;
+    virtual std::vector<std::shared_ptr<std::string>> get_patterns() = 0;
     virtual bool is_wildcard() = 0;
     virtual bool is_constant() = 0;
     virtual bool is_stop() = 0;
@@ -81,7 +129,7 @@ class Barcode
 
 };
 
-class ConstantBarcode : public Barcode
+class ConstantBarcode final : public Barcode
 {
 
     public:
@@ -138,9 +186,9 @@ class ConstantBarcode : public Barcode
         return foundAlignment;
     }
 
-    std::vector<std::string> get_patterns()
+    std::vector<std::shared_ptr<std::string>> get_patterns()
     {
-        std::vector<std::string> patterns = {pattern};
+        std::vector<std::shared_ptr<std::string>> patterns = {std::make_shared<std::string>(pattern)};
         return patterns;
     }
     bool is_wildcard(){return false;}
@@ -154,15 +202,16 @@ class ConstantBarcode : public Barcode
         std::string revCompPattern;
         EdlibAlignConfig config;
 };
-class VariableBarcode : public Barcode
+class VariableBarcode final : public Barcode 
 {
 
     public:
-    VariableBarcode(std::vector<std::string> inPatterns, std::string name, int inMismatches) : Barcode(name, inMismatches), patterns(inPatterns)
+    VariableBarcode(std::vector<std::string>& inPatterns, std::string& name, int inMismatches) : Barcode(name, inMismatches)
     {
-        for(std::string pattern : patterns)
+        for(std::string pattern : inPatterns)
         {
-            std::string revCompPattern = generate_reverse_complement(pattern);
+            patterns.push_back(std::make_shared<std::string>(pattern));
+            std::shared_ptr<std::string> revCompPattern = std::make_shared<std::string>(generate_reverse_complement(pattern));
             revCompPatterns.push_back(revCompPattern);
         }
 
@@ -176,10 +225,10 @@ class VariableBarcode : public Barcode
 
         //instant look-up table for perfect barcodes
         equalLengthBarcodes = true;
-        size_t lengthOne = patterns.at(0).size();
-        for (const std::string& pattern : patterns) 
+        size_t lengthOne = patterns.at(0)->size();
+        for (const std::shared_ptr<std::string> pattern : patterns) 
         {
-            if (pattern.size() != lengthOne) 
+            if (pattern->size() != lengthOne) 
             {
                 equalLengthBarcodes = false;
                 break;
@@ -187,12 +236,18 @@ class VariableBarcode : public Barcode
         }
         if(equalLengthBarcodes)
         {
-            barcodeSet.insert(patterns.begin(), patterns.end());
+            for (const std::shared_ptr<std::string> ptr : patterns)
+            {
+                barcodeSet.insert(*ptr);  // Dereference the shared_ptr
+            }
         }
 
         //calculate minimum conversion rates of barcodes
         //for now this is only calculated if the number of barcodes is less than 1000, 
         // to avoid billions of comaprisons for 10X data
+
+        calculate_baseNum_hash();
+        calculate_kmer_hash();
         if(patterns.size() < 100000)
         {
             calculateConversionRate = true;
@@ -200,28 +255,284 @@ class VariableBarcode : public Barcode
         }
         else
         {
-            calculate_prefix_hash(5);
-            pefixMapCalculated = true;
+            //calculate_prefix_hash(8);
+            //pefixMapCalculated = true;
         }
     }
     std::shared_ptr<Barcode> clone() const override 
     {
         return std::make_shared<VariableBarcode>(*this);
     }
-
+/*
     void calculate_prefix_hash(const int prefixLen)
     {
-        for (const std::string& seq : patterns) 
+        for (const std::shared_ptr<std::string> seq : patterns) 
         {
             //make forward prefix
-            std::string fwPrefix = seq.substr(0, prefixLen);
-            fwPrefixMap[fwPrefix].push_back(seq);
+            std::string fwPrefix = seq->substr(0, prefixLen);
+            fwPrefixMap[fwPrefix].push_back(*seq);
 
             //make reverse prefix
-            std::string rvSeq = generate_reverse_complement(seq);
+            std::string rvSeq = generate_reverse_complement(*seq);
             std::string rvPrefix = rvSeq.substr(0, prefixLen);
             rvPrefixMap[rvPrefix].push_back(rvSeq);
         }
+    }
+*/
+    void count_bases(const std::string& seq, baseNum& baseCount) 
+    {
+        for (char base : seq) 
+        {
+            switch (base) 
+            {
+                case 'A': case 'a': baseCount.A++; break;
+                case 'C': case 'c': baseCount.C++; break;
+                case 'G': case 'g': baseCount.G++; break;
+                case 'T': case 't': baseCount.T++; break;
+                default: /* ignore other bases */ break;
+            }
+        }
+    }
+
+    void generateAllBaseNums(int length, std::vector<baseNum>& possibleBaseNumVector)
+    {
+        for (int a = 0; a <= length; ++a) {
+            for (int t = 0; t <= length - a; ++t) {
+                for (int c = 0; c <= length - a - t; ++c) {
+                    int g = length - a - t - c;
+                    possibleBaseNumVector.push_back(baseNum{a, t, c, g});
+                }
+            }
+        }
+    }
+
+    bool compare_baseNums(const baseNum& a, const baseNum& b, int dist)
+    {
+        int a_dist = std::abs(a.A - b.A);
+        int g_dist = std::abs(a.G - b.G);
+        int c_dist = std::abs(a.C - b.C);
+        int t_dist = std::abs(a.T - b.T);
+        if( a_dist <= dist && g_dist <= dist &&
+            c_dist <= dist && t_dist<= dist &&
+            (a_dist + g_dist + c_dist + t_dist) <= 2*dist
+        )
+        {
+            return true;
+        }
+
+        return(false);
+    }
+
+    //creates a map that assigns for a certain number of bases all possible barcodes that could have that base number
+    //given a certain number of MM
+    void calculate_baseNum_hash()
+    {
+        //create all possible baseNum combinations: this is the lookup hash that gets filled below
+        //same for fw and rv since it contains all possibilities
+        std::vector<baseNum> possibleBaseNumVector;
+        generateAllBaseNums(patterns.at(0)->size(), possibleBaseNumVector);
+
+        //1.) FORWARD BARCODES
+        //for all patterns counts their base number
+        std::unordered_map<baseNum, std::vector<std::shared_ptr<std::string>>> fwBaseNumMap;
+        for(std::shared_ptr<std::string> fwPattern : patterns)
+        {
+            baseNum baseCount;
+            count_bases(*fwPattern, baseCount);
+            fwBaseNumMap[baseCount].push_back(fwPattern);
+        }
+        //for all possible basenum-combinations above, check which one can be converted into each other given MM
+        //and create a final map of possible barcodes given a baseNum
+        fwEditBaseNumMap = fwBaseNumMap;
+        for(int i = 0; i < (possibleBaseNumVector.size()-1); ++i)
+        {
+            for(int j = i+1; j < possibleBaseNumVector.size(); ++j)
+            {
+                if(compare_baseNums(possibleBaseNumVector.at(i), possibleBaseNumVector.at(j), mismatches))
+                {
+                    fwEditBaseNumMap[possibleBaseNumVector.at(i)].insert(fwEditBaseNumMap[possibleBaseNumVector.at(i)].end(), fwBaseNumMap[possibleBaseNumVector.at(j)].begin(), fwBaseNumMap[possibleBaseNumVector.at(j)].end());
+                    fwEditBaseNumMap[possibleBaseNumVector.at(j)].insert(fwEditBaseNumMap[possibleBaseNumVector.at(j)].end(), fwBaseNumMap[possibleBaseNumVector.at(i)].begin(), fwBaseNumMap[possibleBaseNumVector.at(i)].end());
+                }
+            }
+        }
+
+        //2.) REVERSE BARCODES
+        //for all patterns counts their base number
+        std::unordered_map<baseNum, std::vector<std::shared_ptr<std::string>>> rvBaseNumMap;
+        for(std::shared_ptr<std::string> rvPattern : revCompPatterns)
+        {
+            baseNum baseCount;
+            count_bases(*rvPattern, baseCount);
+            rvBaseNumMap[baseCount].push_back(rvPattern);
+        }
+        //for all possible basenum-combinations above, check which one can be converted into each other given MM
+        //and create a final map of possible barcodes given a baseNum
+        rvEditBaseNumMap = rvBaseNumMap;
+        for(int i = 0; i < (possibleBaseNumVector.size()-1); ++i)
+        {
+            for(int j = i+1; j < possibleBaseNumVector.size(); ++j)
+            {
+                if(compare_baseNums(possibleBaseNumVector.at(i), possibleBaseNumVector.at(j), mismatches))
+                {
+                    rvEditBaseNumMap[possibleBaseNumVector.at(i)].insert(rvEditBaseNumMap[possibleBaseNumVector.at(i)].end(), rvBaseNumMap[possibleBaseNumVector.at(j)].begin(), rvBaseNumMap[possibleBaseNumVector.at(j)].end());
+                    rvEditBaseNumMap[possibleBaseNumVector.at(j)].insert(rvEditBaseNumMap[possibleBaseNumVector.at(j)].end(), rvBaseNumMap[possibleBaseNumVector.at(i)].begin(), rvBaseNumMap[possibleBaseNumVector.at(i)].end());
+                }
+            }
+        }
+    }
+
+
+    // Encode a 2-mer as integer using 2-bit encoding per base (A=00, C=01, G=10, T=11)
+    int encode_kmer(const std::string& kmer)
+    {
+        if (kmer.length() != 2) return -1;
+        int code = 0;
+        for (char base : kmer) {
+            code <<= 2;
+            switch (base) {
+                case 'A': case 'a': code |= 0b00; break;
+                case 'C': case 'c': code |= 0b01; break;
+                case 'G': case 'g': code |= 0b10; break;
+                case 'T': case 't': code |= 0b11; break;
+                default: return -1; // invalid character
+            }
+        }
+        return code;
+    }
+
+    // Count 2-mers in a sequence into a 16-element array
+    std::array<int, 16> count_kmers_fast(const std::string& seq) 
+    {
+        std::array<int, 16> counts = {0};
+        const int k = 2;
+        if (seq.size() < k) return counts;
+
+        for (size_t i = 0; i <= seq.size() - k; ++i) {
+            int idx = encode_kmer(seq.substr(i, k));
+            if (idx >= 0)
+                counts[idx]++;
+        }
+        return counts;
+    }
+
+    // Check if two k-mer profiles are within mismatch threshold
+    bool kmers_within_distance(const std::array<int, 16>& a,
+                            const std::array<int, 16>& b,
+                            int mismatches) 
+                            {
+        int max_diff = mismatches * 2 * 2;
+        int total_diff = 0;
+        for (int i = 0; i < 16 && total_diff <= max_diff; ++i) 
+        {
+            total_diff += std::abs(a[i] - b[i]);
+        }
+        return total_diff <= max_diff;
+    }
+
+    //create all kmer-lists that are a certain edit distance away from my list
+    //and add them to the lookup table
+    //omitset contains kmerLists that i ALREADY set for this specific patternOfKmers
+    //imagine we add/delete alternating the same kmers, we then down the line after some recursions
+    //get the same kMerList and might push back the same patterns several times, this should be prevented
+    void create_edit_kmer_list(const std::array<int, 16>& origionalKmerList,
+                               const std::vector<std::shared_ptr<std::string>>& patternsOfKmer, 
+                               int edits,
+                               std::unordered_set<std::array<int, 16>, ArrayHash>& omitSet,
+                               const bool direction)
+    {
+        if(edits == 0)
+        {
+            //this kmer might already exist (reachable with MM from another pattern), 
+            // //so we insert the current patterns that r reachable from this kmerList
+            if(omitSet.find(origionalKmerList) == omitSet.end())
+            {
+                if(direction == FORWARD)
+                {
+                    fwKmerMap[origionalKmerList].insert(fwKmerMap[origionalKmerList].end(), 
+                                                    patternsOfKmer.begin(), patternsOfKmer.end());
+                   std::cout << "     new edit-distance kmer: ";
+                    for (int val : origionalKmerList) {
+                        std::cout << val << " ";
+                    }
+                    std::cout << std::endl;
+                    std::cout << " inserted: " << patternsOfKmer.size() << " " << *(patternsOfKmer.front()) << "\n";
+                }
+                else
+                {
+                    rvKmerMap[origionalKmerList].insert(rvKmerMap[origionalKmerList].end(), 
+                                                    patternsOfKmer.begin(), patternsOfKmer.end());
+                }
+
+                omitSet.insert(origionalKmerList);
+            }
+            return;
+        }
+
+        // Try all position-pairs for an edit
+        //ONE kmer must go up, while another kmer (that was set before), must go down
+        for (int del_idx = 0; del_idx < 16; ++del_idx) 
+        {
+            for(int add_idx = 0; add_idx < 16; ++add_idx)
+            {
+                std::array<int, 16> newKmerList = origionalKmerList;
+                if (origionalKmerList[del_idx] > 0) 
+                {
+                    newKmerList[del_idx]--;
+                    newKmerList[add_idx]++;
+                    create_edit_kmer_list(newKmerList, patternsOfKmer, edits-1, omitSet, direction);
+                }
+            }
+        }
+    }
+
+    void calculate_kmer_hash()
+    {
+        //1.) FORWARD BARCODES
+        //the temporary kmer map contains exact kmers, the strings that contain those excat kmers
+        //later we fill the kmerMap also with strings that could be reached given mismatches
+        std::unordered_map<std::array<int, 16>, std::vector<std::shared_ptr<std::string>>, ArrayHash> exactFwKmerMap;
+        for(std::shared_ptr<std::string> fwPattern : patterns)
+        {
+            std::array<int, 16> kmerList = count_kmers_fast(*fwPattern);
+            exactFwKmerMap[kmerList].push_back(fwPattern);
+        }
+        //the lookup table contains NOT the perfect kmers as calcualted above and filled into the tmpFxKmerMap,
+        //since if the target seqeune would have had no MM we would ahve already perfectly found it in the perfect-barcode
+        //lookup table, this table contains ONLY erroneous kmers, if sth. is NOT in this kmer-lookuptable, it CAN NOT be mapped            
+        int i =0;
+        for (const auto& exactKmerPatternListPair : exactFwKmerMap)
+        {   
+            std::cout << i++ << " of " << exactKmerPatternListPair.size() << " -> " << *(exactFwKmerMap.at(possibleFwKmerLists.at(i)).front()) << "\n";
+            std::unordered_set<std::array<int, 16>, ArrayHash> fwOmitSet;
+            fwOmitSet.insert(exactKmerPatternListPair.second);
+            create_edit_kmer_list(exactKmerPatternListPair.first, exactKmerPatternListPair.second, 
+                                  mismatches, fwOmitSet, FORWARD);
+        }
+
+        exit(EXIT_FAILURE);
+
+        //2.) REVERSE BARCODES
+        //for all patterns counts their base number
+
+        /*
+        std::unordered_map<std::array<int, 16>, std::vector<std::shared_ptr<std::string>>, ArrayHash> exactRvKmerMap;
+        std::vector<std::array<int, 16>> possibleRvKmerLists;
+        for(std::shared_ptr<std::string> rvPattern : revCompPatterns)
+        {
+            std::array<int, 16> kmerList = count_kmers_fast(*rvPattern);
+            exactRvKmerMap[kmerList].push_back(rvPattern);
+            possibleRvKmerLists.push_back(kmerList);
+        }
+        //the lookup table contains NOT the perfect kmers as calcualted above and filled into the tmpFxKmerMap,
+        //since if the target seqeune would have had no MM we would ahve already perfectly found it in the perfect-barcode
+        //lookup table, this table contains ONLY erroneous kmers, if sth. is NOT in this kmer-lookuptable, it CAN NOT be mapped
+        for(int i = 0; i < possibleRvKmerLists.size(); ++i)
+        {    
+            std::unordered_set<std::array<int, 16>, ArrayHash> rvOmitSet;
+            rvOmitSet.insert(possibleRvKmerLists.at(i));
+            create_edit_kmer_list(possibleRvKmerLists.at(i), exactRvKmerMap.at(possibleRvKmerLists.at(i)), mismatches, rvOmitSet, REVERSE);
+        }
+            */
     }
 
     void calculate_barcode_conversionRates()
@@ -236,7 +547,7 @@ class VariableBarcode : public Barcode
 
         for (size_t i = 0; i < patterns.size(); ++i) 
         {
-            const std::string a = patterns.at(i);
+            const std::string a = *(patterns.at(i));
             int min_rate = std::numeric_limits<int>::max();
             int minElement = std::numeric_limits<int>::max();
 
@@ -244,7 +555,7 @@ class VariableBarcode : public Barcode
             {
                 if(i == j){continue;}
 
-                const std::string b = patterns.at(j);
+                const std::string b = *(patterns.at(j));
                 int del = 0;
                 int ins = 0;
                 int subst = 0;
@@ -293,13 +604,13 @@ class VariableBarcode : public Barcode
         bool reverse = false)
     {
         //check if we can instantly match pattern
-        if(equalLengthBarcodes && (fastqLine.size() >= (targetOffset + patterns.at(0).size())))
+        if(equalLengthBarcodes && (fastqLine.size() >= (targetOffset + patterns.at(0)->size())))
         {
-            std::string exactTarget = fastqLine.substr(targetOffset, patterns.at(0).size());
+            std::string exactTarget = fastqLine.substr(targetOffset, patterns.at(0)->size());
             if(reverse){exactTarget = generate_reverse_complement(exactTarget);}
             if (barcodeSet.find(exactTarget) != barcodeSet.end()) 
             {
-                targetEnd = patterns.at(0).size();
+                targetEnd = patterns.at(0)->size();
                 matchedBarcode = exactTarget;
                 return true;
             }  
@@ -309,8 +620,7 @@ class VariableBarcode : public Barcode
             }
         }
 
-        std::vector<std::string> patternsToMap = patterns;
-        std::vector<std::string> patternsToStore = patterns;
+        std::vector<std::shared_ptr<std::string>> patternsToMap = patterns;
 
         //get the reverse pattern list if we have reverse string
         if(reverse){patternsToMap = revCompPatterns;}
@@ -323,12 +633,12 @@ class VariableBarcode : public Barcode
         //is bigger than possible barcode-conversion numbers) we discard the solution
 
         //if we have a hash map, fill the patterns that we need to check
-        if(pefixMapCalculated)
+        /*if(pefixMapCalculated)
         {
-            std::vector<std::string> prefixPatterns;
+            std::vector<std::shared_ptr<std::string>> prefixPatterns;
             std::vector<std::string> fwPrefixPatterns;
 
-            std::unordered_map<std::string, std::vector<std::string>> prefixMap = fwPrefixMap;
+            std::unordered_map<std::string, std::vector<std::shared_ptr<std::string>>> prefixMap = fwPrefixMap;
             if(reverse)
             {
                 prefixMap = rvPrefixMap;
@@ -347,11 +657,11 @@ class VariableBarcode : public Barcode
                 bool foundAlignment = run_alignment(usedPattern, target, targetEnd, config, delNumTmp,  insNumTmp, substNumTmp);
                 if(foundAlignment)
                 {
-                    for (const std::string& seq : pair.second) 
+                    for (const std::shared_ptr<std::string> seq : pair.second)
                     {
                             prefixPatterns.push_back(seq);
-                            std::string storePattern = seq;
-                            if(reverse){storePattern = generate_reverse_complement(seq);}
+                            std::string storePattern = *seq;
+                            if(reverse){storePattern = generate_reverse_complement(*seq);}
                             fwPrefixPatterns.push_back(storePattern);
                     }
                 }
@@ -359,9 +669,75 @@ class VariableBarcode : public Barcode
             //normally patternsToMap is just all FW or RV patterns, here we create these vectors new to only include patterns with a prefix that
             //is possible given a number of MM
             patternsToMap = prefixPatterns;
-            //same goes for patternsToStore, this is normally just a list of patterns (FW), but now needs to be manually adjusted,
-            //it is same as patternsToMap in case of FW mapping
-            patternsToStore = fwPrefixPatterns;
+        }*/
+
+        //get the basenum hashes: based on counts of bases (considering allowed MM) - how many barcodes could fit
+        if(equalLengthBarcodes)
+        {
+            std::string targetSequence = fastqLine.substr(targetOffset, patterns.front()->length());
+            baseNum baseCountTmp;
+            count_bases(targetSequence, baseCountTmp);
+
+            std::vector<std::shared_ptr<std::string>> possiblePatterns;
+            if(reverse)
+            {
+                possiblePatterns =  rvEditBaseNumMap[baseCountTmp];
+            }
+            else
+            {
+                possiblePatterns =  fwEditBaseNumMap[baseCountTmp];
+            }
+            if(targetSequence.find('N') == std::string::npos)
+            {
+                patternsToMap = possiblePatterns;
+            }
+        }
+        
+        if(equalLengthBarcodes)
+        {
+            std::string targetSequence = fastqLine.substr(targetOffset, patterns.front()->length());
+            std::array<int, 16> kmerList = count_kmers_fast(targetSequence);
+
+            std::vector<std::shared_ptr<std::string>> possiblePatterns;
+            if(reverse)
+            {
+                if(rvKmerMap.find(kmerList) != rvKmerMap.end())
+                {
+                    possiblePatterns = rvKmerMap[kmerList];
+                }
+                else
+                {
+                    return(false);
+                }
+            }
+            else
+            {
+                if(fwKmerMap.find(kmerList) != fwKmerMap.end())
+                {
+                    possiblePatterns = fwKmerMap[kmerList];
+                }
+                else
+                {
+                    return(false);
+                }
+            }
+
+            if(targetSequence.find('N') == std::string::npos)
+            {
+                patternsToMap = possiblePatterns;
+            }
+        }
+
+        //reduce possible barcodes by kmer filter
+        // every string is encoded in a kmer-array (e.g. [1001001110110201]), then calcualte similariy of these arrays 
+        // looking for kmer-array within a minimum distance, e.g., for 2MM SET_KMERS- 2(every EDIT changes 2 kmers max)*2MM kmers must be same at least
+        kmer_align_patterns(patternsToMap, reverse);
+
+        std::cout << "_________\n";
+        std::cout << "     sequence: " << fastqLine << "\n";
+        for(auto x : patternsToMap)
+        {
+         std::cout << "    PATTERN: " << *x << "\n";
         }
 
         for(size_t patternIdx = 0; patternIdx!= patternsToMap.size(); ++patternIdx)
@@ -373,7 +749,7 @@ class VariableBarcode : public Barcode
             int substNumTmp;
             delNumTmp=insNumTmp=substNumTmp=targetEnd=0;
             //get pattern, its length can vary
-            std::string usedPattern = patternsToMap.at(patternIdx);
+            std::string usedPattern = *(patternsToMap.at(patternIdx));
 
             //define target sequence (can differ for every barcode due to its length)
             std::string target;
@@ -407,7 +783,10 @@ class VariableBarcode : public Barcode
                 }
 
                 bestFoundAlignment = foundAlignment;
-                bestFoundPattern = patternsToStore.at(patternIdx); //the barcode is the TRUE forward barcode, not the reverse complement
+                //bestFoundPattern = patternsToStore.at(patternIdx); //the barcode is the TRUE forward barcode, not the reverse complement
+                if(reverse)
+                {bestFoundPattern = generate_reverse_complement(usedPattern);}
+                else {bestFoundPattern =usedPattern;}
                 bestTargetEnd = targetEnd;
                 bestEditDist = (delNumTmp+insNumTmp+substNumTmp);
                 delNum = delNumTmp;
@@ -417,7 +796,7 @@ class VariableBarcode : public Barcode
                 //if we found a new best match, check if this is already the best match we can ever get (minimal conversion dist between barcodes)
                 if(calculateConversionRate)
                 {
-                    int minConversion = pattern_conversionrates.at(patternsToStore.at(patternIdx));
+                    int minConversion = pattern_conversionrates.at(bestFoundPattern); //patternsToStore.at(patternIdx)
                     //we can do this since levenshtein distance fullfills the triangle inequality is a distance metric
                     //imagine there is a second barcode that could fit better: this second barcode must have a shorter distance to target sequence
                     //than our pattern. Now there r two options 1.) while converting pattern to target we would 'go through' the second barcode. In this
@@ -445,7 +824,7 @@ class VariableBarcode : public Barcode
         return bestFoundAlignment;
     }
 
-    std::vector<std::string> get_patterns()
+    std::vector<std::shared_ptr<std::string>> get_patterns()
     {
         return patterns;
     }
@@ -456,23 +835,31 @@ class VariableBarcode : public Barcode
     bool is_read_end(){return false;}
 
     private:
-        std::vector<std::string> patterns;
-        std::vector<std::string> revCompPatterns;
+        std::vector<std::shared_ptr<std::string>> patterns;
+        std::vector<std::shared_ptr<std::string>> revCompPatterns;
         std::unordered_set<std::string> barcodeSet;
         bool equalLengthBarcodes;
+
+        //map storing all possible barcodes that contain certain base-number combination
+        std::unordered_map<baseNum, std::vector<std::shared_ptr<std::string>>> fwEditBaseNumMap;
+        std::unordered_map<baseNum, std::vector<std::shared_ptr<std::string>>> rvEditBaseNumMap;
+
+        std::unordered_map<std::array<int, 16>, std::vector<std::shared_ptr<std::string>>, ArrayHash> fwKmerMap;
+        std::unordered_map<std::array<int, 16>, std::vector<std::shared_ptr<std::string>>, ArrayHash> rvKmerMap;
+
 
         std::unordered_map<std::string, int> pattern_conversionrates;
         bool calculateConversionRate = false;
 
         // Map: first 5 bases → list of sequences
-        std::unordered_map<std::string, std::vector<std::string>> fwPrefixMap;
-        std::unordered_map<std::string, std::vector<std::string>> rvPrefixMap;
+        //std::unordered_map<std::string, std::vector<std::shared_ptr<std::string>>> fwPrefixMap;
+        //std::unordered_map<std::string, std::vector<std::shared_ptr<std::string>>> rvPrefixMap;
         bool pefixMapCalculated = false;
 
         EdlibAlignConfig config;
 };
 
-class WildcardBarcode : public Barcode
+class WildcardBarcode final : public Barcode
 {
     // TODO: move public parameter mismatches to a private and derived parameter
     //wildcardBarcode doe snot make use of mismatches yet, since anyways we do not know the sequence,
@@ -498,9 +885,9 @@ class WildcardBarcode : public Barcode
         return true;
     }
 
-    std::vector<std::string> get_patterns()
+    std::vector<std::shared_ptr<std::string>> get_patterns()
     {
-        std::vector<std::string> patterns = {std::string(length, 'X')};
+        std::vector<std::shared_ptr<std::string>> patterns = {std::make_shared<std::string>(std::string(length, 'X'))};
         return patterns;
     }
     bool is_wildcard(){return true;}
@@ -513,7 +900,7 @@ class WildcardBarcode : public Barcode
 
 //A stop-barcode: mapping on both sides is only done up to here
 //the name ('*') is not writen into the output file
-class StopBarcode : public Barcode
+class StopBarcode final : public Barcode
 {
     public:
     StopBarcode(std::string inPattern, int inMismatches) : Barcode("*", inMismatches),pattern(inPattern) {}
@@ -536,9 +923,9 @@ class StopBarcode : public Barcode
 
             return false;
         }
-    std::vector<std::string> get_patterns()
+    std::vector<std::shared_ptr<std::string>> get_patterns()
     {
-        std::vector<std::string> patterns = {pattern};
+        std::vector<std::shared_ptr<std::string>> patterns = {std::make_shared<std::string>(pattern)};
         return patterns;
     }
     bool is_wildcard(){return false;}
@@ -553,7 +940,7 @@ class StopBarcode : public Barcode
 
 //A stop-barcode: mapping on both sides is only done up to here
 //the name ('*') is not writen into the output file
-class ReadSeperatorBarcode : public Barcode
+class ReadSeperatorBarcode final : public Barcode
 {
     public:
     ReadSeperatorBarcode(std::string inPattern, int inMismatches) : Barcode("-", inMismatches),pattern(inPattern) {}
@@ -576,9 +963,9 @@ class ReadSeperatorBarcode : public Barcode
 
             return false;
         }
-    std::vector<std::string> get_patterns()
+    std::vector<std::shared_ptr<std::string>> get_patterns()
     {
-        std::vector<std::string> patterns = {pattern};
+        std::vector<std::shared_ptr<std::string>> patterns = {std::make_shared<std::string>(pattern)};
         return patterns;
     }
     bool is_wildcard(){return false;}
@@ -594,7 +981,7 @@ class ReadSeperatorBarcode : public Barcode
 //barcode representing a genomic region. We can set the number of mismatches or when set to -1 simply run it with default
 //star settings
 //pattern is simply "DNA"
-class DNABarcode : public Barcode
+class DNABarcode final : public Barcode
 {
     public:
     DNABarcode(int inMismatches = -1) : Barcode("DNA", inMismatches) {pattern = "DNA";}
@@ -617,9 +1004,9 @@ class DNABarcode : public Barcode
 
             return false;
         }
-    std::vector<std::string> get_patterns()
+    std::vector<std::shared_ptr<std::string>> get_patterns()
     {
-        std::vector<std::string> patterns = {pattern};
+        std::vector<std::shared_ptr<std::string>> patterns = {std::make_shared<std::string>(pattern)};
         return patterns;
     }
     bool is_wildcard(){return false;}
@@ -716,13 +1103,21 @@ class BarcodePattern
         static BarcodeVectorPtr copy_barcode_vector(const BarcodeVectorPtr& original) 
         {
             if (!original) return nullptr;
-            auto copy = std::make_shared<BarcodeVector>();
+            std::shared_ptr<BarcodeVector> copy = std::make_shared<BarcodeVector>();
             copy->reserve(original->size());
-            for (const auto& barcode : *original) 
+            for (const BarcodePtr& barcode : *original) 
             {
-                copy->push_back(barcode ? barcode->clone() : nullptr);
+                if (barcode) 
+                {
+                    // clone() returns a std::shared_ptr<Barcode>
+                    std::shared_ptr<Barcode> clonedBarcode = barcode->clone();
+                    copy->push_back(clonedBarcode);
+                } else 
+                {
+                    // still push a nullptr if the original was nullptr
+                    copy->push_back(nullptr);
+                }
             }
-
             return copy;
         }
 };

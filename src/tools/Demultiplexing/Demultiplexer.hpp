@@ -16,11 +16,16 @@ class Demultiplexer : private Mapping<MappingPolicy, FilePolicy>
 {
     private:
 
-        void demultiplex_wrapper(const std::pair<fastqLine, fastqLine>& line,
+        /*void demultiplex_wrapper(const std::pair<fastqLine, fastqLine>& line,
                                 const input& input,
-                                const unsigned long long lineCount,
+                                std::atomic<int>& lineCount,
                                 const unsigned long long& totalReadCount,
-                                std::atomic<long long int>& elementsInQueue);
+                                std::atomic<long long int>& elementsInQueue);*/
+        void demultiplex_wrapper_batch(const std::vector<std::pair<fastqLine, fastqLine>>& line_vector,
+                                                const input& input,
+                                                std::atomic<int>& lineCount,
+                                                const unsigned long long& totalReadCount,
+                                                std::atomic<long long int>& elementsInQueue);
         void run_mapping(const input& input);
 
         //map to store the temporary output files (e.g., for RAM efficient laptop usage)
@@ -38,10 +43,11 @@ class Demultiplexer : private Mapping<MappingPolicy, FilePolicy>
         {
             MultipleBarcodePatternVectorPtr origional = this->get_barcode_pattern();
             MultipleBarcodePatternVectorPtr copy = std::make_shared<std::vector<BarcodePatternPtr>>();
+
             for (const auto& pattern : *origional)
             {
-                BarcodePatternPtr patternCopy(pattern);
-                copy->push_back(pattern ? patternCopy : nullptr);
+                BarcodePatternPtr patternCopyPtr = std::make_shared<BarcodePattern>(*pattern);
+                copy->push_back(pattern ? patternCopyPtr : nullptr);
             }
 
             std::unique_lock<std::mutex> threadFillLock(*threadFillMutex);

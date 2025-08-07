@@ -188,12 +188,14 @@ class ExtractLinesFromFastqFilePolicy
             if(totalReads == ULLONG_MAX)
             {
                 std::cout << "WARNING: Analysing more than " << std::to_string(ULLONG_MAX) << " reads. There will be no status update\n";
+                kseq_destroy(ks); //chatty suggest
                 gzrewind(fp);
                 ks = kseq_init(fp);
                 return;
             }
             ++totalReads;
         }
+        kseq_destroy(ks); //chatty suggest
         gzrewind(fp);
         ks = kseq_init(fp);
     }
@@ -348,7 +350,7 @@ class Mapping : protected MappingPolicy, protected FilePolicy
                               DemultiplexedLine& demultiplexedLine,
                               BarcodePatternPtr pattern,
                               const input& input, 
-                              const unsigned long long& count, const unsigned long long& totalReadCount,
+                              std::atomic<int>& count, const unsigned long long& totalReadCount,
                               int& mmScore,
                               OneLineDemultiplexingStatsPtr stats);
 

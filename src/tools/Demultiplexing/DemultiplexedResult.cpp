@@ -4,72 +4,97 @@ void DemultiplexedResult::concatenateFiles(const std::vector<std::string>& tmpFi
 {
     for (const std::string& file : tmpFileList) 
     {
-        std::ifstream in(file, std::ios::in | std::ios::binary);  // Read written files
+        std::ifstream in(file, std::ios::in| std::ios::binary);  // Read written files
         if (!in) 
         {
             std::cerr << "Error opening input file: " << file << "\n";
             continue;
         }
 
+        //get content as string
+        std::ostringstream buffer;
+        buffer << in.rdbuf();  
+        std::string content = buffer.str();
+        in.close();
+
         //write temporary file into final file
-        std::ofstream out(outputFile, std::ios::app | std::ios::binary);  // Final output file
-        out << in.rdbuf();
+        std::ofstream out(outputFile, std::ios::app);  // Final output file
+        out.write(content.c_str(), content.size());
         out.close();
 
-        in.close();
         // Delete the temporary file
         if (std::remove(file.c_str()) != 0) 
         {
-        std::cerr << "Error: Could not delete " << file << std::endl;
+            std::cerr << "Error: Could not delete " << file << std::endl;
         }
     }
 }
 
-void DemultiplexedResult::update_stats(OneLineDemultiplexingStatsPtr lineStatsPtr, bool result, std::string& foundPatternName, std::vector<std::string>& barcodeList)
+void DemultiplexedResult::update_stats(std::shared_ptr<DemultiplexingStats> threadTmpStats, OneLineDemultiplexingStatsPtr lineStatsPtr, 
+                                       bool result, std::string& foundPatternName, std::vector<std::string>& barcodeList)
 {
-    dxStat.update(lineStatsPtr, result, foundPatternName, barcodeList);
+    threadTmpStats->update(lineStatsPtr, result, foundPatternName, barcodeList);
 }
 
 //writes the dna (fastq) and barcode (tsv) data
-void DemultiplexedResult::write_dna_line(TmpPatternStream& dnaLineStream, const DemultiplexedLine& demultiplexedLine, const boost::thread::id& threadID)
+void DemultiplexedResult::write_dna_line(TmpPatternStream& dnaLineStream, std::ostringstream& lineBuffer, const DemultiplexedLine& demultiplexedLine, const boost::thread::id& threadID)
 {
-    std::shared_ptr<std::ofstream> barcodeStream = dnaLineStream.barcodeStream;
-    std::shared_ptr<std::ofstream> dnaStream = dnaLineStream.dnaStream;
+    //write RNA data to dnaBuffer (FASTQ)
+    lineBuffer << "@" << threadID << "_" << ++dnaLineStream.lineNumber << "_" << demultiplexedLine.readName << "\t";
 
-    //create a read ID (threadID and fastq line number)
-    unsigned long readCount = ++dnaLineStream.lineNumber;
-    std::ostringstream oss;
-    oss << threadID;
-    std::string threadIDString = oss.str();
-    std::string lineName =  threadIDString + "_" + std::to_string(readCount) + "_" + demultiplexedLine.dnaName;
-    
-    //write RNA data to dnaStream (FASTQ)
-    *dnaStream << "@" << lineName << "\n";
-    *dnaStream << demultiplexedLine.dna << "\n";
-    *dnaStream << "+\n";
-    *dnaStream << demultiplexedLine.dnaQuality << "\n";
+    lineBuffer << demultiplexedLine.dna << "\n";
+    lineBuffer << "+\n";
+    lineBuffer << demultiplexedLine.dnaQuality << "\n";
+}
 
-    //write barcode data to barcodeStream (tsv)
-    // entries: 1.) ReadName (WITHOUT @, this is only for fastq and is also removed during mapping with STAR) 2.) mapped barcodes
-    *barcodeStream << lineName << "\t";
-    size_t i = 0;
-    for(const std::string& barcode : demultiplexedLine.barcodeList)
+void DemultiplexedResult::write_barcode_line(TmpPatternStream& barcodeLineStream, std::ostringstream& lineBuffer, 
+                                             const DemultiplexedLine& demultiplexedLine, const boost::thread::id& threadID)
+{
+    // Build the line in a temporary buffer
+    lineBuffer << threadID << "_" << ++barcodeLineStream.lineNumber << "_" << demultiplexedLine.readName << "\t";
+    for (size_t i = 0; i < demultiplexedLine.barcodeList.size(); ++i) 
     {
-        *barcodeStream << barcode;
-        if(++i < demultiplexedLine.barcodeList.size())
+        lineBuffer << demultiplexedLine.barcodeList[i];
+        if (i + 1 < demultiplexedLine.barcodeList.size()) 
         {
-            *barcodeStream << "\t";
-        }
-        else
-        {
-            *barcodeStream << "\n";
+            lineBuffer << "\t";
+        } else {
+            lineBuffer << "\n";
         }
     }
-    
+}
+
+void DemultiplexedResult::write_demultiplexed_batch(TmpPatternStream& lineStream, const DemultiplexedReads& demultiplexedBatch, const boost::thread::id& threadID, const bool containsDNA)
+{
+    const std::vector<DemultiplexedLine>& lines = demultiplexedBatch.get_all_reads();
+
+    //write barcodes to temporary files
+    std::ostringstream barcodeLineBuffer; //temporary buffer for the batch of demultiplexed lines
+    for(const DemultiplexedLine& line : lines)
+    {
+        //local buffer to save the whole batch of demultiplexed lines
+        write_barcode_line(lineStream, barcodeLineBuffer, line, threadID);
+    }
+    // Write the full line in one go (one I/O call)
+    *(lineStream.barcodeStream) << barcodeLineBuffer.str();
+    (lineStream.barcodeStream)->flush();
+
+    //if dna is present write it to seperate file
+    if(containsDNA)
+    {
+        std::ostringstream dnaLineBuffer;
+        for(const DemultiplexedLine& line : lines)
+        {
+            write_dna_line(lineStream,dnaLineBuffer, line, threadID);
+        }
+        *(lineStream.dnaStream) << dnaLineBuffer.str();
+        (lineStream.dnaStream)->flush();
+    }
 }
 
 void DemultiplexedResult::close_and_concatenate_fileStreams(const input& input)
 {
+
     //1.) CLOSE all file streams
     //iterate over all threads
     for (auto threadID_patternStreamMap_pair : tmpStreamMap) 
@@ -87,18 +112,22 @@ void DemultiplexedResult::close_and_concatenate_fileStreams(const input& input)
         //CLOSE DNA-LINE STREAMS: for failed (DNA, barcode-tsv)-pair we have one file per pattern (with DNA)
         for (auto patternStreams_pair : threadID_patternStreamMap_pair.second) 
         {
+            //close barcode stream if existing
+            std::shared_ptr<std::ofstream> barcodeStream = get_barcodeStream_for_threadID_at(threadID_patternStreamMap_pair.first, patternStreams_pair.first);
+            barcodeStream->close();
+
+            //close DNA stream if existing
             std::shared_ptr<std::ofstream> dnaStream = get_dnaStream_for_threadID_at(threadID_patternStreamMap_pair.first, patternStreams_pair.first);
             if(dnaStream != nullptr)
             {
                 dnaStream->close();
-                std::shared_ptr<std::ofstream> barcodeStream = get_barcodeStream_for_threadID_at(threadID_patternStreamMap_pair.first, patternStreams_pair.first);
-                barcodeStream->close();
             }
         }
     }
 
     //2.) CONCATENATE all files
-    //CONCATENATED FAILED LINES FILES
+    //CONCATENATE FAILED LINES
+    //FAILED LINES FORWARDS
     std::vector<std::string> failedFileListFW;
     //ALWAYS concatenate the failed lines for the first fileFilesName (FW or single-read)
     size_t dotPos = failedLines.first.find_last_of('.');  // Find the last dot
@@ -108,9 +137,8 @@ void DemultiplexedResult::close_and_concatenate_fileStreams(const input& input)
         failedLinesTmpFileNameFW = failedLines.first.substr(0, dotPos) + std::to_string(i) + failedLines.first.substr(dotPos);
         failedFileListFW.push_back(failedLinesTmpFileNameFW);
     }
-
     concatenateFiles(failedFileListFW, failedLines.first);
-    //if we have paired-end also concatenated RV reads
+    //FAILED-LINES REVERSE (if we have paired-end also concatenated RV reads)
     if(failedLines.second != "")
     {
         std::vector<std::string> failedFileListRV;
@@ -123,9 +151,8 @@ void DemultiplexedResult::close_and_concatenate_fileStreams(const input& input)
         }
         concatenateFiles(failedFileListRV, failedLines.second);
     }
-    
-    //CONCATENATED DNA-FILES & BARCODE-FILES
-    //for every pattern, that contains DNA
+
+    //CONCATENATED DEMULTIPLEXED-LINES-FILES
     for(auto fileIt = finalFiles.begin(); fileIt != finalFiles.end(); ++fileIt)
     {
         //only create a temporary stream for a pattern that does contain a DNA region
@@ -136,7 +163,6 @@ void DemultiplexedResult::close_and_concatenate_fileStreams(const input& input)
             std::vector<std::string> barcodeFileList; //tsv files for corersponding fastq files
         
             //list all temporary dna-files (FASTQ)/ barcode-files (tsv) and combine them
-
             for(int i = 0; i < input.threads; ++i)
             {
                 //pattern and thread specific DNA file
@@ -153,6 +179,20 @@ void DemultiplexedResult::close_and_concatenate_fileStreams(const input& input)
             concatenateFiles(dnaFileList, fileIt->second.dnaFile);
             concatenateFiles(barcodeFileList, fileIt->second.barcodeFile);
         }
+        else //concatenate barcode only files
+        {
+            //temporary file vectors
+            std::vector<std::string> barcodeFileList; //tsv files for corersponding fastq files
+        
+            for(int i = 0; i < input.threads; ++i)
+            {
+                //pattern and thread specific barcode file
+                dotPos = fileIt->second.barcodeFile.find_last_of('.');  // Find the last dot
+                std::string barcodeTmpFileName = fileIt->second.barcodeFile.substr(0, dotPos) + std::to_string(i) + fileIt->second.barcodeFile.substr(dotPos);
+                barcodeFileList.push_back(barcodeTmpFileName);
+            }
+            concatenateFiles(barcodeFileList, fileIt->second.barcodeFile);
+        }
     }
 }
 
@@ -162,17 +202,26 @@ void DemultiplexedResult::write_output(const input& input)
     //if tmp files were written (for failed/ DNA&barcode reads)
     close_and_concatenate_fileStreams(input);
 
-    //write all barcode-only files (data is still in memory at this point)
-    for (const auto& [patternName, demultiplexedReadsPtrTmp] : demultiplexedReads) 
-    {
-        write_demultiplexed_barcodes(input, demultiplexedReadsPtrTmp->get_all_reads(), stripQuotes(patternName));
-    }
-    
-    //write the results
+    //write statistics output (already concatenated when demultiplexing ends in demultiplexer)
     if(input.writeStats)
     {
-        dxStat.write(input.outPath, input.prefix, demultiplexedReads.size());
+        //write combined statistics (finalFiles.size() just tells the function if we have one or more patterns, to write until
+        //where we could map for failed lines)
+        finalStat.write(input.outPath, input.prefix, finalFiles.size());
     }
+
+    //write all barcode-only files (data is still in memory at this point)
+    //NO LONGER NEEDED to write at end: we concatenate the tmp-files of threads
+    /*for (const auto& [patternName, demultiplexedReadsPtrTmp] : demultiplexedReads) 
+    {
+        write_demultiplexed_barcodes(input, demultiplexedReadsPtrTmp->get_all_reads(), stripQuotes(patternName));
+    }*/
+    
+    //write the results
+    /*if(input.writeStats)
+    {
+        dxStat.write(input.outPath, input.prefix, demultiplexedReads.size());
+    }*/
 }
 
 //initialize the statistics file/ lines that could not be mapped
@@ -193,7 +242,7 @@ void DemultiplexedResult::initialize_additional_output(const input& input,
         failedLines.second = "";
 
         std::remove(failedLines.first.c_str());
-        std::ofstream failedLineFileFW(failedLines.first.c_str());
+        std::ofstream failedLineFileFW(failedLines.first.c_str(), std::ios::out | std::ios::binary);
         if (!failedLineFileFW) 
         {
             std::cerr << "Error: Could not create " << failedLines.first << "!\n";
@@ -209,7 +258,7 @@ void DemultiplexedResult::initialize_additional_output(const input& input,
         }
         failedLines.first = input.outPath + "/" + failedLinesFWName;
         std::remove(failedLines.first.c_str());
-        std::ofstream failedLineFileFW(failedLines.first.c_str());
+        std::ofstream failedLineFileFW(failedLines.first.c_str(), std::ios::out | std::ios::binary);
         if (!failedLineFileFW) 
         {
             std::cerr << "Error: Could not create " << failedLines.first << "!\n";
@@ -223,7 +272,7 @@ void DemultiplexedResult::initialize_additional_output(const input& input,
         }
         failedLines.second = input.outPath + "/" + failedLinesRVName;
         std::remove(failedLines.second.c_str());
-        std::ofstream failedLineFileRV(failedLines.second.c_str());
+        std::ofstream failedLineFileRV(failedLines.second.c_str(), std::ios::out | std::ios::binary);
         if (!failedLineFileRV) 
         {
             std::cerr << "Error: Could not create " << failedLines.second << "!\n";
@@ -234,11 +283,6 @@ void DemultiplexedResult::initialize_additional_output(const input& input,
 
     // std::ofstream barcodeMMFile(barcodeMismatches.c_str());
     // std::ofstream patternMMFile(patternMismatches.c_str());
-
-    //  initializeStats()
-    dxStat.initializeStats(barcodePatternList);
-
-
 }
 
 //this function only initialized the output files that are needed for a specific pattern
@@ -285,7 +329,8 @@ void DemultiplexedResult::initialize_output_for_pattern(const std::string& outpu
         std::remove(patternOutputs.barcodeFile.c_str());
 
         //for every pattern create a sharedPtr of DemultiplexedReads
-        demultiplexedReads.emplace(pattern->patternName, std::make_shared<DemultiplexedReads>());
+        //demultiplexedReads.emplace(pattern->patternName, std::make_shared<DemultiplexedReads>());
+        
         //STORE OUTPUT-FILE NAMES IN LIST
         finalFiles[pattern->patternName] = patternOutputs;
     }
@@ -293,20 +338,15 @@ void DemultiplexedResult::initialize_output_for_pattern(const std::string& outpu
     //2) WRITE HEADER OF BARCODE DATA   (if barcodes correspont to a fastq, the first column stores the read names)
     //write header line for barcode file: e.g.: [ACGGCATG][BC1.txt][15X]
     std::ofstream barcodeOutputStream;   
-    barcodeOutputStream.open(patternOutputs.barcodeFile, std::ofstream::app);
+    barcodeOutputStream.open(patternOutputs.barcodeFile, std::ios::out | std::ios::binary);
 
-    //store the read name in the first column for DNA reads (to map fastq-alignment to barcodes)
-    if(pattern->containsDNA)
-    {
-        barcodeOutputStream << "READNAME\t";
-    }
-
+    //store the read name in the first column
+    barcodeOutputStream << "READNAME\t";
     //print header for the general pattern
     for(size_t bidx = 0; bidx < (pattern->barcodePattern)->size(); ++bidx)
     {
         BarcodePtr bptr = (pattern->barcodePattern)->at(bidx);
         //stop and DNA pattern should not be written
-
         if( (bptr->name != "*") && (bptr->name != "DNA") && (bptr->name != "-"))
         {
 
@@ -380,6 +420,17 @@ void DemultiplexedResult::initialize(const input& input, const MultipleBarcodePa
     initialize_additional_output(input, barcodePatternList);
 }
 
+//increase buffer sizes for faster writing
+void DemultiplexedResult::increase_buffer_for_stream(std::shared_ptr<std::ofstream> stream)
+{
+    std::unique_lock<std::mutex> fileLock(*threadFileOpenerMutex);
+    const size_t bufSize = ONE_MB;
+    bufferVector.emplace_back(std::make_unique<char[]>(bufSize));
+    stream->rdbuf()->pubsetbuf(bufferVector.back().get(), bufSize);
+    fileLock.unlock();
+}
+
+
 //initializes all TEMPORARY FILES for a single thread ID, those files are counted from 0 to THREADNUM-1
 // (i is the index that is also used as tmp name suffix - the actual thradID is not used in these names, only in the maps)
 void DemultiplexedResult::initialize_tmp_file(const int i)
@@ -396,7 +447,7 @@ void DemultiplexedResult::initialize_tmp_file(const int i)
     {
         // Create an ofstream pointer and open the file
         //tmp-file name is final name + threadID
-        //only create a temporary stream for a pattern that does contain a DNA region
+        //create here a stream for DNA/BARCODE patterns
         if(fileIt->second.dnaFile != "")
         {
             TmpPatternStream tmpStream; // struct storing a stream for barcode(tsv) and DNA(FASTQ)
@@ -404,6 +455,7 @@ void DemultiplexedResult::initialize_tmp_file(const int i)
             dotPos = fileIt->second.barcodeFile.find_last_of('.');  // Find the last dot
             std::string barcodeTmpFileName = fileIt->second.barcodeFile.substr(0, dotPos) + std::to_string(i) + fileIt->second.barcodeFile.substr(dotPos);
             std::shared_ptr<std::ofstream> outFileBarcode = std::make_shared<std::ofstream>(barcodeTmpFileName);
+            increase_buffer_for_stream(outFileBarcode);
             if (!outFileBarcode->is_open()) 
             {
                 std::cerr << "Error opening file: " << fileIt->second.barcodeFile << std::endl;
@@ -416,6 +468,7 @@ void DemultiplexedResult::initialize_tmp_file(const int i)
             dotPos = fileIt->second.dnaFile.find_last_of('.');  // Find the last dot
             std::string dnaTmpFileName = fileIt->second.dnaFile.substr(0, dotPos) + std::to_string(i) + fileIt->second.dnaFile.substr(dotPos);
             std::shared_ptr<std::ofstream> outFileDna = std::make_shared<std::ofstream>(dnaTmpFileName);
+            increase_buffer_for_stream(outFileDna);
             if (!outFileDna->is_open()) 
             {
                 std::cerr << "Error opening file: " << fileIt->second.dnaFile << std::endl;
@@ -425,7 +478,22 @@ void DemultiplexedResult::initialize_tmp_file(const int i)
         
             tmpFileStreams[fileIt->first] = tmpStream;
         }
-
+        else //create stream for patterns with barcodes only, dnaStream stays a nullptr
+        {
+            TmpPatternStream tmpStream; // struct storing a stream for barcode(tsv) and DNA(FASTQ)
+            //TEMPORARY BARCODE-tsv STREAM
+            dotPos = fileIt->second.barcodeFile.find_last_of('.');  // Find the last dot
+            std::string barcodeTmpFileName = fileIt->second.barcodeFile.substr(0, dotPos) + std::to_string(i) + fileIt->second.barcodeFile.substr(dotPos);
+            std::shared_ptr<std::ofstream> outFileBarcode = std::make_shared<std::ofstream>(barcodeTmpFileName);
+            increase_buffer_for_stream(outFileBarcode);
+            if (!outFileBarcode->is_open()) 
+            {
+                std::cerr << "Error opening file: " << fileIt->second.barcodeFile << std::endl;
+                exit(EXIT_FAILURE);
+            }
+            tmpStream.barcodeStream = outFileBarcode;
+            tmpFileStreams[fileIt->first] = tmpStream;
+        }
     }
 
     //TEMPORARY FAILED LINE STREAM
@@ -433,6 +501,7 @@ void DemultiplexedResult::initialize_tmp_file(const int i)
     std::string failedLinesTmpFileName = failedLines.first.substr(0, dotPos) + std::to_string(i) + failedLines.first.substr(dotPos);
     
     std::shared_ptr<std::ofstream> outFileFailedLineFW = std::make_shared<std::ofstream>(failedLinesTmpFileName);
+    increase_buffer_for_stream(outFileFailedLineFW);
     if (!outFileFailedLineFW->is_open()) 
     {
         std::cerr << "Error opening file: " << failedLines.first << std::endl;
@@ -447,6 +516,7 @@ void DemultiplexedResult::initialize_tmp_file(const int i)
         std::string failedLinesTmpFileNameRv = failedLines.second.substr(0, dotPos) + std::to_string(i) + failedLines.second.substr(dotPos);
         
         outFileFailedLineRV = std::make_shared<std::ofstream>(failedLinesTmpFileNameRv);
+        increase_buffer_for_stream(outFileFailedLineRV);
         if (!outFileFailedLineRV->is_open()) 
         {
             std::cerr << "Error opening file: " << failedLines.second << std::endl;
@@ -461,6 +531,10 @@ void DemultiplexedResult::initialize_tmp_file(const int i)
 
     //add the temporary failedLine to map
     failedStreamMap[boost::this_thread::get_id()] = std::make_pair(outFileFailedLineFW, outFileFailedLineRV);
+
+    //add thread-specific statistics
+    statisticsMap[boost::this_thread::get_id()] = std::make_shared<DemultiplexingStats>();
+
     //decrease number of threads that need initialization, when all are initialized we can continue program in main function
     if (*threadToInitializePtr == 0) 
     {
@@ -477,11 +551,22 @@ void DemultiplexedResult::initialize_tmp_file(const int i)
         cvPtr->wait(lock, [&] { return (*threadToInitializePtr) == 0; });
         lock.unlock();
     }
+}
 
+void DemultiplexedResult::initialize_statistiscs( const MultipleBarcodePatternVectorPtr& barcodePatternList)
+{
+    for(const auto& threadStatistics : statisticsMap) 
+    {
+        std::shared_ptr<DemultiplexingStats> stats = threadStatistics.second;
+        stats->initializeStats(barcodePatternList);
+    }
 }
 
 void DemultiplexedResult::initialize_thread_streams(boost::asio::thread_pool& pool, const int threadNum)
 {
+    //create vector that stores all custom sized (1MB) buffers for thread streams
+    bufferVector.resize(4*threadNum);//buffer for threads * (dnaLine, barcodeLine, failedFilesLineFW + RV)
+
     //add the initialiozation fucntion thread times, where every thread waits until threadsStarted is equal
     //the number of threads to initialize every thread exactly once
     for(int i = 0; i < threadNum; ++i)
@@ -494,10 +579,9 @@ void DemultiplexedResult::initialize_thread_streams(boost::asio::thread_pool& po
     std::unique_lock<std::mutex> lock(*threadWaitingMutex);
     cvPtr->wait(lock, [&] { return (*threadToInitializePtr) == 0; });
     lock.unlock();
-
 }
 
-/// write failed lines into a txt file
+/// write ONE failed line into a txt file
 void DemultiplexedResult::write_failed_line(std::pair<std::shared_ptr<std::ofstream>, std::shared_ptr<std::ofstream>>& failedFileStream, const std::pair<fastqLine, fastqLine>& failedLine)
 {
     if(failedFileStream.second == nullptr)
@@ -513,8 +597,34 @@ void DemultiplexedResult::write_failed_line(std::pair<std::shared_ptr<std::ofstr
     }
 }
 
+/// write failed lines into a txt file
+void DemultiplexedResult::write_failed_lines(std::pair<std::shared_ptr<std::ofstream>, std::shared_ptr<std::ofstream>>& failedFileStream, const std::vector<std::pair<fastqLine, fastqLine>>& failedLineBatch)
+{
+    for(const std::pair<fastqLine, fastqLine>& failedLine : failedLineBatch)
+    {
+        if(failedFileStream.second == nullptr)
+        {
+            //for single-read write only first entry into first stream (second is a nullptr)
+            *failedFileStream.first << failedLine.first.line << "\n";
+        }
+        else
+        {
+            //for paired-end sequencing write both reads
+            *failedFileStream.first << failedLine.first.line << "\n";
+            *failedFileStream.second << failedLine.second.line << "\n";
+        }
+    }
+
+    if(failedFileStream.second != nullptr)
+    {
+        failedFileStream.second->flush();
+    }
+    failedFileStream.first->flush();
+}
+
 /// write mapped barcodes to a tab separated file
-void DemultiplexedResult::write_demultiplexed_barcodes(const input& input, BarcodeMappingVector barcodes, const std::string& patternName)
+/*
+void DemultiplexedResult::write_demultiplexed_barcodes(const input& input, std::vector<std::vector<std::string>> barcodes, const std::string& patternName)
 {
     std::string output = input.outPath;
     std::ofstream outputFile;
@@ -539,3 +649,4 @@ void DemultiplexedResult::write_demultiplexed_barcodes(const input& input, Barco
     }
     outputFile.close();
 }
+*/

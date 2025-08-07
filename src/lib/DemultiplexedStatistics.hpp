@@ -61,7 +61,7 @@ class DemultiplexingStats{
         void write(const std::string& directory, const std::string& prefix, const int patternNumber);
 
         //UPDATE FUNCTIONS
-        void update_failedLinesMapping(std::pair<std::string, int> failedFw, std::pair<std::string, int> failedRv)
+        void update_failedLinesMapping(const std::pair<std::string, int>& failedFw, const std::pair<std::string, int>& failedRv)
         {
 
             //if there was an error
@@ -100,7 +100,6 @@ class DemultiplexingStats{
 
         void update_mismatch_types(OneLineDemultiplexingStatsPtr lineStatsPtr, std::string& foundPatternName, std::vector<std::string>& barcodeList)
         {
-
             //key is a combinations of <PATTERN>_<POSITION>_<BARCODE>
             // temporary input (lineStatsPtr->insertions) is a vector of e.g., insertions at every barcode position
             //update insertions
@@ -109,7 +108,7 @@ class DemultiplexingStats{
                 std::string key = foundPatternName + "_" + std::to_string(validBarcodePos) + "_" + barcodeList.at(validBarcodePos);
                 insertions.at(key) += lineStatsPtr->insertions.at(validBarcodePos);
             }
-            
+
             //update deletions
             for (int validBarcodePos : validPositions.at(foundPatternName)) 
             {
@@ -148,6 +147,8 @@ class DemultiplexingStats{
 
             }
         }
+
+        void combine_statistics(std::vector<std::shared_ptr<DemultiplexingStats>>& statisticsList);
 
         //GETTER FUNCTIONS
         ///number of perfect matches
@@ -206,6 +207,4 @@ class DemultiplexingStats{
         //<key> : [0MM, 1MM, 2MM, ..., MAX_MM]
         std::map<std::string, std::vector<int>> mismatchNumber;
 
-        //MUTEX to update class over all threads simultaneously
-        std::unique_ptr<std::mutex> statsLock;
 };

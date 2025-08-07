@@ -10,7 +10,8 @@
 UNAME_S := $(shell uname -s)
 VCPKG_ROOT ?= C:/vcpkg
 
-CXXFLAGS = -O3 -march=native -flto -DNDEBUG -Wall -Wextra -Wsign-compare
+#DNDEBUG
+CXXFLAGS = -O3 -march=native -flto=5 -Wall -Wextra -Wsign-compare -g
 
 #system dependent boost flags
 ifeq ($(UNAME_S),Linux)
@@ -159,16 +160,19 @@ test_multipattern:
 test_demultiplex:
 	#test order on one thread
 	./bin/demultiplex -i ./src/test/test_data/inFastqTest.fastq -o ./bin/ -p ./src/test/test_data/test1Pattern.txt -m ./src/test/test_data/test1MM.txt -t 1 -n TEST -q 1
-	diff ./src/test/test_data/BarcodeMapping_output.tsv ./bin/TEST_TEST1.tsv
+	cut -f2-  ./bin/TEST_TEST1.tsv >  ./bin/TEST_TEST1_cut.tsv
+	diff ./src/test/test_data/BarcodeMapping_output.tsv ./bin/TEST_TEST1_cut.tsv
 	
 	#test order with more threads
 	./bin/demultiplex -i ./src/test/test_data/inFastqTest.fastq -o ./bin -p ./src/test/test_data/pattern.txt -m ./src/test/test_data/mismatches.txt -t 4 -q 1
-	(head -n 1 ./bin/PATTERN_0.tsv && tail -n +2 ./bin/PATTERN_0.tsv | LC_ALL=c sort)  > ./bin/sorted_PATTERN_0.tsv
+	cut -f2-  ./bin/PATTERN_0.tsv >  ./bin/PATTERN_0_cut.tsv
+	(head -n 1 ./bin/PATTERN_0_cut.tsv && tail -n +2 ./bin/PATTERN_0_cut.tsv | LC_ALL=c sort)  > ./bin/sorted_PATTERN_0.tsv
 	diff ./src/test/test_data/test_1/BarcodeMappingSorted_output.tsv ./bin/sorted_PATTERN_0.tsv
 	
 	#test paired end mapping
 	./bin/demultiplex -i ./src/test/test_data/smallTestPair_R1.fastq.gz -r ./src/test/test_data/smallTestPair_R2.fastq.gz -o ./bin -n PairedEndTest -p ./src/test/test_data/test_2/pattern.txt -m ./src/test/test_data/test_2/mismatches.txt -t 1 -q 1
-	diff ./bin/PairedEndTest_PATTERN_0.tsv ./src/test/test_data/test_2/result_pairedEnd.tsv
+	cut -f2-  ./bin/PairedEndTest_PATTERN_0.tsv >  ./bin/PairedEndTest_PATTERN_0_cut.tsv
+	diff ./bin/PairedEndTest_PATTERN_0_cut.tsv ./src/test/test_data/test_2/result_pairedEnd.tsv
 	
 test_umiCollapse:
 	#test for UMI collapsing: needs demultiplex & count
@@ -303,9 +307,11 @@ CITest:
 	./bin/demultiplex -i ./CITestData/CITest_1.fastq.gz -r ./CITestData/CITest_2.fastq.gz -o ./bin/ -n CITEST -p ./CITestData/background_data/pattern.txt -m ./CITestData/background_data/mismatches.txt -t 10 -f 1 -q 1
 
 bigTest2:
-	time ./bin/demultiplex -i ./src/test/test_data/test_input/testBig2.fastq.gz -o ./bin/ -p ./src/test/test_data/test_input/barcodePatternsBig.txt -m ./src/test/test_data/test_input/barcodeMismatchesBig.txt -t 50 -f 1
-bigTest3:
+	time ./bin/demultiplex -i ./src/test/test_data/test_input/testBig2.fastq.gz -o ./bin/ -p ./src/test/test_data/test_input/barcodePatternsBig.txt -m ./src/test/test_data/test_input/barcodeMismatchesBig.txt -t 10 -f 1
+bigTest3_10:
 	time ./bin/demultiplex -i ./src/test/test_data/test_input/testBig3.fastq.gz -o ./bin/ -p ./src/test/test_data/test_input/barcodePatternsBig.txt -m ./src/test/test_data/test_input/barcodeMismatchesBig.txt -t 10 -f 1
+bigTest3_50:
+	time ./bin/demultiplex -i ./src/test/test_data/test_input/testBig3.fastq.gz -o ./bin/ -p ./src/test/test_data/test_input/barcodePatternsBig.txt -m ./src/test/test_data/test_input/barcodeMismatchesBig.txt -t 50 -f 1
 
 #makes no sense since we have only forward reads...
 #make a small test and use fw and rv files
@@ -321,3 +327,6 @@ testUmiqual:
 	./bin/umiqual -i ./src/test/test_data/testSet.txt.gz -o ./bin/processed_out.tsv -t 1 -b ./src/test/test_data/processingBarcodeFile.txt  -c 0,2,3,4 -a ./src/test/test_data/antibody.txt -x 1 -g ./src/test/test_data/treatment.txt -y 2 -u 2
 	(head -n 1 ./bin/UmiQualityCheckprocessed_out.tsv && tail -n +2 ./bin/UmiQualityCheckprocessed_out.tsv | LC_ALL=c sort)  > ./bin/UmiQualityCheckprocessedSorted_out.tsv
 	diff ./bin/UmiQualityCheckprocessedSorted_out.tsv ./src/test/test_data/UmiQualityCheckprocessed_out.tsv
+
+debug_test:
+	./bin/demultiplex -i ./src/test/test_data/inFastqTest.fastq -o ./bin -p ./src/test/test_data/pattern.txt -m ./src/test/test_data/mismatches.txt -t 20 -q 1

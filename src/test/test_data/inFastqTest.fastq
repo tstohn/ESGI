@@ -30,27 +30,27 @@ AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 AGAGATCAGTCAACAGATAAGCGACACATTGATCAT
 +
 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-@@mismatch in wildcard: insertion
+@mismatch in wildcard: insertion
 ATATATCAGTCAACAGATAAGCGACGACGAAAGCGATCAT
 +
 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-@@constant barcode starts later
+@constant barcode starts later
 ATAATCAGTCAACAGATAAGCGACGACGAAAGCGATCAT
 +
 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-@@constant barcode starts later
+@constant barcode starts later
 TCTCGTCAGTCAACAGATAAGCGACGACGAAAGCGATCAT
 +
 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-@@constant barcode which starts exactly after allowed mismatches plus deletion shift at end of previous barcode
+@constant barcode which starts exactly after allowed mismatches plus deletion shift at end of previous barcode
 TCTGGGTCGGTCAACAGATAAGCGACGACGAAAGCGATCAT
 +
 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-@@constant barcode which starts exactly one position after previous one and should therefore not be found anymore
+@constant barcode which starts exactly one position after previous one and should therefore not be found anymore
 TCTAAAAAGTCCGTCAACAGATAAGCGACGACGTAAGCGATCAT
 +
 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-@@enforce elongation
+@enforce elongation
 TCTGGATCAGTCAACAGATAAGCGACGACGTAAGCGATCAT
 +
 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA

@@ -5,6 +5,8 @@
 #include <condition_variable>
 #include <cstdio>  // For std::remove()
 
+#define ONE_MB (1048576) 
+
 //threadID hash to map every thread to its own temporary files to write
 struct thread_id_hash {
     size_t operator()(const boost::thread::id& id) const {
@@ -55,7 +57,8 @@ struct thread_id_hash {
   
           }
           void initialize_thread_streams(boost::asio::thread_pool& pool, const int threadNum);
-  
+          void initialize_statistiscs( const MultipleBarcodePatternVectorPtr& barcodePatternList);
+
           //return the tmp-stream for barcodes of the pattern-name for a threadID
           std::shared_ptr<std::ofstream> get_barcodeStream_for_threadID_at(const boost::thread::id& threadID, const std::string& patternName)
           {
@@ -72,21 +75,27 @@ struct thread_id_hash {
             return(tmpStreamMap.at(threadID).at(patternName));
         }
 
-          //return the tmp-stream for DNA of the pattern-name for a threadID
-          std::pair<std::shared_ptr<std::ofstream>, std::shared_ptr<std::ofstream>> get_failedStream_for_threadID_at(const boost::thread::id& threadID)
-          {
-              return(failedStreamMap.at(threadID));
-          }
+        //return the tmp-stream for DNA of the pattern-name for a threadID
+        std::pair<std::shared_ptr<std::ofstream>, std::shared_ptr<std::ofstream>> get_failedStream_for_threadID_at(const boost::thread::id& threadID)
+        {
+            return(failedStreamMap.at(threadID));
+        }
+
+        //return statistics of thread
+        std::shared_ptr<DemultiplexingStats> get_demultiplexing_stats(const boost::thread::id& threadID)
+        {
+            return(statisticsMap.at(threadID));
+        }
 
           //return the demultiplexed reads for a pattern
-          const BarcodeMappingVector get_demultiplexed_ab_reads(const std::string& patternName)
-          {
-              return(demultiplexedReads.at(patternName)->get_all_reads());
-          }
-          void add_demultiplexed_line(const std::string& patternName, std::vector<std::string>& demultiplexedLineString)
-          {
-            demultiplexedReads.at(patternName)->addVector(demultiplexedLineString);
-          }
+          //const BarcodeMappingVector get_demultiplexed_ab_reads(const std::string& patternName)
+          //{
+          //    return(demultiplexedReads.at(patternName)->get_all_reads());
+          //}
+          //void add_demultiplexed_line(const std::string& patternName, std::vector<std::string>& demultiplexedLineString)
+          //{
+          //  demultiplexedReads.at(patternName)->addVector(demultiplexedLineString);
+          //}
   
           void concatenateFiles(const std::vector<std::string>& tmpFileList, const std::string& outputFile);
           //writing of final files
@@ -94,12 +103,17 @@ struct thread_id_hash {
   
           //write a failed line that is encountered to the tmp-threadFileStreams
           void write_failed_line(std::pair<std::shared_ptr<std::ofstream>, std::shared_ptr<std::ofstream>>& failedFileStream, const std::pair<fastqLine, fastqLine>& failedLine);
-          
+          void write_failed_lines(std::pair<std::shared_ptr<std::ofstream>, std::shared_ptr<std::ofstream>>& failedFileStream, const std::vector<std::pair<fastqLine, fastqLine>>& failedLineBatch);
+
           //write the fastq and barcode data into temporary stream
-          void write_dna_line(TmpPatternStream& dnaLineStream, const DemultiplexedLine& demultiplexedLine, const boost::thread::id& threadID);
+          void write_dna_line(TmpPatternStream& dnaLineStream, std::ostringstream& lineBuffer,
+                              const DemultiplexedLine& demultiplexedLine, const boost::thread::id& threadID);
+          void write_barcode_line(TmpPatternStream& barcodeLineStream, std::ostringstream& lineBuffer, 
+                                  const DemultiplexedLine& demultiplexedLine, const boost::thread::id& threadID);
+          void write_demultiplexed_batch(TmpPatternStream& lineStream, const DemultiplexedReads& demultiplexedBatch, const boost::thread::id& threadID, const bool containsDNA);
 
           //write final files: from memory or by concatenating & deleting tmp-files
-          void write_demultiplexed_barcodes(const input& input, BarcodeMappingVector barcodes, const std::string& patternName);
+          //void write_demultiplexed_barcodes(const input& input, BarcodeMappingVector barcodes, const std::string& patternName);
 
           // 1.) Write DemutltiplexedReads as barcode-files for every pattern
           // 2.) write the 2 mismatch files: a) mismatches per barcode b) mismatches for the different patterns
@@ -108,19 +122,28 @@ struct thread_id_hash {
           // DNa(fastq)&barcode(TSV) file, and delete tmp files (file per thread per dna-pattern)
           void write_output(const input& input);
 
-          void update_stats(OneLineDemultiplexingStatsPtr lineStatsPtr, bool result, std::string& foundPatternName, std::vector<std::string>& barcodeList);
+          void update_stats(std::shared_ptr<DemultiplexingStats> threadTmpStats, OneLineDemultiplexingStatsPtr lineStatsPtr, 
+                            bool result, std::string& foundPatternName, std::vector<std::string>& barcodeList);
   
           unsigned long long get_perfect_matches() const
           {
-            return(dxStat.get_perfect_matches());
+            return(finalStat.get_perfect_matches());
           }
           unsigned long long get_moderat_matches() const
           {
-            return(dxStat.get_moderat_matches());
+            return(finalStat.get_moderat_matches());
           }
           unsigned long long get_failed_matches() const
           {
-            return(dxStat.get_failed_matches());
+            return(finalStat.get_failed_matches());
+          }
+          std::unordered_map<boost::thread::id, std::shared_ptr<DemultiplexingStats>, thread_id_hash>& get_statistics_map()
+          {
+            return(statisticsMap);
+          }
+          void combine_statistics(std::vector<std::shared_ptr<DemultiplexingStats>> statslist)
+          {
+            finalStat.combine_statistics(statslist);
           }
 
       private:
@@ -131,9 +154,8 @@ struct thread_id_hash {
           void initialize(const input& input, const MultipleBarcodePatternVectorPtr& barcodePatternList);
           void initialize_tmp_file(const int i);
 
-          //maps a patternName to a list of all demultipelx-reads found for this pattern
-          std::unordered_map<std::string, DemultiplexedReadsPtr> demultiplexedReads;
-  
+          void increase_buffer_for_stream(std::shared_ptr<std::ofstream> stream);
+
           //map of patternName to FinalPattern file struct 
           // the struct stores the names of the files per pattern: a demultiplexed barcode file or
           // (if DNA is contained) a fastq and a TSV file (TSV storing the barcodes with read name) 
@@ -144,10 +166,13 @@ struct thread_id_hash {
           //maps threadID -> list of streams for all patterns (ordered)
           std::unordered_map<boost::thread::id, std::unordered_map<std::string, TmpPatternStream>, thread_id_hash> tmpStreamMap;
           std::unordered_map<boost::thread::id, std::pair<std::shared_ptr<std::ofstream>,std::shared_ptr<std::ofstream>>, thread_id_hash> failedStreamMap;
-         
+          //buffers for temporary files, we create buffer bigger than default for faster writing (1MB)
+          std::vector<std::unique_ptr<char[]>> bufferVector;
+
           //data structures storing statistics: this is filled in DemultiplexerResult after reads have been mapped
           //in the mapping (BarcodeMapping.cpp) we fill a temporary object for one line
-          DemultiplexingStats dxStat;
+          DemultiplexingStats finalStat;
+          std::unordered_map<boost::thread::id, std::shared_ptr<DemultiplexingStats>, thread_id_hash> statisticsMap;
   
           //data structures for initialization of thread-specific temporary files
           std::unique_ptr<std::mutex> threadFileOpenerMutex;  //locking writing access to the above tmpStreamMap
