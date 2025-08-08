@@ -76,8 +76,8 @@ void DemultiplexedResult::write_demultiplexed_batch(TmpPatternStream& lineStream
         write_barcode_line(lineStream, barcodeLineBuffer, line, threadID);
     }
     // Write the full line in one go (one I/O call)
+    lineStream.barcodeStream->open(lineStream.barcodeFilePath, std::ios::app);
     *(lineStream.barcodeStream) << barcodeLineBuffer.str();
-    (lineStream.barcodeStream)->flush();
 
     //if dna is present write it to seperate file
     if(containsDNA)
@@ -88,8 +88,9 @@ void DemultiplexedResult::write_demultiplexed_batch(TmpPatternStream& lineStream
             write_dna_line(lineStream,dnaLineBuffer, line, threadID);
         }
         *(lineStream.dnaStream) << dnaLineBuffer.str();
-        (lineStream.dnaStream)->flush();
     }
+
+    lineStream.barcodeStream->close();
 }
 
 void DemultiplexedResult::close_and_concatenate_fileStreams(const input& input)
@@ -226,8 +227,7 @@ void DemultiplexedResult::write_output(const input& input)
 
 //initialize the statistics file/ lines that could not be mapped
 //FILES: mismatches per barcode / mismatches per barcodePattern/ failedLines
-void DemultiplexedResult::initialize_additional_output(const input& input, 
-                                                       const MultipleBarcodePatternVectorPtr& barcodePatternList)
+void DemultiplexedResult::initialize_additional_output(const input& input)
 {
 
     //we need to initialize 1 or 2 files for failed lines - depending on paired/ single read
@@ -417,7 +417,7 @@ void DemultiplexedResult::initialize(const input& input, const MultipleBarcodePa
     // 2 statistics files: mismatches per pattern, and mismatches in barcodes
     // file with failed lines
     
-    initialize_additional_output(input, barcodePatternList);
+    initialize_additional_output(input);
 }
 
 //increase buffer sizes for faster writing
@@ -462,6 +462,7 @@ void DemultiplexedResult::initialize_tmp_file(const int i)
                 exit(EXIT_FAILURE);
             }
             tmpStream.barcodeStream = outFileBarcode;
+            tmpStream.barcodeFile = barcodeTmpFileName;
 
             //TEMPORARY DNA STREAM
             //tmp-file name is final name + threadID
@@ -475,7 +476,8 @@ void DemultiplexedResult::initialize_tmp_file(const int i)
                 exit(EXIT_FAILURE);
             }
             tmpStream.dnaStream = outFileDna;
-        
+            tmpStream.dnaFile = dnaTmpFileName;
+
             tmpFileStreams[fileIt->first] = tmpStream;
         }
         else //create stream for patterns with barcodes only, dnaStream stays a nullptr
@@ -493,6 +495,7 @@ void DemultiplexedResult::initialize_tmp_file(const int i)
             }
             tmpStream.barcodeStream = outFileBarcode;
             tmpFileStreams[fileIt->first] = tmpStream;
+            tmpStream.barcodeFile = barcodeTmpFileName;
         }
     }
 

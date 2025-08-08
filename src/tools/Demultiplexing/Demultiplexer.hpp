@@ -23,7 +23,7 @@ class Demultiplexer : private Mapping<MappingPolicy, FilePolicy>
                                 std::atomic<long long int>& elementsInQueue);*/
         void demultiplex_wrapper_batch(const std::vector<std::pair<fastqLine, fastqLine>>& line_vector,
                                                 const input& input,
-                                                std::atomic<int>& lineCount,
+                                                std::atomic<unsigned long long>& lineCount,
                                                 const unsigned long long& totalReadCount,
                                                 std::atomic<long long int>& elementsInQueue);
         void run_mapping(const input& input);

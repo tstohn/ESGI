@@ -21,6 +21,10 @@ struct thread_id_hash {
   {
       std::shared_ptr<std::ofstream> barcodeStream = nullptr;
       std::shared_ptr<std::ofstream> dnaStream = nullptr;
+
+      std::string barcodeFile;
+      std::string dnaFile;
+      
       unsigned long lineNumber = 0;
   };
   
@@ -148,7 +152,7 @@ struct thread_id_hash {
 
       private:
   
-          void initialize_additional_output(const input& input, const MultipleBarcodePatternVectorPtr& barcodePatternList);
+          void initialize_additional_output(const input& input);
           void initialize_output_for_pattern(const std::string& output, const std::string& prefix, const BarcodePatternPtr pattern);
           //initializes the files for output
           void initialize(const input& input, const MultipleBarcodePatternVectorPtr& barcodePatternList);

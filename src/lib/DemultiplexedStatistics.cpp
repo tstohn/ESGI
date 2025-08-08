@@ -513,7 +513,7 @@ void DemultiplexingStats::combine_statistics(std::vector<std::shared_ptr<Demulti
     validPositions = statisticsList.front()->validPositions;
 
     //iterate through all stats and update the final version
-    for(const std::shared_ptr<DemultiplexingStats> tmpStatPtr : statisticsList)
+    for(const std::shared_ptr<DemultiplexingStats>& tmpStatPtr : statisticsList)
     {
         //HOW FAR IN A PATTERN COULD WE MAP (IF WE HAVE ONE PATTERN ONLY)
         for (const auto& [key, value] : tmpStatPtr->failedLinesMappingFw) 

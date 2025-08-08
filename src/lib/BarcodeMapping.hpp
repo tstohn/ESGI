@@ -350,7 +350,7 @@ class Mapping : protected MappingPolicy, protected FilePolicy
                               DemultiplexedLine& demultiplexedLine,
                               BarcodePatternPtr pattern,
                               const input& input, 
-                              std::atomic<int>& count, const unsigned long long& totalReadCount,
+                              std::atomic<unsigned long long>& count, const unsigned long long& totalReadCount,
                               int& mmScore,
                               OneLineDemultiplexingStatsPtr stats);
 

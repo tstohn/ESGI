@@ -23,9 +23,9 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper(const std::pa
     OneLineDemultiplexingStatsPtr finalLineStatsPtr; //result for a single line
     int bestPatternScore = std::numeric_limits<int>::max();
 
-    //map every pattern and save the overall score per pattern 
-    //*this->get_barcode_pattern() for global pattern that is shared
-    //*(thread_pattern[boost::this_thread::get_id()])
+    // map every pattern and save the overall score per pattern 
+    // *this->get_barcode_pattern() for global pattern that is shared
+    // *(thread_pattern[boost::this_thread::get_id()])
 
     for(BarcodePatternPtr pattern : *(thread_pattern[boost::this_thread::get_id()]) )
     {
@@ -101,7 +101,7 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper(const std::pa
 template <typename MappingPolicy, typename FilePolicy>
 void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper_batch(const std::vector<std::pair<fastqLine, fastqLine>>& line_vector,
                                                                     const input& input,
-                                                                    std::atomic<int>& lineCount,
+                                                                    std::atomic<unsigned long long>& lineCount,
                                                                     const unsigned long long& totalReadCount,
                                                                     std::atomic<long long int>& elementsInQueue)
 {
@@ -114,7 +114,7 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper_batch(const s
     //mapping pattern name -> DemultipelxedReads (batch of lines)
     std::unordered_map<std::string, DemultiplexedReads> demultiplexedBatch;
     //initialize result for all patterns
-    for(const BarcodePatternPtr pattern : *patternVectorPtr)
+    for(const BarcodePatternPtr& pattern : *patternVectorPtr)
     {
         demultiplexedBatch.emplace(pattern->patternName, DemultiplexedReads(line_vector.size()));
     }
@@ -218,7 +218,7 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper_batch(const s
 
     //NEW BATCH WRITING FUNCTIONS
     //write found lines
-    for(const BarcodePatternPtr pattern : *patternVectorPtr)
+    for(const BarcodePatternPtr& pattern : *patternVectorPtr)
     {
         fileWriter->write_demultiplexed_batch(fileWriter->get_streams_for_threadID(boost::this_thread::get_id(), pattern->patternName), 
                                               demultiplexedBatch.at( pattern->patternName), 
@@ -238,8 +238,6 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper_batch(const s
 template <typename MappingPolicy, typename FilePolicy>
 void Demultiplexer<MappingPolicy, FilePolicy>::run_mapping(const input& input)
 {
-    std::cout << "START DEMULTIPLEXING\n";
-
     //generate a pool of threads
     boost::asio::thread_pool pool(input.threads); //create thread pool
     //initialize thread-dependent tmp files
@@ -257,7 +255,7 @@ void Demultiplexer<MappingPolicy, FilePolicy>::run_mapping(const input& input)
     //read line by line and add to thread pool
     this->FilePolicy::init_file(input.inFile, input.reverseFile);
     std::pair<fastqLine, fastqLine> line;
-    std::atomic<int> lineCount = 0; //using atomic<int> as thread safe read count
+    std::atomic<unsigned long long> lineCount = 0; //using atomic<int> as thread safe read count
     std::atomic<long long int> elementsInQueue(0);
     unsigned long long totalReadCount = FilePolicy::get_read_number();
 
@@ -274,51 +272,53 @@ void Demultiplexer<MappingPolicy, FilePolicy>::run_mapping(const input& input)
         boost::asio::post(pool, std::bind(&Demultiplexer::demultiplex_wrapper, this, line, input, ++lineCount, totalReadCount, std::ref(elementsInQueue)));
     }*/
 
-//btch processing of lines (better for thread scheduling)
-// by default we parse 100K lines, making a batch size of 100 lines for 10 threads
-int batchSize = input.fastqReadBucketSize/ (input.threads*100);
-std::vector<std::pair<fastqLine, fastqLine>> lineBatch;
-lineBatch.reserve(batchSize); // e.g., batchSize = 100
-while (FilePolicy::get_next_line(line)) 
-{
-    lineBatch.push_back(std::move(line));
-    ++elementsInQueue;
-
-    if (lineBatch.size() == batchSize) 
+    std::cout << "START DEMULTIPLEXING\n";
+    //btch processing of lines (better for thread scheduling)
+    // by default we parse 100K lines, making a batch size of 100 lines for 10 threads
+    // benchmarked for a factor of 1, 10, 100. 100 gave best performance
+    unsigned long batchSize = input.fastqReadBucketSize/ (input.threads * 1000);
+    std::vector<std::pair<fastqLine, fastqLine>> lineBatch;
+    lineBatch.reserve(batchSize); // e.g., batchSize = 100
+    while (FilePolicy::get_next_line(line)) 
     {
-        // wait if we exceed the queue size limit
-        if (input.fastqReadBucketSize > 0) 
-        {
-            while (input.fastqReadBucketSize <= elementsInQueue.load()) {}
-        }
+        lineBatch.push_back(std::move(line));
+        ++elementsInQueue;
 
+        if (lineBatch.size() == batchSize) 
+        {
+            // wait if we exceed the queue size limit
+            if (input.fastqReadBucketSize > 0) 
+            {
+                while (input.fastqReadBucketSize <= elementsInQueue.load()) {}
+            }
+
+            boost::asio::post(pool, std::bind(
+                &Demultiplexer::demultiplex_wrapper_batch,
+                this,
+                std::move(lineBatch),
+                input,
+                std::ref(lineCount), // starting line number
+                totalReadCount,
+                std::ref(elementsInQueue)
+            ));
+
+            lineBatch.clear();
+            lineBatch.reserve(batchSize);
+        }
+    }
+    // Handle any remaining lines
+    if (!lineBatch.empty()) {
+        ++elementsInQueue;
         boost::asio::post(pool, std::bind(
             &Demultiplexer::demultiplex_wrapper_batch,
             this,
             std::move(lineBatch),
             input,
-            std::ref(lineCount), // starting line number
+            std::ref(lineCount),
             totalReadCount,
             std::ref(elementsInQueue)
         ));
-
-        lineBatch.clear();
-        lineBatch.reserve(batchSize);
     }
-}
-// Handle any remaining lines
-if (!lineBatch.empty()) {
-    ++elementsInQueue;
-    boost::asio::post(pool, std::bind(
-        &Demultiplexer::demultiplex_wrapper_batch,
-        this,
-        std::move(lineBatch),
-        input,
-        std::ref(lineCount),
-        totalReadCount,
-        std::ref(elementsInQueue)
-    ));
-}
 
     //iterate through the barcode map and let threads 
     pool.join();
@@ -328,7 +328,7 @@ if (!lineBatch.empty()) {
     {
         //combine statistics before writing results
         std::vector<std::shared_ptr<DemultiplexingStats>> statsList;
-        for (const std::pair<boost::thread::id, std::shared_ptr<DemultiplexingStats>>& threadStatPair : this->fileWriter->get_statistics_map()) 
+        for (const std::pair<boost::thread::id, std::shared_ptr<DemultiplexingStats>> threadStatPair : this->fileWriter->get_statistics_map()) 
         {
             statsList.push_back(threadStatPair.second);
         }
@@ -351,6 +351,7 @@ void Demultiplexer<MappingPolicy, FilePolicy>::run(const input& input)
 
     //from the basic information within patterns generate a more complex barcodePattern object
     //which stores for each pattern all possible barcodes, number of mismatches etc.
+    std::cout << "Initializing barcode pattern\n";
     this->generate_barcode_patterns(input);
 
     //create output files and write headers for demultiplexed barcodes

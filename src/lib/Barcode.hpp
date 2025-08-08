@@ -22,6 +22,9 @@ typedef std::shared_ptr<BarcodeVector> BarcodeVectorPtr;
 constexpr bool FORWARD = false;
 constexpr bool REVERSE = true;
 
+using KmerArray = std::array<int, 16>;
+constexpr int KMER = 2;
+
 enum class PatternType 
 {
     Forward,
@@ -202,6 +205,7 @@ class ConstantBarcode final : public Barcode
         std::string revCompPattern;
         EdlibAlignConfig config;
 };
+
 class VariableBarcode final : public Barcode 
 {
 
@@ -226,7 +230,7 @@ class VariableBarcode final : public Barcode
         //instant look-up table for perfect barcodes
         equalLengthBarcodes = true;
         size_t lengthOne = patterns.at(0)->size();
-        for (const std::shared_ptr<std::string> pattern : patterns) 
+        for (const std::shared_ptr<std::string>& pattern : patterns) 
         {
             if (pattern->size() != lengthOne) 
             {
@@ -236,7 +240,7 @@ class VariableBarcode final : public Barcode
         }
         if(equalLengthBarcodes)
         {
-            for (const std::shared_ptr<std::string> ptr : patterns)
+            for (const std::shared_ptr<std::string>& ptr : patterns)
             {
                 barcodeSet.insert(*ptr);  // Dereference the shared_ptr
             }
@@ -327,6 +331,7 @@ class VariableBarcode final : public Barcode
     //given a certain number of MM
     void calculate_baseNum_hash()
     {
+        std::cout << "    * Calculating base numbers in barcodes\n";
         //create all possible baseNum combinations: this is the lookup hash that gets filled below
         //same for fw and rv since it contains all possibilities
         std::vector<baseNum> possibleBaseNumVector;
@@ -344,9 +349,9 @@ class VariableBarcode final : public Barcode
         //for all possible basenum-combinations above, check which one can be converted into each other given MM
         //and create a final map of possible barcodes given a baseNum
         fwEditBaseNumMap = fwBaseNumMap;
-        for(int i = 0; i < (possibleBaseNumVector.size()-1); ++i)
+        for(size_t i = 0; i < (possibleBaseNumVector.size()-1); ++i)
         {
-            for(int j = i+1; j < possibleBaseNumVector.size(); ++j)
+            for(size_t j = i+1; j < possibleBaseNumVector.size(); ++j)
             {
                 if(compare_baseNums(possibleBaseNumVector.at(i), possibleBaseNumVector.at(j), mismatches))
                 {
@@ -368,9 +373,9 @@ class VariableBarcode final : public Barcode
         //for all possible basenum-combinations above, check which one can be converted into each other given MM
         //and create a final map of possible barcodes given a baseNum
         rvEditBaseNumMap = rvBaseNumMap;
-        for(int i = 0; i < (possibleBaseNumVector.size()-1); ++i)
+        for(size_t i = 0; i < (possibleBaseNumVector.size()-1); ++i)
         {
-            for(int j = i+1; j < possibleBaseNumVector.size(); ++j)
+            for(size_t j = i+1; j < possibleBaseNumVector.size(); ++j)
             {
                 if(compare_baseNums(possibleBaseNumVector.at(i), possibleBaseNumVector.at(j), mismatches))
                 {
@@ -401,14 +406,14 @@ class VariableBarcode final : public Barcode
     }
 
     // Count 2-mers in a sequence into a 16-element array
-    std::array<int, 16> count_kmers_fast(const std::string& seq) 
+    KmerArray count_kmers_fast(const std::string& seq) 
     {
-        std::array<int, 16> counts = {0};
-        const int k = 2;
-        if (seq.size() < k) return counts;
+        KmerArray counts = {0};
+        if (seq.size() < KMER) return counts;
 
-        for (size_t i = 0; i <= seq.size() - k; ++i) {
-            int idx = encode_kmer(seq.substr(i, k));
+        for (size_t i = 0; i <= seq.size() - KMER; ++i) 
+        {
+            int idx = encode_kmer(seq.substr(i, KMER));
             if (idx >= 0)
                 counts[idx]++;
         }
@@ -416,11 +421,14 @@ class VariableBarcode final : public Barcode
     }
 
     // Check if two k-mer profiles are within mismatch threshold
-    bool kmers_within_distance(const std::array<int, 16>& a,
-                            const std::array<int, 16>& b,
-                            int mismatches) 
-                            {
-        int max_diff = mismatches * 2 * 2;
+    //threshold is MM * 2(2kmers are removed) * 2(2new kmers appear)
+    //for a 16bp long barcode there are 15 kmers, this makes a max dist of 30 for 2 barcodes
+    //and for 3MM a maximum distance of 3*2*2==12 
+    bool kmers_within_distance(const KmerArray& a,
+                               const KmerArray& b,
+                               int mismatches) 
+    {
+        int max_diff = mismatches * KMER * 2; //difference is mismtaches * number of kmers that r effected=KMER * 2(for the kmers that are removed, and the ones that r created)
         int total_diff = 0;
         for (int i = 0; i < 16 && total_diff <= max_diff; ++i) 
         {
@@ -429,110 +437,47 @@ class VariableBarcode final : public Barcode
         return total_diff <= max_diff;
     }
 
-    //create all kmer-lists that are a certain edit distance away from my list
-    //and add them to the lookup table
-    //omitset contains kmerLists that i ALREADY set for this specific patternOfKmers
-    //imagine we add/delete alternating the same kmers, we then down the line after some recursions
-    //get the same kMerList and might push back the same patterns several times, this should be prevented
-    void create_edit_kmer_list(const std::array<int, 16>& origionalKmerList,
-                               const std::vector<std::shared_ptr<std::string>>& patternsOfKmer, 
-                               int edits,
-                               std::unordered_set<std::array<int, 16>, ArrayHash>& omitSet,
-                               const bool direction)
-    {
-        if(edits == 0)
-        {
-            //this kmer might already exist (reachable with MM from another pattern), 
-            // //so we insert the current patterns that r reachable from this kmerList
-            if(omitSet.find(origionalKmerList) == omitSet.end())
-            {
-                if(direction == FORWARD)
-                {
-                    fwKmerMap[origionalKmerList].insert(fwKmerMap[origionalKmerList].end(), 
-                                                    patternsOfKmer.begin(), patternsOfKmer.end());
-                   std::cout << "     new edit-distance kmer: ";
-                    for (int val : origionalKmerList) {
-                        std::cout << val << " ";
-                    }
-                    std::cout << std::endl;
-                    std::cout << " inserted: " << patternsOfKmer.size() << " " << *(patternsOfKmer.front()) << "\n";
-                }
-                else
-                {
-                    rvKmerMap[origionalKmerList].insert(rvKmerMap[origionalKmerList].end(), 
-                                                    patternsOfKmer.begin(), patternsOfKmer.end());
-                }
-
-                omitSet.insert(origionalKmerList);
-            }
-            return;
-        }
-
-        // Try all position-pairs for an edit
-        //ONE kmer must go up, while another kmer (that was set before), must go down
-        for (int del_idx = 0; del_idx < 16; ++del_idx) 
-        {
-            for(int add_idx = 0; add_idx < 16; ++add_idx)
-            {
-                std::array<int, 16> newKmerList = origionalKmerList;
-                if (origionalKmerList[del_idx] > 0) 
-                {
-                    newKmerList[del_idx]--;
-                    newKmerList[add_idx]++;
-                    create_edit_kmer_list(newKmerList, patternsOfKmer, edits-1, omitSet, direction);
-                }
-            }
-        }
-    }
-
     void calculate_kmer_hash()
     {
+        std::cout << "    * Calculating kmers(2) in barcodes\n";
+
         //1.) FORWARD BARCODES
         //the temporary kmer map contains exact kmers, the strings that contain those excat kmers
         //later we fill the kmerMap also with strings that could be reached given mismatches
-        std::unordered_map<std::array<int, 16>, std::vector<std::shared_ptr<std::string>>, ArrayHash> exactFwKmerMap;
         for(std::shared_ptr<std::string> fwPattern : patterns)
         {
-            std::array<int, 16> kmerList = count_kmers_fast(*fwPattern);
-            exactFwKmerMap[kmerList].push_back(fwPattern);
+            KmerArray kmerList = count_kmers_fast(*fwPattern);
+            fwKmerMap[fwPattern] = kmerList;
         }
-        //the lookup table contains NOT the perfect kmers as calcualted above and filled into the tmpFxKmerMap,
-        //since if the target seqeune would have had no MM we would ahve already perfectly found it in the perfect-barcode
-        //lookup table, this table contains ONLY erroneous kmers, if sth. is NOT in this kmer-lookuptable, it CAN NOT be mapped            
-        int i =0;
-        for (const auto& exactKmerPatternListPair : exactFwKmerMap)
-        {   
-            std::cout << i++ << " of " << exactKmerPatternListPair.size() << " -> " << *(exactFwKmerMap.at(possibleFwKmerLists.at(i)).front()) << "\n";
-            std::unordered_set<std::array<int, 16>, ArrayHash> fwOmitSet;
-            fwOmitSet.insert(exactKmerPatternListPair.second);
-            create_edit_kmer_list(exactKmerPatternListPair.first, exactKmerPatternListPair.second, 
-                                  mismatches, fwOmitSet, FORWARD);
-        }
-
-        exit(EXIT_FAILURE);
 
         //2.) REVERSE BARCODES
         //for all patterns counts their base number
-
-        /*
-        std::unordered_map<std::array<int, 16>, std::vector<std::shared_ptr<std::string>>, ArrayHash> exactRvKmerMap;
-        std::vector<std::array<int, 16>> possibleRvKmerLists;
         for(std::shared_ptr<std::string> rvPattern : revCompPatterns)
         {
-            std::array<int, 16> kmerList = count_kmers_fast(*rvPattern);
-            exactRvKmerMap[kmerList].push_back(rvPattern);
-            possibleRvKmerLists.push_back(kmerList);
+            KmerArray kmerList = count_kmers_fast(*rvPattern);
+            rvKmerMap[rvPattern] = kmerList;
         }
-        //the lookup table contains NOT the perfect kmers as calcualted above and filled into the tmpFxKmerMap,
-        //since if the target seqeune would have had no MM we would ahve already perfectly found it in the perfect-barcode
-        //lookup table, this table contains ONLY erroneous kmers, if sth. is NOT in this kmer-lookuptable, it CAN NOT be mapped
-        for(int i = 0; i < possibleRvKmerLists.size(); ++i)
-        {    
-            std::unordered_set<std::array<int, 16>, ArrayHash> rvOmitSet;
-            rvOmitSet.insert(possibleRvKmerLists.at(i));
-            create_edit_kmer_list(possibleRvKmerLists.at(i), exactRvKmerMap.at(possibleRvKmerLists.at(i)), mismatches, rvOmitSet, REVERSE);
+    }
+
+    //returns a pruned list of potential barcodes, that map in at least the expected number of kmers
+    std::vector<std::shared_ptr<std::string>> kmer_align_patterns(const std::vector<std::shared_ptr<std::string>>& patternsToMap, 
+                                                                  const std::string& target,
+                                                                  const bool reverse)
+    {
+        std::vector<std::shared_ptr<std::string>> resultbarcodes;
+        KmerArray targetKmer = count_kmers_fast(target);
+        for(std::shared_ptr<std::string> barcodePtr : patternsToMap)
+        {
+            KmerArray barcodeKmer;
+            if(reverse){barcodeKmer = rvKmerMap[barcodePtr];}
+            else{barcodeKmer = fwKmerMap[barcodePtr];}
+            if(kmers_within_distance(targetKmer,barcodeKmer,mismatches))
+            {
+                resultbarcodes.push_back(barcodePtr);
+            }
         }
-            */
+
+        return(resultbarcodes);
     }
 
     void calculate_barcode_conversionRates()
@@ -583,7 +528,7 @@ class VariableBarcode final : public Barcode
             //warning if barcodes are the same/ or one is suffix of the other
             if(min_rate == 0)
             {
-                std::cout << "WARNING: The data contains barcodes with a mismatch distance of 0!!! Barcodes: " << patterns.at(i) << ", "<< patterns.at(minElement) << "\n" <<
+                std::cout << "WARNING: The data contains barcodes with a mismatch distance of 0!!! Barcodes: " << *(patterns.at(i)) << ", "<< *(patterns.at(minElement)) << "\n" <<
                 "In case these are barcodes of variable length, we map the longest barcode mapping with no errors!!\n";
             }
 
@@ -591,7 +536,7 @@ class VariableBarcode final : public Barcode
             if(min_rate <= mismatches)
             {
                 std::cout << "WARNING: \nFor barcodes in " << name << ": " << mismatches << " mismatches are allowed, but with " << min_rate <<
-                " mismatches we can already convert " << patterns.at(i)  << " into "<< patterns.at(minElement)  <<  " (semi-global alignment with un-punished deletions in target)!!! We can still find a best-fitting barcode, but you might reconsider the choice of allowed mistmaches!\n";
+                " mismatches we can already convert " << *(patterns.at(i))  << " into "<< *(patterns.at(minElement))  <<  " (semi-global alignment with un-punished deletions in target)!!! We can still find a best-fitting barcode, but you might reconsider the choice of allowed mistmaches!\n";
             }
 
             pattern_conversionrates[a] = min_rate;
@@ -691,53 +636,15 @@ class VariableBarcode final : public Barcode
             {
                 patternsToMap = possiblePatterns;
             }
-        }
-        
-        if(equalLengthBarcodes)
-        {
-            std::string targetSequence = fastqLine.substr(targetOffset, patterns.front()->length());
-            std::array<int, 16> kmerList = count_kmers_fast(targetSequence);
 
-            std::vector<std::shared_ptr<std::string>> possiblePatterns;
-            if(reverse)
-            {
-                if(rvKmerMap.find(kmerList) != rvKmerMap.end())
-                {
-                    possiblePatterns = rvKmerMap[kmerList];
-                }
-                else
-                {
-                    return(false);
-                }
-            }
-            else
-            {
-                if(fwKmerMap.find(kmerList) != fwKmerMap.end())
-                {
-                    possiblePatterns = fwKmerMap[kmerList];
-                }
-                else
-                {
-                    return(false);
-                }
-            }
+            //reduce possible barcodes by kmer filter
+            // every string is encoded in a kmer-array (e.g. [1001001110110201]), then calcualte similariy of these arrays 
+            // looking for kmer-array within a minimum distance, e.g., for 2MM SET_KMERS- 2(every EDIT changes 2 kmers max)*2MM kmers must be same at least
+            std::vector<std::shared_ptr<std::string>> prunedPatternsToMap; 
+            prunedPatternsToMap = kmer_align_patterns(patternsToMap, targetSequence, reverse);
 
-            if(targetSequence.find('N') == std::string::npos)
-            {
-                patternsToMap = possiblePatterns;
-            }
-        }
+            patternsToMap = prunedPatternsToMap;
 
-        //reduce possible barcodes by kmer filter
-        // every string is encoded in a kmer-array (e.g. [1001001110110201]), then calcualte similariy of these arrays 
-        // looking for kmer-array within a minimum distance, e.g., for 2MM SET_KMERS- 2(every EDIT changes 2 kmers max)*2MM kmers must be same at least
-        kmer_align_patterns(patternsToMap, reverse);
-
-        std::cout << "_________\n";
-        std::cout << "     sequence: " << fastqLine << "\n";
-        for(auto x : patternsToMap)
-        {
-         std::cout << "    PATTERN: " << *x << "\n";
         }
 
         for(size_t patternIdx = 0; patternIdx!= patternsToMap.size(); ++patternIdx)
@@ -844,8 +751,9 @@ class VariableBarcode final : public Barcode
         std::unordered_map<baseNum, std::vector<std::shared_ptr<std::string>>> fwEditBaseNumMap;
         std::unordered_map<baseNum, std::vector<std::shared_ptr<std::string>>> rvEditBaseNumMap;
 
-        std::unordered_map<std::array<int, 16>, std::vector<std::shared_ptr<std::string>>, ArrayHash> fwKmerMap;
-        std::unordered_map<std::array<int, 16>, std::vector<std::shared_ptr<std::string>>, ArrayHash> rvKmerMap;
+        //these maps store the kmers of all barcodes. For quicker comparison we first comapre kmers, then barcodes
+        std::unordered_map< std::shared_ptr<std::string>, KmerArray > fwKmerMap;
+        std::unordered_map< std::shared_ptr<std::string>, KmerArray > rvKmerMap;
 
 
         std::unordered_map<std::string, int> pattern_conversionrates;

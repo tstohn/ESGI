@@ -285,6 +285,7 @@ BarcodePatternPtr Mapping<MappingPolicy, FilePolicy>::create_barcodeVector_from_
         int barcodeLength = 0;
         bool barcodeFound = false;
 
+        std::cout << "  Creating barcodes for [" << patternElement << "]\n";
         // constant barcode
         bool isConstant = true;
         for (char const &c: patternElement) 
@@ -496,6 +497,7 @@ bool Mapping<MappingPolicy, FilePolicy>::generate_barcode_patterns(const input& 
     // parse mismatches, pattern, lengths of patterns (e.g. UMI legnth 15)
     for(size_t i = 0; i < patternList.size(); i++)
     {
+        std::cout << "Creating pattern for " << patternList.at(i).first << "\n";
         barcodePatternList->emplace_back(create_barcodeVector_from_patternLine(patternList.at(i).second, mismatchList.at(i), patternList.at(i).first, fileToBarcodesMap, input));
     }
 
@@ -1128,7 +1130,7 @@ bool Mapping<MappingPolicy, FilePolicy>::demultiplex_read(const std::pair<fastqL
                                                           DemultiplexedLine& demultiplexedLine,
                                                           BarcodePatternPtr pattern,
                                                           const input& input, 
-                                                          std::atomic<int>& count, const unsigned long long& totalReadCount,
+                                                          std::atomic<unsigned long long>& count, const unsigned long long& totalReadCount,
                                                           int& mmScore,
                                                           OneLineDemultiplexingStatsPtr stats)
 {
