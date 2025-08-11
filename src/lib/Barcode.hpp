@@ -672,8 +672,6 @@ class VariableBarcode final : public Barcode
             //get pattern, its length can vary
             std::string usedPattern = *(patternsToMap.at(patternIdx));
 
-            std::cout << "   " << usedPattern << "\n";
-
             //define target sequence (can differ for every barcode due to its length)
             std::string target;
             int substringLength = usedPattern.length()+mismatches;
