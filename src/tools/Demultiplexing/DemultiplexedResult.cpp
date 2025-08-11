@@ -76,7 +76,6 @@ void DemultiplexedResult::write_demultiplexed_batch(TmpPatternStream& lineStream
         write_barcode_line(lineStream, barcodeLineBuffer, line, threadID);
     }
     // Write the full line in one go (one I/O call)
-    lineStream.barcodeStream->open(lineStream.barcodeFilePath, std::ios::app);
     *(lineStream.barcodeStream) << barcodeLineBuffer.str();
 
     //if dna is present write it to seperate file
@@ -89,8 +88,6 @@ void DemultiplexedResult::write_demultiplexed_batch(TmpPatternStream& lineStream
         }
         *(lineStream.dnaStream) << dnaLineBuffer.str();
     }
-
-    lineStream.barcodeStream->close();
 }
 
 void DemultiplexedResult::close_and_concatenate_fileStreams(const input& input)
@@ -462,7 +459,6 @@ void DemultiplexedResult::initialize_tmp_file(const int i)
                 exit(EXIT_FAILURE);
             }
             tmpStream.barcodeStream = outFileBarcode;
-            tmpStream.barcodeFile = barcodeTmpFileName;
 
             //TEMPORARY DNA STREAM
             //tmp-file name is final name + threadID
@@ -476,8 +472,6 @@ void DemultiplexedResult::initialize_tmp_file(const int i)
                 exit(EXIT_FAILURE);
             }
             tmpStream.dnaStream = outFileDna;
-            tmpStream.dnaFile = dnaTmpFileName;
-
             tmpFileStreams[fileIt->first] = tmpStream;
         }
         else //create stream for patterns with barcodes only, dnaStream stays a nullptr
@@ -495,7 +489,6 @@ void DemultiplexedResult::initialize_tmp_file(const int i)
             }
             tmpStream.barcodeStream = outFileBarcode;
             tmpFileStreams[fileIt->first] = tmpStream;
-            tmpStream.barcodeFile = barcodeTmpFileName;
         }
     }
 
@@ -603,26 +596,28 @@ void DemultiplexedResult::write_failed_line(std::pair<std::shared_ptr<std::ofstr
 /// write failed lines into a txt file
 void DemultiplexedResult::write_failed_lines(std::pair<std::shared_ptr<std::ofstream>, std::shared_ptr<std::ofstream>>& failedFileStream, const std::vector<std::pair<fastqLine, fastqLine>>& failedLineBatch)
 {
+    std::ostringstream failedLinesFwBuffer; //temporary buffer for the batch of fw failed lines
+    std::ostringstream failedLinesRvBuffer; //temporary buffer for the batch of rv failed lines
+
     for(const std::pair<fastqLine, fastqLine>& failedLine : failedLineBatch)
     {
         if(failedFileStream.second == nullptr)
         {
             //for single-read write only first entry into first stream (second is a nullptr)
-            *failedFileStream.first << failedLine.first.line << "\n";
+            failedLinesFwBuffer << failedLine.first.line << "\n";
         }
         else
         {
             //for paired-end sequencing write both reads
-            *failedFileStream.first << failedLine.first.line << "\n";
-            *failedFileStream.second << failedLine.second.line << "\n";
+            failedLinesFwBuffer << failedLine.first.line << "\n";
+            failedLinesRvBuffer << failedLine.second.line << "\n";
         }
     }
-
+    *failedFileStream.first << failedLinesFwBuffer.str();
     if(failedFileStream.second != nullptr)
     {
-        failedFileStream.second->flush();
+        *failedFileStream.second << failedLinesRvBuffer.str();
     }
-    failedFileStream.first->flush();
 }
 
 /// write mapped barcodes to a tab separated file

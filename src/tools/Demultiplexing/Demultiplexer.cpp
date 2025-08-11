@@ -276,7 +276,7 @@ void Demultiplexer<MappingPolicy, FilePolicy>::run_mapping(const input& input)
     //btch processing of lines (better for thread scheduling)
     // by default we parse 100K lines, making a batch size of 100 lines for 10 threads
     // benchmarked for a factor of 1, 10, 100. 100 gave best performance
-    unsigned long batchSize = input.fastqReadBucketSize/ (input.threads * 1000);
+    unsigned long batchSize = input.fastqReadBucketSize/ (input.threads * 100);
     std::vector<std::pair<fastqLine, fastqLine>> lineBatch;
     lineBatch.reserve(batchSize); // e.g., batchSize = 100
     while (FilePolicy::get_next_line(line)) 

@@ -11,6 +11,7 @@
 #include <functional>
 #include <array>
 #include <cmath>
+#include <immintrin.h>
 
 #include "helper.hpp"
 
@@ -22,8 +23,8 @@ typedef std::shared_ptr<BarcodeVector> BarcodeVectorPtr;
 constexpr bool FORWARD = false;
 constexpr bool REVERSE = true;
 
-using KmerArray = std::array<int, 16>;
 constexpr int KMER = 2;
+using KmerArray = std::array<uint8_t, 16>;
 
 enum class PatternType 
 {
@@ -53,22 +54,16 @@ struct baseNum
     }
 };
 
-inline void hash_combine(std::size_t& seed, std::size_t val) {
-    seed ^= val + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+namespace std 
+{
+template <>
+struct hash<baseNum> {
+    std::size_t operator()(const baseNum& b) const noexcept {
+        return (b.A << 12) | (b.T << 8) | (b.C << 4) | b.G;
+    }
+};
 }
-namespace std {
-    template <>
-    struct hash<baseNum> {
-        std::size_t operator()(const baseNum& b) const noexcept {
-            size_t seed = 0;
-            hash_combine(seed, std::hash<int>{}(b.A));
-            hash_combine(seed, std::hash<int>{}(b.T));
-            hash_combine(seed, std::hash<int>{}(b.C));
-            hash_combine(seed, std::hash<int>{}(b.G));
-            return seed;
-        }
-    };
-}
+
 // Custom hash function for std::array<int, 16>
 struct ArrayHash {
     std::size_t operator()(const std::array<int, 16>& arr) const {
@@ -283,6 +278,20 @@ class VariableBarcode final : public Barcode
         }
     }
 */
+
+    unsigned long long binomial_coefficient(int n, int k) {
+        if (k < 0 || k > n) return 0;
+        if (k == 0 || k == n) return 1;
+        if (k > n - k) k = n - k; // Take advantage of symmetry
+
+        unsigned long long result = 1;
+        for (int i = 1; i <= k; ++i) {
+            result *= n - (k - i);
+            result /= i;
+        }
+        return result;
+    }
+
     void count_bases(const std::string& seq, baseNum& baseCount) 
     {
         for (char base : seq) 
@@ -337,9 +346,13 @@ class VariableBarcode final : public Barcode
         std::vector<baseNum> possibleBaseNumVector;
         generateAllBaseNums(patterns.at(0)->size(), possibleBaseNumVector);
 
+        //calcualte needed bins to get fast lookup;
+        int possibleOneMers = binomial_coefficient(patterns.front()->length(), 4);
+
         //1.) FORWARD BARCODES
         //for all patterns counts their base number
         std::unordered_map<baseNum, std::vector<std::shared_ptr<std::string>>> fwBaseNumMap;
+        fwBaseNumMap.reserve(possibleOneMers);
         for(std::shared_ptr<std::string> fwPattern : patterns)
         {
             baseNum baseCount;
@@ -364,6 +377,7 @@ class VariableBarcode final : public Barcode
         //2.) REVERSE BARCODES
         //for all patterns counts their base number
         std::unordered_map<baseNum, std::vector<std::shared_ptr<std::string>>> rvBaseNumMap;
+        rvBaseNumMap.reserve(possibleOneMers);
         for(std::shared_ptr<std::string> rvPattern : revCompPatterns)
         {
             baseNum baseCount;
@@ -390,7 +404,7 @@ class VariableBarcode final : public Barcode
     // Encode a 2-mer as integer using 2-bit encoding per base (A=00, C=01, G=10, T=11)
     int encode_kmer(const std::string& kmer)
     {
-        if (kmer.length() != 2) return -1;
+        if (kmer.length() != KMER) return -1;
         int code = 0;
         for (char base : kmer) {
             code <<= 2;
@@ -427,14 +441,15 @@ class VariableBarcode final : public Barcode
     bool kmers_within_distance(const KmerArray& a,
                                const KmerArray& b,
                                int mismatches) 
-    {
+    {   
         int max_diff = mismatches * KMER * 2; //difference is mismtaches * number of kmers that r effected=KMER * 2(for the kmers that are removed, and the ones that r created)
         int total_diff = 0;
-        for (int i = 0; i < 16 && total_diff <= max_diff; ++i) 
-        {
-            total_diff += std::abs(a[i] - b[i]);
+
+        for (int i = 0; i < 16; ++i) {
+            total_diff += (unsigned)(a[i] > b[i] ? a[i] - b[i] : b[i] - a[i]);
+            if (total_diff > max_diff) return false;
         }
-        return total_diff <= max_diff;
+        return true;
     }
 
     void calculate_kmer_hash()
@@ -644,7 +659,6 @@ class VariableBarcode final : public Barcode
             prunedPatternsToMap = kmer_align_patterns(patternsToMap, targetSequence, reverse);
 
             patternsToMap = prunedPatternsToMap;
-
         }
 
         for(size_t patternIdx = 0; patternIdx!= patternsToMap.size(); ++patternIdx)
@@ -657,6 +671,8 @@ class VariableBarcode final : public Barcode
             delNumTmp=insNumTmp=substNumTmp=targetEnd=0;
             //get pattern, its length can vary
             std::string usedPattern = *(patternsToMap.at(patternIdx));
+
+            std::cout << "   " << usedPattern << "\n";
 
             //define target sequence (can differ for every barcode due to its length)
             std::string target;

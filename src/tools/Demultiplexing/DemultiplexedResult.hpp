@@ -21,9 +21,6 @@ struct thread_id_hash {
   {
       std::shared_ptr<std::ofstream> barcodeStream = nullptr;
       std::shared_ptr<std::ofstream> dnaStream = nullptr;
-
-      std::string barcodeFile;
-      std::string dnaFile;
       
       unsigned long lineNumber = 0;
   };
