@@ -40,11 +40,12 @@ std::vector<std::string> Mapping<MappingPolicy, FilePolicy>::parse_variable_barc
             std::cerr << "Error: The abrcode file " << barcodeFile << " contains no barcodes. Please provide a list of comma seperated barcodes.\n";
         }
 
-        std::string delimiter = ",";
-        size_t pos = 0;
-        while ((pos = barcodeListString.find(delimiter)) != std::string::npos) {
-            std::string seq = barcodeListString.substr(0, pos);
-            barcodeListString.erase(0, pos + 1);
+        size_t start = 0;
+        size_t end = 0;
+        while ((end = barcodeListString.find(',', start)) != std::string::npos) 
+        {
+            std::string_view seq(&barcodeListString[start], end - start);
+            //validate string
             for (char const &c: seq) {
                 if(!(c=='A' || c=='T' || c=='G' || c=='C' ||
                         c=='a' || c=='t' || c=='g' || c=='c'))
@@ -66,30 +67,36 @@ std::vector<std::string> Mapping<MappingPolicy, FilePolicy>::parse_variable_barc
                             exit(1);
                         }
             }
-            barcodes.push_back(seq);
+            barcodes.emplace_back(seq);
+            start = end + 1;
         }
-        for (char const &c: barcodeListString) {
-            if(!(c=='A' || c=='T' || c=='G' || c=='C' ||
-                    c=='a' || c=='t' || c=='g' || c=='c'))
-                    {
-                        if(c==' ' || c=='\t' || c=='\n')
-                        {
-                            std::cerr << "PARAMETER ERROR: Detected a whitespace in following barcode file: " << barcodeFile << ", pls. remove it to continue!\n";
-                            std::cerr << "(Barcodes have to be comma-seperated with no whitespace, newline, tab in between.)\n";
-                            if(c=='\n')
+        // last token
+        std::string_view seq(&barcodeListString[start], barcodeListString.size() - start);
+        // validate seq here
+        for (char const &c: seq) 
+        {
+                if(!(c=='A' || c=='T' || c=='G' || c=='C' ||
+                        c=='a' || c=='t' || c=='g' || c=='c'))
+                        {   
+                            if(c==' ' || c=='\t' || c=='\n')
                             {
-                                std::cerr << "Looks like you forgot to remove a newline in the file?\n";
+                                std::cerr << "PARAMETER ERROR: Detected a whitespace in following barcode file: " << barcodeFile << ", pls. remove it to continue!\n";
+                                std::cerr << "the whitespace occured within this barcode: " << seq << "\n";
+                                std::cerr << "(Barcodes have to be comma-seperated with no whitespace, newline, tab in between. Also there should be no newline at the end of the file)\n";
+                                if(c=='\n')
+                                {
+                                    std::cerr << "Barcodes should be comma seperated. Looks like you forgot to remove a newline between barcodes?\n";
+                                }
                             }
+                            else
+                            {
+                                std::cerr << "PARAMETER ERROR: a barcode sequence in " << barcodeFile << " is not a base (A,T,G,C)\n";
+                            }
+                            exit(1);
                         }
-                        else
-                        {
-                            std::cerr << "PARAMETER ERROR: a barcode sequence in " << barcodeFile << " is not a base (A,T,G,C)\n";
-                        }
-                    exit(1);
-                    }
         }
-        barcodes.push_back(barcodeListString);
-            
+        barcodes.emplace_back(seq);
+        //close barcode file
         barcodeFileStream.close();
     }
     catch(std::exception& e)

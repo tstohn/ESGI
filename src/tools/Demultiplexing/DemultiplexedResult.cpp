@@ -421,7 +421,7 @@ void DemultiplexedResult::initialize(const input& input, const MultipleBarcodePa
 void DemultiplexedResult::increase_buffer_for_stream(std::shared_ptr<std::ofstream> stream)
 {
     std::unique_lock<std::mutex> fileLock(*threadFileOpenerMutex);
-    const size_t bufSize = ONE_MB;
+    const size_t bufSize = 1 * ONE_MB;
     bufferVector.emplace_back(std::make_unique<char[]>(bufSize));
     stream->rdbuf()->pubsetbuf(bufferVector.back().get(), bufSize);
     fileLock.unlock();
