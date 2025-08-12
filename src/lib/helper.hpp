@@ -123,6 +123,7 @@ struct input{
     bool writeStats = false; 
     bool writeFailedLines = false;
     bool writeFilesOnTheFly = false;
+    bool hamming = false;
     
     long long int fastqReadBucketSize = 10000000;
     int threads = 5;

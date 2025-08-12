@@ -109,6 +109,9 @@ bool parse_arguments(char** argv, int argc, input& input)
             ..._Quality_typeMM.txt stores for every barcode how often we observed a Subst, Ins, Del \
             ..._Quality_numberMM.txt stores how many mismatches we observed in which barcodes \n")
             ("writeFailedLines,f", value<bool>(&(input.writeFailedLines))->default_value(false), "write failed lines to an extra file.\n")
+            ("hamming,H", value<bool>(&(input.hamming))->default_value(false), "Use hamming distance of 1 for all variable barcodes. \
+            This way only 1 substitution per barcode is allowed. It is useful for, e.g. 10X data where barcodes can be easily converted and reducing errors \
+            to substitutions reduces runtime. \n")
 
             ("help,h", "help message");
 

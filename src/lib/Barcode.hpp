@@ -205,7 +205,7 @@ class VariableBarcode final : public Barcode
 {
 
     public:
-    VariableBarcode(std::vector<std::string>& inPatterns, std::string& name, int inMismatches) : Barcode(name, inMismatches)
+    VariableBarcode(std::vector<std::string>& inPatterns, std::string& name, int inMismatches, bool hammingIn = false) : Barcode(name, inMismatches)
     {
         for(std::string pattern : inPatterns)
         {
@@ -244,18 +244,17 @@ class VariableBarcode final : public Barcode
         //calculate minimum conversion rates of barcodes
         //for now this is only calculated if the number of barcodes is less than 1000, 
         // to avoid billions of comaprisons for 10X data
-
-        calculate_baseNum_hash();
-        calculate_kmer_hash();
-        if(patterns.size() < 100000)
+        hamming = hammingIn;
+        calculate_hamming_map();
+        if(!hamming)
         {
-            calculateConversionRate = true;
-            calculate_barcode_conversionRates();
-        }
-        else
-        {
-            //calculate_prefix_hash(8);
-            //pefixMapCalculated = true;
+            calculate_baseNum_hash();
+            calculate_kmer_hash();
+            if(patterns.size() < 100000)
+            {
+                calculateConversionRate = true;
+                calculate_barcode_conversionRates();
+            }
         }
     }
     std::shared_ptr<Barcode> clone() const override 
@@ -278,6 +277,32 @@ class VariableBarcode final : public Barcode
         }
     }
 */
+
+    void calculate_hamming_map()
+    {
+        std::cout << "    pre-calculate 1-hamming-distace barcodes\n";
+        const std::string bases = "ATGC";
+        //go through all forward patterns
+        for(std::shared_ptr<std::string> fwPattern : patterns)
+        {
+            for (size_t i = 0; i < fwPattern->size(); ++i) {
+                for (char b : bases) {
+                    if (b != fwPattern->at(i)) 
+                    {
+                        std::string mutated = *fwPattern;
+                        mutated.at(i) = b;
+                        //if the barcode with mismatch already exists, and we have the same for the current barcode we need to take it out,
+                        //apparently we can reach it from two different barcodes and can therefore not truly know where this barcode comes from
+                        auto [it, inserted] = hamming_map.emplace(mutated, fwPattern);
+                        if (!inserted) 
+                        {
+                            it->second = nullptr;
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     unsigned long long binomial_coefficient(int n, int k) {
         if (k < 0 || k > n) return 0;
@@ -573,11 +598,22 @@ class VariableBarcode final : public Barcode
                 targetEnd = patterns.at(0)->size();
                 matchedBarcode = exactTarget;
                 return true;
-            }  
+            } 
             else if(mismatches == 0)
             {
                 return false;
             }
+
+            //2.) check match with 1hamming distance
+            if(hamming_map.find(exactTarget) != hamming_map.end())
+            {
+                if(hamming_map.at(exactTarget) == nullptr){return false;} //if this observed barcode with MM can be reached by several barcodes
+                targetEnd = patterns.at(0)->size();
+                matchedBarcode = *(hamming_map.at(exactTarget));
+                substNum = 1;
+                return true;
+            }
+            else if(hamming){return false;} //if we only do hamming distance mapping, stop here if we found nothing
         }
 
         std::vector<std::shared_ptr<std::string>> patternsToMap = patterns;
@@ -631,6 +667,7 @@ class VariableBarcode final : public Barcode
             patternsToMap = prefixPatterns;
         }*/
 
+        //3.) reduce possible patterns but comparing base number/ kmers
         //get the basenum hashes: based on counts of bases (considering allowed MM) - how many barcodes could fit
         if(equalLengthBarcodes)
         {
@@ -661,6 +698,7 @@ class VariableBarcode final : public Barcode
             patternsToMap = prunedPatternsToMap;
         }
 
+        //align those barcodes
         for(size_t patternIdx = 0; patternIdx!= patternsToMap.size(); ++patternIdx)
         {
             bool foundAlignment = false;
@@ -684,6 +722,7 @@ class VariableBarcode final : public Barcode
             
             if(foundAlignment && (delNumTmp+insNumTmp+substNumTmp)<=bestEditDist)
             {
+
                 //if we have variable length barcodes, and two barcodes map equally well, 
                 //we store the barcode of a longer sequence
                 //example: barcodes = ["ATC", "ATCATC"], if we find the barcode ATCATC we store that one and not ATC...
@@ -760,6 +799,11 @@ class VariableBarcode final : public Barcode
         std::vector<std::shared_ptr<std::string>> revCompPatterns;
         std::unordered_set<std::string> barcodeSet;
         bool equalLengthBarcodes;
+        bool hamming;
+
+        //map that maps a nucleotide sequence with haming distances of 1 to its real barcodePtr
+        //if only hamming of 1 is set this runs super fast, otherwise after this barcodes are aligned
+        std::unordered_map<std::string, std::shared_ptr<std::string>> hamming_map;
 
         //map storing all possible barcodes that contain certain base-number combination
         std::unordered_map<baseNum, std::vector<std::shared_ptr<std::string>>> fwEditBaseNumMap;
@@ -768,7 +812,6 @@ class VariableBarcode final : public Barcode
         //these maps store the kmers of all barcodes. For quicker comparison we first comapre kmers, then barcodes
         std::unordered_map< std::shared_ptr<std::string>, KmerArray > fwKmerMap;
         std::unordered_map< std::shared_ptr<std::string>, KmerArray > rvKmerMap;
-
 
         std::unordered_map<std::string, int> pattern_conversionrates;
         bool calculateConversionRate = false;
