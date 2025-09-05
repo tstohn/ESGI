@@ -40,7 +40,7 @@ void DemultiplexedResult::update_stats(std::shared_ptr<DemultiplexingStats> thre
 void DemultiplexedResult::write_dna_line(TmpPatternStream& dnaLineStream, std::ostringstream& lineBuffer, const DemultiplexedLine& demultiplexedLine, const boost::thread::id& threadID)
 {
     //write RNA data to dnaBuffer (FASTQ)
-    lineBuffer << "@" << threadID << "_" << ++dnaLineStream.lineNumber << "_" << demultiplexedLine.readName << "\t";
+    lineBuffer << "@" << threadID << "_" << ++dnaLineStream.lineNumber << "_" << demultiplexedLine.readName << "\n";
 
     lineBuffer << demultiplexedLine.dna << "\n";
     lineBuffer << "+\n";
