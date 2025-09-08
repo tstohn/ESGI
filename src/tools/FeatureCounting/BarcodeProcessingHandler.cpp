@@ -411,9 +411,13 @@ void BarcodeProcessingHandler::parseBarcodeLines(const std::string& inFile, cons
         }
         add_line_to_temporary_data(line, elements, readCount);   
 
-        double perc = currentReads/ (double)totalReads;
         ++currentReads;
-        printProgress(perc);        
+
+        double perc = currentReads/ (double)totalReads;
+        if(perc % 2 == 0)
+        {
+            printProgress(perc);        
+        }
     }
 
     result.set_total_reads(currentReads-1); //minus header line
