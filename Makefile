@@ -103,6 +103,7 @@ count:
 	g++ -c src/tools/FeatureCounting/main.cpp -o main_count.o -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
 	g++ main_count.o BarcodeProcessingHandler.o -o ./bin/count $(LDFLAGS) $(BOOST_FLAGS)
 
+#annotate the barcode-file with gene names: combine RNA-mapping (e.g., STAR alignments) with the sinle-cell barcodes
 annotate:
 	g++ -o ./bin/annotate src/tools/BarcodefileBamAnnotator/BarcodeBamAnnotator.cpp src/tools/BarcodefileBamAnnotator/main.cpp $(LDFLAGS) -lboost_iostreams -lboost_program_options -lhts
 
