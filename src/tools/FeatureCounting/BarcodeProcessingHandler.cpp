@@ -414,7 +414,7 @@ void BarcodeProcessingHandler::parseBarcodeLines(const std::string& inFile, cons
         ++currentReads;
 
         double perc = currentReads/ (double)totalReads;
-        if(perc % 2 == 0)
+        if(std::fmod(perc, 2.0) == 0.0)
         {
             printProgress(perc);        
         }
