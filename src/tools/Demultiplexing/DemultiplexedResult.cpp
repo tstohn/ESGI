@@ -70,6 +70,7 @@ void DemultiplexedResult::write_demultiplexed_batch(TmpPatternStream& lineStream
 
     //write barcodes to temporary files
     std::ostringstream barcodeLineBuffer; //temporary buffer for the batch of demultiplexed lines
+    lineStream.lineNumber = 0; //reset line number, it is incremented while writing lines
     for(const DemultiplexedLine& line : lines)
     {
         //local buffer to save the whole batch of demultiplexed lines
@@ -82,9 +83,10 @@ void DemultiplexedResult::write_demultiplexed_batch(TmpPatternStream& lineStream
     if(containsDNA)
     {
         std::ostringstream dnaLineBuffer;
+        lineStream.lineNumber = 0; //reset line number, it is incremented while writing lines
         for(const DemultiplexedLine& line : lines)
         {
-            write_dna_line(lineStream,dnaLineBuffer, line, threadID);
+            write_dna_line(lineStream, dnaLineBuffer, line, threadID);
         }
         *(lineStream.dnaStream) << dnaLineBuffer.str();
     }
@@ -338,7 +340,7 @@ void DemultiplexedResult::initialize_output_for_pattern(const std::string& outpu
     barcodeOutputStream.open(patternOutputs.barcodeFile, std::ios::out | std::ios::binary);
 
     //store the read name in the first column
-    barcodeOutputStream << "READNAME\t";
+    barcodeOutputStream << "READNAME";
     //print header for the general pattern
     for(size_t bidx = 0; bidx < (pattern->barcodePattern)->size(); ++bidx)
     {
@@ -346,7 +348,7 @@ void DemultiplexedResult::initialize_output_for_pattern(const std::string& outpu
         //stop and DNA pattern should not be written
         if( (bptr->name != "*") && (bptr->name != "DNA") && (bptr->name != "-"))
         {
-
+            
             //get the short name for the barcode (instead of whole path) if it copntains a slash
             std::string filename;
             if (bptr->name.find('/') != std::string::npos || bptr->name.find('\\') != std::string::npos) 
@@ -357,11 +359,10 @@ void DemultiplexedResult::initialize_output_for_pattern(const std::string& outpu
                 filename = bptr->name;
             }
 
-            barcodeOutputStream << filename;
-            if(bidx != ((pattern->barcodePattern)->size()-1))
-            {
-                barcodeOutputStream << "\t";
-            }
+            //write tabs before next header-col
+            //like this we avoid wrong tabs in the front or back by just checking the for first/last headers since some headers aren t written
+            //like *, -, ...
+            barcodeOutputStream << "\t" << filename;
         }
     }
     //if we are in detached mode (seperate mapping of reverse and forward read, both 5'->3' direction)
@@ -376,6 +377,7 @@ void DemultiplexedResult::initialize_output_for_pattern(const std::string& outpu
 
             if( (bptr->name != "*") && (bptr->name != "DNA") && (bptr->name != "-"))
             {
+
                 //get the short name for the barcode (instead of whole path) if it copntains a slash
                 std::string filename;
                 if (bptr->name.find('/') != std::string::npos || bptr->name.find('\\') != std::string::npos) 
@@ -386,11 +388,7 @@ void DemultiplexedResult::initialize_output_for_pattern(const std::string& outpu
                     filename = bptr->name;
                 }
 
-                barcodeOutputStream << filename;
-                if(bidx != ((pattern->detachedReversePattern)->size()-1))
-                {
-                    barcodeOutputStream << "\t";
-                }
+                barcodeOutputStream << "\t" <<  filename;
             }
         }
     }

@@ -232,7 +232,7 @@ int main(int argc, char** argv)
     {  
         bool parseAbBarcodes = true;
         if(abFile.empty()){parseAbBarcodes = false;}
-        generateBarcodeDicts(firstLine, barcodeDir, barcodeIndices, barcodeIdData, abBarcodes, parseAbBarcodes, featureIdx, &treatmentBarcodes, treatmentIdx, umiIdx, umiMismatches);
+        generateBarcodeDicts(firstLine, barcodeDir, barcodeIndices, barcodeIdData, abBarcodes, parseAbBarcodes, featureIdx, umiRemoval, &treatmentBarcodes, treatmentIdx, umiIdx, umiMismatches);
     } 
     else
     {

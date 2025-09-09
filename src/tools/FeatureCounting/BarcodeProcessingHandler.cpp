@@ -124,7 +124,7 @@ std::vector<std::string> parseFeatureNames(const std::string& featureFile)
 }
 
 void generateBarcodeDicts(const std::string& headerLine, const std::string& barcodeDir, std::string barcodeIndices, BarcodeInformation& barcodeIdData, 
-                          std::vector<std::string>& proteinNamelist, bool parseAbBarcodes, const int& featureIdx, 
+                          std::vector<std::string>& proteinNamelist, bool parseAbBarcodes, const int& featureIdx, bool& umiRemoval,
                           std::vector<std::string>* treatmentDict, const int& treatmentIdx, std::string umiIdx,
                           int umiMismatches)
 {
@@ -219,7 +219,8 @@ void generateBarcodeDicts(const std::string& headerLine, const std::string& barc
         if (max_scIdx >= colIdx)
         {
             std::cout << "Double check the input file and indices for single-cells.\n";
-            std::cout << "There is at least one single-cell index bigger than the number of headers in the input file!\n";
+            std::cout << "There is at least one single-cell column that does not exist (higher single-cell index than number of headers)!\n";
+            std::cout << "Be aware that the first column might contain the readname, and columns are 0-indexed!\n";
             exit(EXIT_FAILURE);
         }
 
@@ -283,13 +284,27 @@ void generateBarcodeDicts(const std::string& headerLine, const std::string& barc
     barcodeIdData.featureIdx = featureIdx;
 
     //print the used UMI indices
-    std::cout << "Using following columns as UMIs: ";
-    for(int colIdxForUMI : barcodeIdData.umiIdx)
+    if(barcodeIdData.umiIdx.empty())
     {
-        std::cout << barcodeHeader.at(colIdxForUMI) << ",";
+        std::cout << "Data contains NO UMI - we skip UMI-collapsing and count all reads!\n";
+        umiRemoval = false;
+        //umiRemoval is passed by reference, outside this function in main we will set the umiRemoval-parameter for the final counting-class - the BarcodeProcessingHandler
     }
-    std::cout << "\n";
-    std::cout << "Aligning all UMI-sequences with " << std::to_string(barcodeIdData.umiMismatches) << " mismatches.\n";
+    else if(umiRemoval == false)
+    {
+        std::cout << "You explicitely set umi-collpasing to false!\n";
+        std::cout << "Skipping umi-collapsing deliberately and counting all reads\n";
+    }
+    else
+    {
+        std::cout << "Using following columns as UMIs: ";
+        for(int colIdxForUMI : barcodeIdData.umiIdx)
+        {
+            std::cout << barcodeHeader.at(colIdxForUMI) << ",";
+        }
+        std::cout << "\n";
+        std::cout << "Aligning all UMI-sequences with " << std::to_string(barcodeIdData.umiMismatches) << " mismatches.\n";
+    }
 
     //assign the final dictionaries of variable barcodes
     if(parseAbBarcodes)
@@ -726,18 +741,18 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const std::vector<dataL
         abLineTmp.treatment = umiLineTmp.treatment = uniqueAbSc.at(0)->treatmentName;
         abLineTmp.className = uniqueAbSc.at(0)->cellClassname;
 
-        //erase dataLinePtrs for lines with EXACTLY the same UMI (no MM) and increase umi count in this linePtr
-        //can be done fast due to simple const char* comparison (we stored unique UMIs previously)
-        collapse_identical_UMIs(scAbCounts);
-
         //if we have no umis erase whole vector and count every element
-        if(std::string(scAbCounts.back()->umiSeq) == "" )
+        if(umiRemoval==false)
         {
             abLineTmp.abCount = scAbCounts.size();
             scAbCounts.clear();
         }
         else
         {
+            //erase dataLinePtrs for lines with EXACTLY the same UMI (no MM) and increase umi count in this linePtr
+            //can be done fast due to simple const char* comparison (we stored unique UMIs previously)
+            collapse_identical_UMIs(scAbCounts);
+
             //new sort the remaining UMIs (after collpasing EXACTLY UNIQUE ones) in order of occurences, 
             //then start with the first (MOST ABUNDANT) for further demultiplexing
             std::sort(scAbCounts.begin(), scAbCounts.end(), sort_descending_by_umi_count);

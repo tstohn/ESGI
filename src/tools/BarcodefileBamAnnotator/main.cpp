@@ -19,7 +19,7 @@
 #include "BarcodeBamAnnotator.hpp"
 
 /** 
- * @brief Simple tool to annotate a TSV file with tab seperated barcodes with a column from a bed file. 
+ * @brief Simple tool to annotate a TSV file with tab seperated barcodes with a column from a BAM file. 
  * E.g.: We have a barcode file from ezgi, the first column MUST contain the read name, this tool then takes an
  * additional BAM file (e.g., from STAR annotations) and a tag that should be used as feature (e.g., GX for gene ids, or GN for gene names) and adds this column element to the barcode file if the read-name
  * exists in the BAM file.

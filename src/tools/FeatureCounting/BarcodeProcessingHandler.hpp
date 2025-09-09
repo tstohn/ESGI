@@ -267,7 +267,7 @@ class Results
  */
 void generateBarcodeDicts(const std::string& headerLine, const std::string& barcodeDir, std::string barcodeIndices, 
                           BarcodeInformation& barcodeIdData, 
-                          std::vector<std::string>& proteinNamelist, bool parseAbBarcodes, const int& featureIdx, 
+                          std::vector<std::string>& proteinNamelist, bool parseAbBarcodes, const int& featureIdx,  bool& umiRemoval,
                           std::vector<std::string>* treatmentDict = nullptr, const int& treatmentIdx = -1,
                           std::string umiIdx = "", int umiMismatches = 1);
 
