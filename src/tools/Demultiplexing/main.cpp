@@ -73,7 +73,7 @@ bool parse_arguments(char** argv, int argc, input& input)
             //optional for reverse mapping: no recommended, join reads first
             ("reverse,r", value<std::string>(&(input.reverseFile))->default_value(""), "Use this parameter for paired-end analysis as the reverse read file. <-i> is the forward read in \
             this case.")
-            ("detached,d", value<bool>(&(input.detachedReverseMapping))->default_value(false),"detached mapping of forward and reverse read. In this case we do not \
+            ("independent,d", value<bool>(&(input.independentReverseMapping))->default_value(false),"independent mapping of forward and reverse read. In this case we do not \
             assume the whole pattern is one sequence from 5'->3'. We rather have two seperate reads for FW and RV and we map both reads individually and the reverse\
             read is not a reverse complement of the pattern itself. In this case we must additionally add a read seperator [-] to clarify where FW and RV reads end. \
             Barcodes for the reverse read are then mapped as they are and are not reverse complements of the pattern.")
@@ -161,7 +161,7 @@ void write_parameter_file(const input& input)
     outFile << "reverseFile = " << input.reverseFile << "\n";
     outFile << "barcodeFile = " << input.barcodeFile << "\n";
     outFile << "patternLine = " << input.patternLine << "\n";
-    outFile << "detached reverse read = " << input.detachedReverseMapping << "\n";
+    outFile << "independent reverse read = " << input.independentReverseMapping << "\n";
 
     outFile << "writeStats = " << (input.writeStats ? "true" : "false") << "\n";
     outFile << "writeFailedLines = " << (input.writeFailedLines ? "true" : "false") << "\n";

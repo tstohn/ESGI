@@ -365,14 +365,14 @@ void DemultiplexedResult::initialize_output_for_pattern(const std::string& outpu
             barcodeOutputStream << "\t" << filename;
         }
     }
-    //if we are in detached mode (seperate mapping of reverse and forward read, both 5'->3' direction)
+    //if we are in independent mode (seperate mapping of reverse and forward read, both 5'->3' direction)
     //the headers are stored in seperate vector
     // IMPORTANT: the [-] pattern-elemnt is ALWAYS ONLY stored in the forward read
-    if(pattern->detachedReversePattern)
+    if(pattern->independentReversePattern)
     {
-        for(size_t bidx = 0; bidx < (pattern->detachedReversePattern)->size(); ++bidx)
+        for(size_t bidx = 0; bidx < (pattern->independentReversePattern)->size(); ++bidx)
         {
-            BarcodePtr bptr = (pattern->detachedReversePattern)->at(bidx);
+            BarcodePtr bptr = (pattern->independentReversePattern)->at(bidx);
             //stop and DNA pattern should not be written
 
             if( (bptr->name != "*") && (bptr->name != "DNA") && (bptr->name != "-"))
