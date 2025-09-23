@@ -189,8 +189,9 @@ std::unordered_map<int, std::unordered_map<std::string, std::string >> generateA
         std::vector<std::string> annotationBarcodes = annotationBarcodesVector.at(aIdx);
         if(annotationNames.size() != annotationBarcodes.size())
         {
-            std::cout << "The list of condition-barcodes and condition-names has not the same length1\n";
+            std::cout << "The list of condition-barcodes and condition-names has not the same length!\n";
             std::cout << "Please make sure both lists are of the same size and every condition-barcode is assigned a contidion-name\n";
+            std::cout << "For annotation file <" << aFile << "> we have " << annotationNames.size() << " annotations and " << annotationBarcodes.size() << " possible barcodes\n";
             exit(EXIT_FAILURE);
         }
 

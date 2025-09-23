@@ -181,8 +181,8 @@ test_umiCollapse:
 	#test for UMI collapsing: needs demultiplex & count
 	./bin/demultiplex -i ./src/test/test_data/test_umi/inputUmiTest.txt -o ./bin/ -p ./src/test/test_data/test_umi/pattern.txt -m ./src/test/test_data/test_umi/mismatches.txt -t 1 -n TEST
 	./bin/count -i ./bin/TEST_UMITEST.tsv -o ./bin/UMITEST.tsv -t 1 -d ./src/test/test_data/test_umi -c 2 -a ./src/test/test_data/test_umi/protein.txt -x 3 -u 1 -m 1 -s 1
-	(head -n 1 ./bin/ABUMITEST.tsv && tail -n +2 ./bin/ABUMITEST.tsv | LC_ALL=c sort) > ./bin/sortedABUMITEST.tsv
-	(head -n 1 ./bin/UMIUMITEST.tsv && tail -n +2 ./bin/UMIUMITEST.tsv | LC_ALL=c sort) > ./bin/sortedUMIUMITEST.tsv
+	(head -n 1 ./bin/COUNTDATA_UMITEST.tsv && tail -n +2 ./bin/COUNTDATA_UMITEST.tsv | LC_ALL=c sort) > ./bin/sortedABUMITEST.tsv
+	(head -n 1 ./bin/UMIDATA_UMITEST.tsv && tail -n +2 ./bin/UMIDATA_UMITEST.tsv | LC_ALL=c sort) > ./bin/sortedUMIUMITEST.tsv
 	diff ./src/test/test_data/test_umi/result_sorted_ABUMITEST.tsv ./bin/sortedABUMITEST.tsv
 	diff ./src/test/test_data/test_umi/result_sorted_UMIUMITEST.tsv ./bin/sortedUMIUMITEST.tsv
 
@@ -190,46 +190,49 @@ test_umiCollapse:
 #poly-A and randomHexamer reads with two different barcodes), we can tell the 'count' tool to collapse those SC-barcodes
 test_barcode_merging:
 	./bin/count -i ./src/test/test_data/test_barcodeMerging/demultiplexedReads.tsv -o ./bin/barcodeMergingCounts.tsv -t 2 -d ./src/test/test_data/test_barcodeMerging -c 0,1 -a ./src/test/test_data/test_barcodeMerging/antibody.txt -x 3 -u 2 -m 1 -w ./src/test/test_data/test_barcodeMerging/mergeBarcodes.tsv -s 1
-	(head -n 1 ./bin/ABbarcodeMergingCounts.tsv && tail -n +2 ./bin/ABbarcodeMergingCounts.tsv | LC_ALL=c sort) > ./bin/sortedABbarcodeMergingCounts.tsv
+	(head -n 1 ./bin/COUNTDATA_barcodeMergingCounts.tsv && tail -n +2 ./bin/COUNTDATA_barcodeMergingCounts.tsv | LC_ALL=c sort) > ./bin/sortedABbarcodeMergingCounts.tsv
 	diff ./src/test/test_data/test_barcodeMerging/ABbarcodeMergingCounts.tsv ./bin/sortedABbarcodeMergingCounts.tsv
 
 test_count:
 #origional first test with several basic examples
 	./bin/count -i ./src/test/test_data/testSet.txt -o ./bin/processed_out.tsv -t 2 -d ./src/test/test_data -c 0,5,7,9 -a ./src/test/test_data/antibody.txt -x 3 -g ./src/test/test_data/treatment.txt -y 5 -u 2 -f 0.9
-	(head -n 1 ./bin/ABprocessed_out.tsv && tail -n +2 ./bin/ABprocessed_out.tsv | LC_ALL=c sort) > ./bin/sortedABprocessed_out.tsv
+	(head -n 1 ./bin/COUNTDATA_processed_out.tsv && tail -n +2 ./bin/COUNTDATA_processed_out.tsv | LC_ALL=c sort) > ./bin/sortedABprocessed_out.tsv
 	diff ./src/test/test_data/sortedABprocessed_out.tsv ./bin/sortedABprocessed_out.tsv
 
 #test with multiple UMIs
 	./bin/count -i ./src/test/test_data/testTwoUMIs.txt -o ./bin/2UMIs_out.tsv -t 2 -d ./src/test/test_data -c 0,5,7,9 -a ./src/test/test_data/antibody.txt -x 3 -g ./src/test/test_data/treatment.txt -y 5 -u 2,10 -f 0.9 -z 0
-	(head -n 1 ./bin/ABprocessed_out.tsv && tail -n +2 ./bin/ABprocessed_out.tsv | LC_ALL=c sort) > ./bin/sortedABprocessed_out.tsv
+	(head -n 1 ./bin/COUNTDATA_processed_out.tsv && tail -n +2 ./bin/COUNTDATA_processed_out.tsv | LC_ALL=c sort) > ./bin/sortedABprocessed_out.tsv
 	diff ./src/test/test_data/sortedABprocessedTwoUMIs_out.tsv ./bin/sortedABprocessed_out.tsv
 
 #testing the removal of one wrong read bcs of different AB-Sc for same UMI
 	./bin/count -i ./src/test/test_data/test_count1/testSet_2.txt -o ./bin/TESTCOUNT1.tsv -t 2 -d ./src/test/test_data/test_count1  -c 0,5 -a ./src/test/test_data/antibody_2.txt -x 3 -g ./src/test/test_data/treatment_2.txt -y 5 -u 2 -f 0.9
-	(head -n 1 ./bin/ABTESTCOUNT1.tsv && tail -n +2 ./bin/ABTESTCOUNT1.tsv | LC_ALL=c sort) > ./bin/sortedABTESTCOUNT1.tsv
-	(head -n 1 ./bin/UMITESTCOUNT1.tsv && tail -n +2 ./bin/UMITESTCOUNT1.tsv | LC_ALL=c sort) > ./bin/sortedUMITESTCOUNT1.tsv
+	(head -n 1 ./bin/COUNTDATA_TESTCOUNT1.tsv && tail -n +2 ./bin/COUNTDATA_TESTCOUNT1.tsv | LC_ALL=c sort) > ./bin/sortedABTESTCOUNT1.tsv
+	(head -n 1 ./bin/UMIDATA_TESTCOUNT1.tsv && tail -n +2 ./bin/UMIDATA_TESTCOUNT1.tsv | LC_ALL=c sort) > ./bin/sortedUMITESTCOUNT1.tsv
 	diff ./bin/sortedABTESTCOUNT1.tsv ./src/test/test_data/sortedABprocessed_2_out.tsv
 	diff ./bin/sortedUMITESTCOUNT1.tsv ./src/test/test_data/sortedUMIprocessed_2_out.tsv
 
 #testing removal of two reads bcs both have different treatments for same SC
 	./bin/count -i ./src/test/test_data/test_count2/test_treatmentReadRemoval.txt -o ./bin/TESTCOUNT2.tsv -t 1 -d ./src/test/test_data/test_count2  -c 0,5 -a ./src/test/test_data/antibody_2.txt -x 3 -g ./src/test/test_data/treatment_2.txt -y 0 -u 2 -f 0.9
-	(head -n 1 ./bin/ABTESTCOUNT2.tsv && tail -n +2 ./bin/ABTESTCOUNT2.tsv | LC_ALL=c sort) > ./bin/sortedABTESTCOUNT2.tsv
-	(head -n 1 ./bin/UMITESTCOUNT2.tsv && tail -n +2 ./bin/UMITESTCOUNT2.tsv | LC_ALL=c sort) > ./bin/sortedUMITESTCOUNT2.tsv
+	(head -n 1 ./bin/COUNTDATA_TESTCOUNT2.tsv && tail -n +2 ./bin/COUNTDATA_TESTCOUNT2.tsv | LC_ALL=c sort) > ./bin/sortedABTESTCOUNT2.tsv
+	(head -n 1 ./bin/UMIDATA_TESTCOUNT2.tsv && tail -n +2 ./bin/UMIDATA_TESTCOUNT2.tsv | LC_ALL=c sort) > ./bin/sortedUMITESTCOUNT2.tsv
 	diff ./bin/sortedABTESTCOUNT2.tsv ./src/test/test_data/test_count2/sortedABprocessed_treatment_out.tsv
 	diff ./bin/sortedUMITESTCOUNT2.tsv ./src/test/test_data/test_count2/sortedUMIprocessed_treatment_out.tsv
 
 #test EditDist for UMIs
 	#default with 1 MM
 	./bin/count -i ./src/test/test_data/test_count3/umiEditDistTest.txt -o ./bin/TESTCOUNT3.tsv -t 2 -d ./src/test/test_data/test_count2  -c 0,5 -a ./src/test/test_data/antibody_2.txt -x 3 -g ./src/test/test_data/treatment_2.txt -y 0 -u 2 -f 0.9 -m 1
-	(head -n 1 ./bin/UMITESTCOUNT3.tsv && tail -n +2 ./bin/UMITESTCOUNT3.tsv | LC_ALL=c sort) > ./bin/sortedUMITESTCOUNT3_a.tsv
+	(head -n 1 ./bin/UMIDATA_TESTCOUNT3.tsv && tail -n +2 ./bin/UMIDATA_TESTCOUNT3.tsv | LC_ALL=c sort) > ./bin/sortedUMITESTCOUNT3_a.tsv
 	diff ./bin/sortedUMITESTCOUNT3_a.tsv ./src/test/test_data/test_count3/UMIprocessed_out_editTest_a.tsv
 	#with 2MM
 	./bin/count -i ./src/test/test_data/test_count3/umiEditDistTest.txt -o ./bin/TESTCOUNT3.tsv -t 2 -d ./src/test/test_data/test_count2  -c 0,5 -a ./src/test/test_data/antibody_2.txt -x 3 -g ./src/test/test_data/treatment_2.txt -y 0 -u 2 -f 0.9 -m 2
-	(head -n 1 ./bin/UMITESTCOUNT3.tsv && tail -n +2 ./bin/UMITESTCOUNT3.tsv | LC_ALL=c sort) > ./bin/sortedUMITESTCOUNT3_b.tsv
+	(head -n 1 ./bin/UMIDATA_TESTCOUNT3.tsv && tail -n +2 ./bin/UMIDATA_TESTCOUNT3.tsv | LC_ALL=c sort) > ./bin/sortedUMITESTCOUNT3_b.tsv
 	diff ./bin/sortedUMITESTCOUNT3_b.tsv ./src/test/test_data/test_count3/UMIprocessed_out_editTest_b.tsv
 
 # test the presence of several annotation files
-	
+	./bin/count -i ./src/test/test_data/test_multiAnnotation/input.txt -o ./bin/MultiAnnot.tsv -t 2 -d ./src/test/test_data/test_multiAnnotation -c 0,5,7,9 -a ./src/test/test_data/test_multiAnnotation/antibody.txt -x 3 -g ./src/test/test_data/test_multiAnnotation/x_coord.txt ./src/test/test_data/test_multiAnnotation/y_coord.txt -y 0 5 -u 2,10 -f 0.9 -z 0
+	(head -n 1 ./bin/COUNTDATA_MultiAnnot.tsv && tail -n +2 ./bin/COUNTDATA_MultiAnnot.tsv | LC_ALL=c sort) > ./bin/sortedMultiAnnot_out.tsv
+	diff ./src/test/test_data/test_multiAnnotation/output.tsv ./bin/sortedMultiAnnot_out.tsv
+
 
 #single AB pattern
 test_big:

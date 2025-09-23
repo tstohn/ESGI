@@ -1,0 +1,1 @@
+Mouse IgG2b,Mouse IgG1,Rabbit IgG,alpha-tubulin,beta-actin,GAPDH,Histone H3,p21,Cyclin B1,Geminin,CTD1,TK1,pCdc2,pRB,pHistone H3,cleaved-PARP,cleaved-caspase3,S6,pS6,AKT,pAKT,ERK1/2,pERK1/2,4EBP1,p4EBP1,c-myc,PTEN,Cas9,pRSK,RSK

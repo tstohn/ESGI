@@ -955,11 +955,11 @@ void BarcodeProcessingHandler::writeAbCountsPerSc(const std::string& output)
     std::string umiOutput = output;
     if(found == std::string::npos)
     {
-        umiOutput = "UMI" + output;
+        umiOutput = "UMIDATA_" + output;
     }
     else
     {
-        umiOutput = output.substr(0,found) + "/" + "UMI" + output.substr(found+1);
+        umiOutput = output.substr(0,found) + "/" + "UMIDATA_" + output.substr(found+1);
     }
     outputFile.open (umiOutput);
 
@@ -987,11 +987,11 @@ void BarcodeProcessingHandler::writeAbCountsPerSc(const std::string& output)
     std::string abOutput = output;
     if(found == std::string::npos)
     {
-        abOutput = "AB" + output;
+        abOutput = "COUNTDATA_" + output;
     }
     else
     {
-        abOutput = output.substr(0,found) + "/" + "AB" + output.substr(found+1);
+        abOutput = output.substr(0,found) + "/" + "COUNTDATA_" + output.substr(found+1);
     }
     outputFile.open (abOutput);
     bool writeClassLabels = rawData.check_class();
