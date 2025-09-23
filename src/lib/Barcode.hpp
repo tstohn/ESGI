@@ -588,15 +588,18 @@ class VariableBarcode final : public Barcode
         int& targetEnd, int& delNum, int& insNum, int& substNum,
         bool reverse = false)
     {
+
         //check if we can instantly match pattern
         if(equalLengthBarcodes && (fastqLine.size() >= (targetOffset + patterns.at(0)->size())))
         {
+
             std::string exactTarget = fastqLine.substr(targetOffset, patterns.at(0)->size());
             if(reverse){exactTarget = generate_reverse_complement(exactTarget);}
             if (barcodeSet.find(exactTarget) != barcodeSet.end()) 
             {
                 targetEnd = patterns.at(0)->size();
                 matchedBarcode = exactTarget;
+
                 return true;
             } 
             else if(mismatches == 0)
@@ -611,6 +614,7 @@ class VariableBarcode final : public Barcode
                 targetEnd = patterns.at(0)->size();
                 matchedBarcode = *(hamming_map.at(exactTarget));
                 substNum = 1;
+
                 return true;
             }
             else if(hamming){return false;} //if we only do hamming distance mapping, stop here if we found nothing
@@ -671,7 +675,9 @@ class VariableBarcode final : public Barcode
         //get the basenum hashes: based on counts of bases (considering allowed MM) - how many barcodes could fit
         if(equalLengthBarcodes)
         {
+
             std::string targetSequence = fastqLine.substr(targetOffset, patterns.front()->length());
+
             baseNum baseCountTmp;
             count_bases(targetSequence, baseCountTmp);
 
@@ -684,7 +690,9 @@ class VariableBarcode final : public Barcode
             {
                 possiblePatterns =  fwEditBaseNumMap[baseCountTmp];
             }
-            if(targetSequence.find('N') == std::string::npos)
+            //if there is an N in the fastq-line substringt or if this substring is shorter than
+            //possible barccodes (e.g., at the end of the fastq) DO NOT use possible patterns
+            if(targetSequence.find('N') == std::string::npos && !(targetSequence.size()< patterns.front()->length()) )
             {
                 patternsToMap = possiblePatterns;
             }
@@ -694,13 +702,14 @@ class VariableBarcode final : public Barcode
             // looking for kmer-array within a minimum distance, e.g., for 2MM SET_KMERS- 2(every EDIT changes 2 kmers max)*2MM kmers must be same at least
             std::vector<std::shared_ptr<std::string>> prunedPatternsToMap; 
             prunedPatternsToMap = kmer_align_patterns(patternsToMap, targetSequence, reverse);
-
             patternsToMap = prunedPatternsToMap;
+
         }
 
         //align those barcodes
         for(size_t patternIdx = 0; patternIdx!= patternsToMap.size(); ++patternIdx)
         {
+
             bool foundAlignment = false;
 
             int delNumTmp;
@@ -716,7 +725,7 @@ class VariableBarcode final : public Barcode
             //std::cout << "\t LENGTH: " <<substringLength << " seq: " << fastqLine.size()<< "\n";
             if(targetOffset + substringLength > fastqLine.size()){substringLength = fastqLine.size()-targetOffset;};
             target = fastqLine.substr(targetOffset, substringLength);
-
+            
             //map the pattern to the target sequence
             foundAlignment = run_alignment(usedPattern, target, targetEnd, config, delNumTmp,  insNumTmp, substNumTmp);
             
@@ -999,14 +1008,14 @@ class BarcodePattern
             : containsDNA(other.containsDNA),
             patternName(other.patternName),
             barcodePattern(copy_barcode_vector(other.barcodePattern)),
-            detachedReversePattern(copy_barcode_vector(other.detachedReversePattern)) {}
+            independentReversePattern(copy_barcode_vector(other.independentReversePattern)) {}
 
 
         //class variables
         bool containsDNA;
         std::string patternName; //this is also the file this pattern will be written to
         BarcodeVectorPtr barcodePattern;
-        BarcodeVectorPtr detachedReversePattern; //in case we do not have one long pattern with a fw&rv read
+        BarcodeVectorPtr independentReversePattern; //in case we do not have one long pattern with a fw&rv read
         //but more two independent read that should be mapped seperately
 
         //class functions
@@ -1060,7 +1069,7 @@ class BarcodePattern
     private:
         BarcodeVectorPtr get_pattern(PatternType type) const 
         {
-            if(type == PatternType::Reverse){return detachedReversePattern;}
+            if(type == PatternType::Reverse){return independentReversePattern;}
             return barcodePattern; //if not reverse return forward pattern
         }
 

@@ -39,7 +39,8 @@ struct BarcodeInformation
     
     //different indices, they r the index of the NNN-barcodes only (and therefore differe from the index of all barcodes incl. constant ones)
     std::vector<int> scBarcodeIndices; //CI barcode indices
-    int treatmentIdx = -1; // treatment index
+    std::vector<int> annotationIdxs; // annotation indices like treatment, spatial information
+    std::vector<std::string> annotationFileCol; //string like '<annotation-filename>_<annotation-columnnumber>'
     unsigned int featureIdx = 1; //AB index
     
     std::vector<int> umiIdx; //UMI index
@@ -51,7 +52,7 @@ struct BarcodeInformation
 struct scAbCount
 {
     const char* abName;
-    const char* treatment;
+    std::vector<const char*> annotations; // annotations like treatment, spatial information
     const char* className;
 
     const char* scID;
@@ -63,7 +64,7 @@ struct umiCount
 {
     const char* umi;
     const char* abName;
-    const char* treatment;
+    std::vector<const char*> annotations; // annotations like treatment, spatial information
     
     const char* scID;
     int abCount = 0;
@@ -268,7 +269,7 @@ class Results
 void generateBarcodeDicts(const std::string& headerLine, const std::string& barcodeDir, std::string barcodeIndices, 
                           BarcodeInformation& barcodeIdData, 
                           std::vector<std::string>& proteinNamelist, bool parseAbBarcodes, const int& featureIdx,  bool& umiRemoval,
-                          std::vector<std::string>* treatmentDict = nullptr, const int& treatmentIdx = -1,
+                          std::vector< std::vector<std::string>>* annotationBarcodesVector = nullptr, const std::vector<int>* annotationIdxs = nullptr,
                           std::string umiIdx = "", int umiMismatches = 1);
 
 /**
@@ -307,9 +308,9 @@ class BarcodeProcessingHandler
         void writeLog(std::string output);
         void writeAbCountsPerSc(const std::string& output);
 
-        inline void addTreatmentData(std::unordered_map<std::string, std::string > map)
+        inline void addAnnotationData(std::unordered_map< int, std::unordered_map<std::string, std::string >> dict)
         {
-            rawData.setTreatmentDict(map);
+            rawData.setAnnotationDict(dict);
         }
         inline void addProteinData(std::unordered_map<std::string, std::string > map)
         {
@@ -335,9 +336,9 @@ class BarcodeProcessingHandler
         {
             return(barcodeInformation.umiIdx);
         }
-        int getTreatmentIdx() const
+        std::vector<int> getAnnotationIdxs() const
         {
-            return(barcodeInformation.treatmentIdx);
+            return(barcodeInformation.annotationIdxs);
         }
         void setUmiFilterThreshold(double threshold)
         {

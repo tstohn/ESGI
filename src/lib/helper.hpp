@@ -111,7 +111,7 @@ struct input{
     std::string prefix;
 
     std::string reverseFile = "";
-    bool detachedReverseMapping = false;
+    bool independentReverseMapping = false;
 
     std::string barcodeFile; //file of all barcode-vectors, each line sequentially representing a barcode 
     std::string mismatchFile; //file withg several lines with coma seperated list of mismathces per barcode

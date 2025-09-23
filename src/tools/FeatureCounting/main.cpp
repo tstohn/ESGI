@@ -34,7 +34,8 @@ using namespace boost::program_options;
 bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& outFile, int& threats, 
                      std::string& barcodeDir, std::string& barcodeIndices, 
                      std::string& umiIdx, int& umiMismatches,
-                     std::string& abFile, int& featureIdx, std::string& treatmentFile, int& treatmentIdx,
+                     std::string& abFile, int& featureIdx, std::vector<std::string>& annotationFiles, 
+                     std::vector<int>& annotationIdxs,
                      double& umiThreshold, bool& umiRemoval,  bool& scIdString, std::string& fuseBarcodesFile)
 {
     try
@@ -51,11 +52,15 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             If this list is not given the features will simply be the nucleotide sequences of the feature column (-x) in the input file")
             ("featureIndex,x", value<int>(&featureIdx)->required(), "Index used for feature counting (e.g., index of the protein barcode). This is the index of the column that should be used for features (0 indexed)")
             
-            ("groupList,g", value<std::string>(&(treatmentFile)), "file with a list of all single-cell group assignments (e.g.treatments in specific wells). This is just a file with group names, comma seperated and should be in same order as the specific barcodes for the grouping barcode. \
-            If this argument is given, you must also add the index of barcodes used for grouping with <-y>. \
+            ("groupList,g", value<std::vector<std::string>>(&(annotationFiles))->multitoken(), "list of paths to files: every file contains a list of all single-cell annotations (e.g.treatment groups in specific wells). This is just a file with annotations, comma seperated and should be in same order as the specific barcodes for the annotation barcode. \
+            If this argument is given, you must also add the index of barcodes used for group annotation with <-y>. \
             E.g., imagine we have a barcode file like : ACGT,TACG,CCCG. And the barcodes also define different treatment conditions \
-            then we can provide a grouping file -g groupingFile.txt with groupingFile.txt: untreated, treated_time1, treated_time2")
-            ("groupingIndex,y", value<int>(&treatmentIdx), "Index used to group cells (e.g. by treatment). This is the barcode used to assign groups that have to be given in <-g>. This is the x-th barcode from the barcodeFile (0 indexed).")
+            then we can provide a grouping file -g groupingFile.txt with groupingFile.txt: untreated, treated_time1, treated_time2. The barcodes to map \
+            barcodes to a group are taken form the header of the column. this can be used to assign treatment (e.g., certain treatments for barcodes in a certain round, or for spatial data\
+            certain barcodes for x-y coordiantes like in 10X, or other protocols where one has two barcode, one for the x and one for the y coordinate, or many more possibilitiers.\
+            This list of files must be comma seperated). Example: file1.txt,file2.txt where every file contains a list of annotations for the barcode in the file state in the column header.")
+            ("groupingIndex,y", value<std::vector<int>>(&annotationIdxs)->multitoken(), "List of Indices used to annotate cells (e.g. by treatment, spatial location). This is the barcode used to assign groups that have to be given in <-g>. This is the x-th barcode from the barcodeFile (0 indexed). \
+            This list of indices must be comma seperate. Example: 2,3 to annotate barcode in the third and fourth column with information in -g.")
 
             ("singleCellIndices,c", value<std::string>(&(barcodeIndices))->default_value(""), "comma seperated list of indexes, that are used for \
             single-cell assignment (e.g., for combinatorial indexing 0,5,3. If cells have a single barcode it can be, e.g., only 0). \
@@ -138,48 +143,69 @@ std::unordered_map<std::string, std::string > generateProteinDict(std::string ab
 }
 
 // generate a dictionary to map sequences to treatments
-std::unordered_map<std::string, std::string > generateTreatmentDict(std::string treatmentFile,
-                                                                    const std::vector<std::string>& treatmentBarcodes)
+std::unordered_map<int, std::unordered_map<std::string, std::string >> generateAnnotationDict(const std::vector<std::string>& annotationFiles,
+                                                                                              const std::vector<int>& annotationIdxs,
+                                                                                              const std::vector< std::vector<std::string>>& annotationBarcodesVector)
 {
-    std::unordered_map<std::string, std::string > map;
-    std::vector<std::string> treatmentNames;
+    std::unordered_map<int, std::unordered_map<std::string, std::string >> allAnnotationsMap;
 
-    std::ifstream treatmentFileStream(treatmentFile);
-    if (!treatmentFileStream.is_open()) 
+    if(annotationFiles.size() != annotationIdxs.size())
     {
-        std::cerr << "Error: Failed to open cell-grouping file" << treatmentFile << ". Please double check if the file exists.\n";
+        std::cerr << "Not every annotation-file has a annotation column or vice versa. There are " << std::to_string(annotationFiles.size()) \
+        << " annotation-files with " << std::to_string(annotationIdxs.size()) << " annotation-column. Please provide for every file with annotation information" \
+        << " one column to match barcodes.";
         exit(EXIT_FAILURE);
     }
 
-    for(std::string line; std::getline(treatmentFileStream, line);)
+    for(size_t aIdx = 0; aIdx < annotationFiles.size(); ++aIdx)
     {
-        std::string delimiter = ",";
-        std::string seq;
-        size_t pos = 0;
-        std::vector<std::string> seqVector;
-        while ((pos = line.find(delimiter)) != std::string::npos) 
+        std::string aFile = annotationFiles.at(aIdx);
+        std::unordered_map<std::string, std::string> barcodeToAnnotationMap;
+
+        std::vector<std::string> annotationNames;
+        std::ifstream aFileStream(aFile);
+        if (!aFileStream.is_open()) 
         {
-            seq = line.substr(0, pos);
-            line.erase(0, pos + 1);
-            treatmentNames.push_back(seq);
-
+            std::cerr << "Error: Failed to open cell-grouping file" << aFile << ". Please double check if the file exists.\n";
+            exit(EXIT_FAILURE);
         }
-        seq = line;
-        treatmentNames.push_back(seq);
-    }
-    if(treatmentNames.size() != treatmentBarcodes.size())
-    {
-        std::cout << "The list of condition-barcodes and condition-names has not the same length1\n";
-        std::cout << "Please make sure both lists are of the same size and every condition-barcode is assigned a contidion-name\n";
-        exit(EXIT_FAILURE);
-    }
-    for(size_t i = 0; i < treatmentBarcodes.size(); ++i)
-    {
-        map.insert(std::make_pair(treatmentBarcodes.at(i), treatmentNames.at(i)));
-    }
-    treatmentFileStream.close();
 
-    return map;
+        for(std::string line; std::getline(aFileStream, line);)
+        {
+            std::string delimiter = ",";
+            std::string seq;
+            size_t pos = 0;
+            std::vector<std::string> seqVector;
+            while ((pos = line.find(delimiter)) != std::string::npos) 
+            {
+                seq = line.substr(0, pos);
+                line.erase(0, pos + 1);
+                annotationNames.push_back(seq);
+
+            }
+            seq = line;
+            annotationNames.push_back(seq);
+        }
+        std::vector<std::string> annotationBarcodes = annotationBarcodesVector.at(aIdx);
+        if(annotationNames.size() != annotationBarcodes.size())
+        {
+            std::cout << "The list of condition-barcodes and condition-names has not the same length1\n";
+            std::cout << "Please make sure both lists are of the same size and every condition-barcode is assigned a contidion-name\n";
+            exit(EXIT_FAILURE);
+        }
+
+        //create mapping of barcode to annotation
+        for(size_t i = 0; i < annotationBarcodes.size(); ++i)
+        {
+            barcodeToAnnotationMap.insert(std::make_pair(annotationBarcodes.at(i), annotationNames.at(i)));
+        }
+        aFileStream.close();
+        //make final col-index to annotation map
+        allAnnotationsMap.insert(std::make_pair(annotationIdxs.at(aIdx), barcodeToAnnotationMap) );
+    }
+
+
+    return allAnnotationsMap;
 }
 
 int main(int argc, char** argv)
@@ -199,15 +225,17 @@ int main(int argc, char** argv)
     //data for protein(ab) and treatment information
     std::string abFile; 
     int featureIdx;
-    std::string treatmentFile;
-    int treatmentIdx = -1;
+    
+    std::vector<std::string> annotationFiles;
+    std::vector<int> annotationIdxs;
     std::vector<std::string> abBarcodes;
-    std::vector<std::string> treatmentBarcodes;
+    //vector of barcode vectors, equivalent to the content in annotationFiles, but that one did not parse the annotations yet
+    std::vector<std::vector<std::string>> annotationBarcodesVector;
     std::string umiIdx;
 
     if(!parse_arguments(argv, argc, inFile, outFile, thread, 
                         barcodeDir, barcodeIndices, umiIdx, umiMismatches, 
-                        abFile, featureIdx, treatmentFile, treatmentIdx,
+                        abFile, featureIdx, annotationFiles, annotationIdxs,
                         umiThreshold, umiRemoval, scIdAsString, fuseBarcodesFile))
     {
         exit(EXIT_FAILURE);
@@ -232,7 +260,7 @@ int main(int argc, char** argv)
     {  
         bool parseAbBarcodes = true;
         if(abFile.empty()){parseAbBarcodes = false;}
-        generateBarcodeDicts(firstLine, barcodeDir, barcodeIndices, barcodeIdData, abBarcodes, parseAbBarcodes, featureIdx, umiRemoval, &treatmentBarcodes, treatmentIdx, umiIdx, umiMismatches);
+        generateBarcodeDicts(firstLine, barcodeDir, barcodeIndices, barcodeIdData, abBarcodes, parseAbBarcodes, featureIdx, umiRemoval, &annotationBarcodesVector, &annotationIdxs, umiIdx, umiMismatches);
     } 
     else
     {
@@ -259,15 +287,16 @@ int main(int argc, char** argv)
     }
     //featureMap is empty if the feature name should stay as they are (no mapping of e.g. barcodes to proteins)
     dataParser.addProteinData(featureMap);
-    if(!treatmentFile.empty() && treatmentIdx != -1)
+    if(!annotationFiles.empty() && !annotationIdxs.empty())
     {
-        std::unordered_map<std::string, std::string > treatmentMap = generateTreatmentDict(treatmentFile, treatmentBarcodes);
-        dataParser.addTreatmentData(treatmentMap);
+        //MAPPING ANNOTATION_IDX => (ANNOTATION_BARCODE => ANNOTATION_STRING)
+        std::unordered_map< int, std::unordered_map<std::string, std::string >> annotationMap = generateAnnotationDict(annotationFiles, annotationIdxs, annotationBarcodesVector);
+        dataParser.addAnnotationData(annotationMap);
     }
 
     //parse the file of demultiplexed barcodes and
     //add all the data to the Unprocessed Demultiplexed Data (stored in rawData)
-    // (AB, treatment already are mapped to their real names, scID is a concatenation of numbers for each barcode in
+    // (AB, annotations already are mapped to their real names, scID is a concatenation of numbers for each barcode in
     //each abrcoding round, seperated by a dot)
     dataParser.parse_barcode_file(inFile);
 

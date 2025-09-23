@@ -140,7 +140,7 @@ test:
 	make test_demultiplex
 	make test_big
 	make test_multipattern
-	make test_detached
+	make test_independent_reads
 
 	#test cases for counting single-cell features with UMI collapsing
 	make count
@@ -148,15 +148,17 @@ test:
 	make test_umiCollapse
 	make test_barcode_merging
 
-test_detached:
+test_independent_reads:
 	./bin/demultiplex -i ./src/test/test_data/test_detached/input_fw.fastq -r ./src/test/test_data/test_detached/input_rv.fastq -d 1 -o ./bin/ -p ./src/test/test_data/test_detached/patterns.txt -m ./src/test/test_data/test_detached/mismatches.txt -t 1 -n DETACHED -q 1 -f 1
 
 test_multipattern:
 	./bin/demultiplex -i ./src/test/test_data/test_multipatterns/input.txt -o ./bin/ -p ./src/test/test_data/test_multipatterns/patterns.txt -m ./src/test/test_data/test_multipatterns/mismatches.txt -t 1 -n MULTI -q 1 -f 1
-	diff ./bin/MULTI_PATTERN1.tsv src/test/test_data/test_multipatterns/MULTI_PATTERN1.tsv
-	diff ./bin/MULTI_PATTERN2.tsv src/test/test_data/test_multipatterns/MULTI_PATTERN2.tsv
-	diff ./bin/MULTI_PATTERN3.tsv src/test/test_data/test_multipatterns/MULTI_PATTERN3.tsv
-
+	cut -f2- ./bin/MULTI_PATTERN1.tsv > ./bin/MULTI_PATTERN1_cut.tsv
+	cut -f2- ./bin/MULTI_PATTERN2.tsv > ./bin/MULTI_PATTERN2_cut.tsv
+	cut -f2- ./bin/MULTI_PATTERN3.tsv > ./bin/MULTI_PATTERN3_cut.tsv
+	diff ./bin/MULTI_PATTERN1_cut.tsv src/test/test_data/test_multipatterns/MULTI_PATTERN1.tsv
+	diff ./bin/MULTI_PATTERN2_cut.tsv src/test/test_data/test_multipatterns/MULTI_PATTERN2.tsv
+	diff ./bin/MULTI_PATTERN3_cut.tsv src/test/test_data/test_multipatterns/MULTI_PATTERN3.tsv
 
 test_demultiplex:
 	#test order on one thread
@@ -178,7 +180,7 @@ test_demultiplex:
 test_umiCollapse:
 	#test for UMI collapsing: needs demultiplex & count
 	./bin/demultiplex -i ./src/test/test_data/test_umi/inputUmiTest.txt -o ./bin/ -p ./src/test/test_data/test_umi/pattern.txt -m ./src/test/test_data/test_umi/mismatches.txt -t 1 -n TEST
-	./bin/count -i ./bin/TEST_UMITEST.tsv -o ./bin/UMITEST.tsv -t 1 -d ./src/test/test_data/test_umi -c 1 -a ./src/test/test_data/test_umi/protein.txt -x 2 -u 0 -m 1 -s 1
+	./bin/count -i ./bin/TEST_UMITEST.tsv -o ./bin/UMITEST.tsv -t 1 -d ./src/test/test_data/test_umi -c 2 -a ./src/test/test_data/test_umi/protein.txt -x 3 -u 1 -m 1 -s 1
 	(head -n 1 ./bin/ABUMITEST.tsv && tail -n +2 ./bin/ABUMITEST.tsv | LC_ALL=c sort) > ./bin/sortedABUMITEST.tsv
 	(head -n 1 ./bin/UMIUMITEST.tsv && tail -n +2 ./bin/UMIUMITEST.tsv | LC_ALL=c sort) > ./bin/sortedUMIUMITEST.tsv
 	diff ./src/test/test_data/test_umi/result_sorted_ABUMITEST.tsv ./bin/sortedABUMITEST.tsv
@@ -225,6 +227,9 @@ test_count:
 	./bin/count -i ./src/test/test_data/test_count3/umiEditDistTest.txt -o ./bin/TESTCOUNT3.tsv -t 2 -d ./src/test/test_data/test_count2  -c 0,5 -a ./src/test/test_data/antibody_2.txt -x 3 -g ./src/test/test_data/treatment_2.txt -y 0 -u 2 -f 0.9 -m 2
 	(head -n 1 ./bin/UMITESTCOUNT3.tsv && tail -n +2 ./bin/UMITESTCOUNT3.tsv | LC_ALL=c sort) > ./bin/sortedUMITESTCOUNT3_b.tsv
 	diff ./bin/sortedUMITESTCOUNT3_b.tsv ./src/test/test_data/test_count3/UMIprocessed_out_editTest_b.tsv
+
+# test the presence of several annotation files
+	
 
 #single AB pattern
 test_big:

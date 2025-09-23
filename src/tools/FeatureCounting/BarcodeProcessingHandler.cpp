@@ -4,6 +4,16 @@
 #include <unordered_map>
 #include <set>
 #include <cstdlib>
+#include <filesystem>
+
+std::string stripExtension(const std::string& filename) 
+{
+    std::filesystem::path p(filename);
+    if (p.has_extension()) {
+        return p.stem().string();  // removes last extension
+    }
+    return filename;  // no extension, return unchanged
+}
 
 double calcualtePercentages(std::vector<unsigned long long> groups, int num, double perc)
 {
@@ -125,7 +135,7 @@ std::vector<std::string> parseFeatureNames(const std::string& featureFile)
 
 void generateBarcodeDicts(const std::string& headerLine, const std::string& barcodeDir, std::string barcodeIndices, BarcodeInformation& barcodeIdData, 
                           std::vector<std::string>& proteinNamelist, bool parseAbBarcodes, const int& featureIdx, bool& umiRemoval,
-                          std::vector<std::string>* treatmentDict, const int& treatmentIdx, std::string umiIdx,
+                          std::vector<std::vector<std::string>>* annotationBarcodesVector, const std::vector<int>* annotationIdxs, std::string umiIdx,
                           int umiMismatches)
 {
 
@@ -159,7 +169,7 @@ void generateBarcodeDicts(const std::string& headerLine, const std::string& barc
     int colIdx = 0;
 
     //PROCESS HEADERS
-    std::unordered_map<int, std::vector<std::string>> barcodeList; //maps column number -> all barcodes: e.g. 2 -> variables barcode sin BC1.txt, ...
+    std::unordered_map<int, std::vector<std::string>> barcodeList; //maps column number -> all barcodes: e.g. 2 -> variables barcodes in BC1.txt, ...
     while (std::getline(ss, colName, '\t')) 
     {
         //check Windows-specific trailing newlines
@@ -261,16 +271,25 @@ void generateBarcodeDicts(const std::string& headerLine, const std::string& barc
     }
 
     //print assigned grouping index
-    if(treatmentIdx!=-1)
+    if(annotationIdxs != nullptr)
     {
-        if (treatmentIdx >= colIdx)
+        std::vector<int>::const_iterator it = std::max_element(annotationIdxs->begin(), annotationIdxs->end());
+        if (it != annotationIdxs->end() && (*it) >= colIdx)
         {
-            std::cout << "Double check the input file and treatment index.\n";
-            std::cout << "The treatment index is bigger than the number of headers in the input file!\n";
+            std::cout << "Double check the input file and annotation indices.\n";
+            std::cout << "At least one annotation index is bigger than the number of headers in the input file!\n";
             exit(EXIT_FAILURE);
         }
-        std::cout << "Assigning treatment to column: " << barcodeHeader.at(treatmentIdx) << "\n";
-        barcodeIdData.treatmentIdx = treatmentIdx;    
+        for(int aIdx : (*annotationIdxs))
+        {
+            std::cout << "Assigning annotations to column: " << barcodeHeader.at(aIdx) << "\n";
+        }
+        barcodeIdData.annotationIdxs = *annotationIdxs;  
+        for(int aIdx : (*annotationIdxs))
+        {
+            std::string annotationString = "ANNOTATION_BC:" + stripExtension(barcodeHeader.at(aIdx)) + "_COL:" + std::to_string(aIdx);
+            barcodeIdData.annotationFileCol.push_back(annotationString);
+        }
     }
 
     //print the used feature index
@@ -318,15 +337,18 @@ void generateBarcodeDicts(const std::string& headerLine, const std::string& barc
             throw std::runtime_error("There is no match for feature names in the assigned feature-barcode column: " + barcodeHeader.at(featureIdx));
         }
     }
-    if(treatmentIdx!=-1)
+    if(annotationIdxs != nullptr)
     {
-        try 
+        for(int aIdx : *annotationIdxs)
         {
-            *treatmentDict = barcodeList.at(treatmentIdx);
-        } catch (const std::out_of_range& e) 
-        {
-            std::cout << "Please double check your input: Especially where is the treatment column\n";
-            throw std::runtime_error("There is no match for treatment names in the assigned treatment-barcode column: " + barcodeHeader.at(treatmentIdx));
+            try 
+            {
+                annotationBarcodesVector->push_back(barcodeList.at(aIdx));
+            } catch (const std::out_of_range& e) 
+            {
+                std::cout << "Please double check your input: Especially if the annotation columns are valid\n";
+                throw std::runtime_error("There is no match for barcodes for the annotation-barcode column: " + barcodeHeader.at(aIdx));
+            }
         }
     }
 
@@ -493,10 +515,13 @@ void BarcodeProcessingHandler::add_line_to_temporary_data(const std::string& lin
     std::string featureName = "";
     featureName = rawData.getFeatureName(result.at(barcodeInformation.featureIdx));
     
-    std::string treatment = "";
-    if(barcodeInformation.treatmentIdx != -1)
+    std::vector<std::string> annotations;
+    if(!barcodeInformation.annotationIdxs.empty())
     {
-        treatment = rawData.getTreatmentName(result.at(barcodeInformation.treatmentIdx));
+        for(int aIdx : barcodeInformation.annotationIdxs)
+        {
+            annotations.push_back(rawData.getAnnotationName(aIdx ,result.at(aIdx)));
+        }
     }
 
     ++readCount;
@@ -515,12 +540,12 @@ void BarcodeProcessingHandler::add_line_to_temporary_data(const std::string& lin
         }
         umiSeq = umiSeqString.c_str();
 
-        rawData.add_to_umiDict(umiSeq, featureName, singleCellIdx, treatment);
+        rawData.add_to_umiDict(umiSeq, featureName, singleCellIdx, annotations);
     }
     //otherwise add reads directly to dict of ScAb to reads
     else
     {
-        rawData.add_to_scAbDict("", featureName, singleCellIdx, treatment);
+        rawData.add_to_scAbDict("", featureName, singleCellIdx, annotations);
     }
 }
 
@@ -738,7 +763,7 @@ void BarcodeProcessingHandler::count_abs_per_single_cell(const std::vector<dataL
 
         abLineTmp.scID = umiLineTmp.scID = uniqueAbSc.at(0)->scID;
         abLineTmp.abName = umiLineTmp.abName = uniqueAbSc.at(0)->abName;
-        abLineTmp.treatment = umiLineTmp.treatment = uniqueAbSc.at(0)->treatmentName;
+        abLineTmp.annotations = umiLineTmp.annotations = uniqueAbSc.at(0)->annotations;
         abLineTmp.className = uniqueAbSc.at(0)->cellClassname;
 
         //if we have no umis erase whole vector and count every element
@@ -937,10 +962,24 @@ void BarcodeProcessingHandler::writeAbCountsPerSc(const std::string& output)
         umiOutput = output.substr(0,found) + "/" + "UMI" + output.substr(found+1);
     }
     outputFile.open (umiOutput);
-    outputFile << "UMI" << "\t" << "AB" << "\t" << "SingleCell_ID" << "\t" << "TREATMENT" << "\t" << "UMI_COUNT" << "\n"; 
+
+    //write headers
+    outputFile << "UMI" << "\t" << "FEATURE_ID" << "\t" << "SC_ID" << "\t";
+    for(const std::string& annotationHeader : barcodeInformation.annotationFileCol)
+    {
+        outputFile << annotationHeader << "\t";
+    }
+    outputFile << "UMI_COUNT" << "\n"; 
+
+    //write lines
     for(umiCount line : result.get_umi_data())
     {
-        outputFile << line.umi << "\t" << line.abName << "\t" << line.scID << "\t" << line.treatment << "\t" << line.abCount << "\n"; 
+        outputFile << line.umi << "\t" << line.abName << "\t" << line.scID << "\t";
+        for(const char* annotation : line.annotations)
+        {
+            outputFile << annotation << "\t";
+        }
+        outputFile << line.abCount << "\n"; 
     }
     outputFile.close();
 
@@ -958,22 +997,76 @@ void BarcodeProcessingHandler::writeAbCountsPerSc(const std::string& output)
     bool writeClassLabels = rawData.check_class();
     if(writeClassLabels)
     {
-        outputFile << "AB_BARCODE" << "\t" << "SingleCell_BARCODE" << "\t" << "AB_COUNT" << "\t" << "TREATMENT" << "\t" << "CLASS" << "\t" << "CLASS_COUNT" <<"\n"; 
+        outputFile << "AB_BARCODE" << "\t" << "SC_BARCODE" << "\t" << "AB_COUNT" << "\t";
+        for(const std::string& annotationHeader : barcodeInformation.annotationFileCol)
+        {
+            outputFile << annotationHeader << "\t";
+        }
+        outputFile  << "CLASS" << "\t" << "CLASS_COUNT" <<"\n"; 
     }
     else
     {
-        outputFile << "AB_BARCODE" << "\t" << "SingleCell_BARCODE" << "\t" << "AB_COUNT" << "\t" << "TREATMENT" << "\n"; 
-    }
-    for(scAbCount line : result.get_ab_data())
-    {
-        if(writeClassLabels)
+        outputFile << "FEATURE_ID" << "\t" << "SC_ID" << "\t" << "FEATURE_COUNT";
+        //if there are no annotations the line ends here, otherwise continue with a tab...
+        if(barcodeInformation.annotationFileCol.empty())
         {
-                outputFile << line.abName << "\t" << line.scID << "\t" << line.abCount << "\t" << line.treatment << "\t" << line.className << "\t" << guideCountPerSC.at(line.scID) << "\n"; 
+            outputFile << "\n";
         }
         else
         {
-                outputFile << line.abName << "\t" << line.scID << "\t" << line.abCount << "\t" << line.treatment << "\n"; 
+            outputFile << "\t";
         }
+        size_t count = 0;
+        for(const std::string& annotationHeader : barcodeInformation.annotationFileCol)
+        {
+            ++count;
+            outputFile << annotationHeader;
+            if(count == barcodeInformation.annotationFileCol.size())
+            {
+                outputFile << "\n";
+            }
+            else
+            {
+                outputFile << "\t";
+            }
+        }
+    }
+    for(scAbCount line : result.get_ab_data())
+    {
+       /* if(writeClassLabels)
+        {
+                outputFile << line.abName << "\t" << line.scID << "\t" << line.abCount << "\t";
+                 << line.treatment << "\t"
+                 
+                 << line.className << "\t" << guideCountPerSC.at(line.scID) << "\n"; 
+        }*/
+
+                outputFile << line.abName << "\t" << line.scID << "\t" << line.abCount;
+                //write newline if we have no annotations
+                if(line.annotations.empty())
+                {
+                    outputFile << "\n";
+                }
+                else
+                {
+                    outputFile << "\t";
+                }
+                size_t count = 0;
+                for(const char* annotation : line.annotations)
+                {
+                    ++count;
+                    outputFile << annotation; 
+                    if(count == line.annotations.size())
+                    {
+                        outputFile << "\n";
+                    }
+                    else
+                    {
+                        outputFile << "\t";
+                    }
+
+                }
+        
     }
     outputFile.close();
     

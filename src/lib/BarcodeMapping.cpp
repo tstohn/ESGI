@@ -279,7 +279,7 @@ BarcodePatternPtr Mapping<MappingPolicy, FilePolicy>::create_barcodeVector_from_
     const input& input)
 {
     BarcodeVector barcodeVector;
-    BarcodeVector detachedReverseVector;
+    BarcodeVector independentReverseVector;
     bool isReversePattern = false;
     bool containsDNA = false;
 
@@ -308,9 +308,9 @@ BarcodePatternPtr Mapping<MappingPolicy, FilePolicy>::create_barcodeVector_from_
         {
             ConstantBarcode barcode(patternElement, mismatchList.at(barcodeIdx));
             std::shared_ptr<ConstantBarcode> barcodePtr(std::make_shared<ConstantBarcode>(barcode));
-            if (input.detachedReverseMapping && isReversePattern) 
+            if (input.independentReverseMapping && isReversePattern) 
             {
-                detachedReverseVector.push_back(barcodePtr);
+                independentReverseVector.push_back(barcodePtr);
             } else {
                 barcodeVector.push_back(barcodePtr);
             }
@@ -341,9 +341,9 @@ BarcodePatternPtr Mapping<MappingPolicy, FilePolicy>::create_barcodeVector_from_
         {
             VariableBarcode barcode(fileToBarcodesMap.at(patternElement), patternElement, mismatchList.at(barcodeIdx), input.hamming);
             std::shared_ptr<VariableBarcode> barcodePtr(std::make_shared<VariableBarcode>(barcode));
-            if (input.detachedReverseMapping && isReversePattern) 
+            if (input.independentReverseMapping && isReversePattern) 
             {
-                detachedReverseVector.push_back(barcodePtr);
+                independentReverseVector.push_back(barcodePtr);
             } else {
                 barcodeVector.push_back(barcodePtr);
             }
@@ -362,9 +362,9 @@ BarcodePatternPtr Mapping<MappingPolicy, FilePolicy>::create_barcodeVector_from_
                 //For random sequences we MUST specific the length of this sequence
                 WildcardBarcode barcode(mismatchList.at(barcodeIdx), patternElement, barcodeLength);
                 std::shared_ptr<WildcardBarcode> barcodePtr(std::make_shared<WildcardBarcode>(barcode));
-                if (input.detachedReverseMapping && isReversePattern) 
+                if (input.independentReverseMapping && isReversePattern) 
                 {
-                    detachedReverseVector.push_back(barcodePtr);
+                    independentReverseVector.push_back(barcodePtr);
                 } else 
                 {
                     barcodeVector.push_back(barcodePtr);
@@ -387,9 +387,9 @@ BarcodePatternPtr Mapping<MappingPolicy, FilePolicy>::create_barcodeVector_from_
         {
             DNABarcode barcode(mismatchList.at(barcodeIdx));
             std::shared_ptr<DNABarcode> barcodePtr(std::make_shared<DNABarcode>(barcode));
-            if (input.detachedReverseMapping && isReversePattern) 
+            if (input.independentReverseMapping && isReversePattern) 
             {
-                detachedReverseVector.push_back(barcodePtr);
+                independentReverseVector.push_back(barcodePtr);
             } else {
                 barcodeVector.push_back(barcodePtr);
             }
@@ -402,9 +402,9 @@ BarcodePatternPtr Mapping<MappingPolicy, FilePolicy>::create_barcodeVector_from_
         {
             StopBarcode barcode(patternElement, mismatchList.at(barcodeIdx));
             std::shared_ptr<StopBarcode> barcodePtr(std::make_shared<StopBarcode>(barcode));
-            if (input.detachedReverseMapping && isReversePattern) 
+            if (input.independentReverseMapping && isReversePattern) 
             {
-                detachedReverseVector.push_back(barcodePtr);
+                independentReverseVector.push_back(barcodePtr);
             } else 
             {
                 barcodeVector.push_back(barcodePtr);
@@ -415,7 +415,7 @@ BarcodePatternPtr Mapping<MappingPolicy, FilePolicy>::create_barcodeVector_from_
         //seperator pattern: [-] (ether stop here, or if DNA extract all till the read ends)
         if(patternElement == "-")
         {
-            if (input.detachedReverseMapping) 
+            if (input.independentReverseMapping) 
             {
                 isReversePattern = true;
             }
@@ -440,16 +440,16 @@ BarcodePatternPtr Mapping<MappingPolicy, FilePolicy>::create_barcodeVector_from_
     BarcodePatternPtr patternPtr = std::make_shared<BarcodePattern>(BarcodePattern(containsDNA, patternName, barcodeVectorPtr));
     
     //set reverse pattern if present
-    if (input.detachedReverseMapping && !detachedReverseVector.empty()) 
+    if (input.independentReverseMapping && !independentReverseVector.empty()) 
     {
-        BarcodeVectorPtr reverseVectorPtr = std::make_shared<BarcodeVector>(detachedReverseVector);
-        patternPtr->detachedReversePattern = reverseVectorPtr;
+        BarcodeVectorPtr reverseVectorPtr = std::make_shared<BarcodeVector>(independentReverseVector);
+        patternPtr->independentReversePattern = reverseVectorPtr;
     }
 
-    //if the detached flag is set but we never have a read-seperator throw an error
-    if(input.detachedReverseMapping && !isReversePattern)
+    //if the independent flag is set but we never have a read-seperator throw an error
+    if(input.independentReverseMapping && !isReversePattern)
     {
-        std::cerr << "ERROR: To run in detached-mode (seperate forward and reverse mapping) we need to give a [-] pattern:\n";
+        std::cerr << "ERROR: To run in independent-mode (independent,seperate forward and reverse mapping, where we do not expect an overlap and therefore calcualte no reverse complement for the RV read) we need to give a [-] pattern:\n";
         std::cerr << "E.g.: PATTERN:[AAA][5X][-][TTT][5X]. This maps in the reverse read first TTT and then an UMI of 5 bases,\
         and it does not expect the reverse read to start with 5X.";
         exit(EXIT_FAILURE);
@@ -1033,7 +1033,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::split_line_into_barcode_patterns(
     bool pairwiseMappingSuccess = false;
 
     //if both foward and reverse read are mapped from 5' - 3' and reverse read is no reverse complement
-    if(input.detachedReverseMapping)
+    if(input.independentReverseMapping)
     {
         unsigned int barcodePositionFw = 0;
         int tmpMMScore = 0;
