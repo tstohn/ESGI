@@ -1,17 +1,22 @@
 #DEPENDANCIES: 
-#	zlib /(input is a ONE READ fastq file, therefore convert forward/ reverse fastqs into one e.g. with fastq-join/)
-#	boost
+#	+ zlib /(input is a ONE READ fastq file, therefore convert forward/ reverse fastqs into one e.g. with fastq-join/)
+#	+ boost
+#	+ edlib: public github repo to calculate edit distance, we compile it along the esgi library
+#	+ seqtk: library to support fastq-reading, headers are included in esgis own files and need 
+#			 to compile them (we still do run a full <make seqtk>, which is however not necessary as we only include kseq.h)
 
-#STAR with a minimum version of  2.7.9, to also annotate gene ids (GX)
-#WARNING:
-# FOR NOW RNA-MAPPING IS NOT SUPPORTED UNDER WINDOWS: missing htslib installation!
-# we need htslib to annotate mapped barcodes to the mapped genes in the BAM file
+#	+ STAR with a minimum version of  2.7.9, to also annotate gene ids (GX)
+#		WARNING:
+# 		FOR NOW RNA-MAPPING IS NOT SUPPORTED UNDER WINDOWS: missing htslib installation!
+#		 we need htslib to annotate mapped barcodes to the mapped genes in the BAM file
+
+#######################################
+# SYSTEM REQUIREMENTS 
+# (e.g., system dependent boost flags)
+#######################################
 
 UNAME_S := $(shell uname -s)
 VCPKG_ROOT ?= C:/vcpkg
-
-#DNDEBUG
-CXXFLAGS = -O3 -march=native -flto=5 -Wall -Wextra -Wsign-compare -g
 
 #system dependent boost flags
 ifeq ($(UNAME_S),Linux)
@@ -51,13 +56,13 @@ else ifeq ($(UNAME_S),Darwin)
 	LDFLAGS += 
 endif
 
-all: 
-	make install
-	make ESGI
+#######################################
+# INSTALL REQUIREMENTS (download repos, etc.)
+#######################################
 
 install:
 	# download and compile kseq (we have a modified makefile to compile with rand on windows, which we move into the repo), 
-	# we have a submodule edlib (git submodule add https://github.com/martinsos/edlib ./edlib;
+	# we have a submodule edlib (git submodule add https://github.com/martinsos/edlib ./external/edlib);
 	# no need to compile, we just add libraries and then compile with them), but we update it
 
 	#create bin	
@@ -66,8 +71,8 @@ install:
 	#update submodules (edlib)
 	git submodule update --init --recursive
 
-	#we use seqtk to hadnel fastq files, we directly include the files and need to download them from git
-	cd ./include; git clone https://github.com/lh3/seqtk --branch v1.3; mv Makefile ./seqtk/; mv rand_win.c ./seqtk/; cd ./seqtk; make;
+	#we use seqtk to handle fastq files, we directly include the files and need to download them from git
+	cd ./external; git clone https://github.com/lh3/seqtk --branch v1.3; mv Makefile ./seqtk/; mv rand_win.c ./seqtk/; cd ./seqtk; make;
 
 	#install libboost for various systems LINUX/ WINDOWS/ macOS
 	#TODO: we do not need all libboost-dev for LINUX and boost for macOS (check which libs are needed and install only those!)
@@ -80,38 +85,139 @@ install:
 	fi
 
 	#build htslib manually
-	#cd ./include; git clone --recurse-submodules https://github.com/samtools/htslib.git; cd htslib; $(MAKE); $(MAKE) -C htslib install; cd ..
+	#cd ./external; git clone --recurse-submodules https://github.com/samtools/htslib.git; cd htslib; $(MAKE); $(MAKE) -C htslib install; cd ..
 
-#TODO: we need to make annotate for Linux/OS if we want to also do annotate/ count RNA mapped reads
-ESGI:
-	make demultiplex
-	make count
-	
+#######################################
+# BUILD LIBRARY/TOOLS
+#######################################
+
+# Compiler
+CXX := g++
+INCLUDE_DIRS := -Iinclude -Isrc -Iexternal $(BOOST_INCLUDE_FLAG)
+#inlcude all below the include dir
+INCLUDE_DIRS += $(shell find include -type d -print | sed 's/^/-I/')
+#inlcude all below the external dir
+INCLUDE_DIRS += -Iexternal/seqtk -Iexternal/edlib
+
+CXXFLAGS := -O3 -march=native -flto=5 -Wall -Wextra -Wsign-compare -g $(INCLUDE_DIRS)
+CXXFLAGS += -MMD -MP
+
+# Directories
+SRC_DIR := src
+TOOL_DIR := tools
+OBJDIR := build
+LIB_DIR := lib
+BIN_DIR := bin
+
+# Targets
+LIB := $(LIB_DIR)/libesgi.a
+
+# Sources & objects
+LIBSRC := $(shell find $(SRC_DIR) -name '*.cpp')
+# Mirror src/ tree under build/
+LIBOBJ := $(patsubst $(SRC_DIR)/%.cpp,$(OBJDIR)/%.o,$(LIBSRC))
+
+# Edlib source - needs to be compiled together with esgi library
+EDLIB_SRC := external/edlib/edlib/src/edlib.cpp
+EDLIB_OBJ := $(OBJDIR)/lib/edlib.o
+# Compile Edlib object
+$(EDLIB_OBJ): $(EDLIB_SRC)
+	mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -Iexternal/edlib/edlib/include -c $< -o $@
+
+# Build static library
+$(LIB): $(LIBOBJ) $(EDLIB_OBJ) | $(LIB_DIR)
+	ar rcs $@ $^
+
+.PHONY: libesgi.a
+libesgi.a: $(LIB)   # alias
+	@true
+
+# Compile library objects
+$(OBJDIR)/%.o: $(SRC_DIR)/%.cpp
+	mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+#############################
+# BUILDING TOOLS
+#############################
+
+# 1.) DECLARE TOOL NAMES: TOOL_NAME:PATH_TO_MAIN
+TOOLS := \
+    annotate:tools/BarcodefileBamAnnotator/main.cpp \
+    count:tools/FeatureCounting/main.cpp \
+    demultiplex:tools/Demultiplexing/main.cpp
+
+# 2.) DECLARE TOOL LIBRARY DEPENDENCIES
+ANNOTATE_FLAGS := $(LDFLAGS) -lboost_iostreams -lboost_program_options -lhts
+COUNT_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
+DEMULTIPLEX_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
+
+# 3.) DECLARE RULES FOR TOOLS
+bin/annotate: tools/BarcodefileBamAnnotator/main.cpp $(LIB)
+	$(CXX) $(CXXFLAGS) -o $@ $< $(LIB) $(ANNOTATE_FLAGS)
+bin/count: tools/FeatureCounting/main.cpp $(LIB)
+	$(CXX) $(CXXFLAGS) -o $@ $< $(LIB) $(COUNT_FLAGS)
+bin/demultiplex: tools/Demultiplexing/main.cpp $(LIB)
+	$(CXX) $(CXXFLAGS) -o $@ $< $(LIB) $(DEMULTIPLEX_FLAGS)
+
+# 4.) DECLARE ALIASES TO BUILD WITH TOOL-NAME ONLY
+.PHONY: annotate count demultiplex
+annotate: bin/annotate
+	@true
+count: bin/count
+	@true
+demultiplex: bin/demultiplex
+	@true
+
+#############################
+# BUILD & CLEAN
+#############################
+
+# Default target: builds lib and then all tools declared above
+all: $(LIB) $(foreach t,$(TOOLS),$(word 1,$(subst :, ,$(t))))
+
+# Clean
+clean:
+	rm -rf $(OBJDIR) $(LIB_DIR) $(BIN_DIR)
+
+# Ensure output dirs exist
+$(LIB_DIR) $(BIN_DIR):
+	mkdir -p $@
+
+# Include generated dependency files (to track also changed in hpp files)
+-include $(LIBOBJ:.o=.d)
+
+#############################
+# TESTS
+#############################
+
+
 #parse fastq lines and map abrcodes to each sequence
-demultiplex:
-	g++ -c ./include/edlib/edlib/src/edlib.cpp -I ./include/edlib/edlib/include/ -I ./src/lib $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
-	g++ -c src/lib/DemultiplexedStatistics.cpp -I ./include/ -I ./src/lib $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
-	g++ -c src/lib/BarcodeMapping.cpp -I ./include/ -I ./src/lib $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
-	g++ -c src/tools/Demultiplexing/DemultiplexedResult.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
-	g++ -c src/tools/Demultiplexing/Demultiplexer.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
-	g++ -c src/tools/Demultiplexing/main.cpp -o main_demultiplex.o -I ./include/ -I ./src/lib -I src/tools/Demultiplexing $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
-	g++ main_demultiplex.o DemultiplexedResult.o Demultiplexer.o BarcodeMapping.o DemultiplexedStatistics.o edlib.o -o ./bin/demultiplex $(LDFLAGS) $(BOOST_FLAGS)
+#demultiplex:
+#	g++ -c ./external/edlib/edlib/src/edlib.cpp -I ./external/edlib/edlib/include/ -I ./src/lib $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
+#	g++ -c src/lib/DemultiplexedStatistics.cpp -I ./external/ -I ./src/lib $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
+#	g++ -c src/lib/BarcodeMapping.cpp -I ./external/ -I ./src/lib $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
+#	g++ -c tools/Demultiplexing/DemultiplexedResult.cpp -I ./external/ -I ./src/lib -I tools/Demultiplexing $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
+#	g++ -c tools/Demultiplexing/Demultiplexer.cpp -I ./external/ -I ./src/lib -I tools/Demultiplexing $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
+#	g++ -c tools/Demultiplexing/main.cpp -o main_demultiplex.o -I ./external/ -I ./src/lib -I tools/Demultiplexing $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
+#	g++ main_demultiplex.o DemultiplexedResult.o Demultiplexer.o BarcodeMapping.o DemultiplexedStatistics.o edlib.o -o ./bin/demultiplex $(LDFLAGS) $(BOOST_FLAGS)
 
 #process the mapped sequences: correct for UMI-mismatches, then map barcodes to Protein, treatment, SinglecellIDs
-count:
-	g++ -c src/tools/FeatureCounting/BarcodeProcessingHandler.cpp -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
-	g++ -c src/tools/FeatureCounting/main.cpp -o main_count.o -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
-	g++ main_count.o BarcodeProcessingHandler.o -o ./bin/count $(LDFLAGS) $(BOOST_FLAGS)
+#count:
+#	g++ -c tools/FeatureCounting/BarcodeProcessingHandler.cpp -I ./external/ -I ./src/lib -I ./tools/Demultiplexing $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
+#	g++ -c tools/FeatureCounting/main.cpp -o main_count.o -I ./external/ -I ./src/lib -I ./tools/Demultiplexing $(BOOST_INCLUDE_FLAG) --std=c++17 $(CXXFLAGS)
+#	g++ main_count.o BarcodeProcessingHandler.o -o ./bin/count $(LDFLAGS) $(BOOST_FLAGS)
 
 #annotate the barcode-file with gene names: combine RNA-mapping (e.g., STAR alignments) with the sinle-cell barcodes
-annotate:
-	g++ -o ./bin/annotate src/tools/BarcodefileBamAnnotator/BarcodeBamAnnotator.cpp src/tools/BarcodefileBamAnnotator/main.cpp $(LDFLAGS) -lboost_iostreams -lboost_program_options -lhts
+#annotate:
+#	g++ -o ./bin/annotate tools/BarcodefileBamAnnotator/BarcodeBamAnnotator.cpp tools/BarcodefileBamAnnotator/main.cpp $(LDFLAGS) -lboost_iostreams -lboost_program_options -lhts
 
 #a quality control tool: Mapping first Linker to whole sequence
 demultiplexAroundLinker:
-	g++ -c src/lib/BarcodeMapping.cpp -I ./include/ -I ./src/lib -I src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
-	g++ -c src/tools/DemultiplexAroundLinker/MappingAroundLinker.cpp -I ./include/ -I ./src/lib -I src/tools/DemultiplexAroundLinker --std=c++17 $(CXXFLAGS)
-	g++ -c src/tools/DemultiplexAroundLinker/main.cpp -I ./include/ -I ./src/tools/DemultiplexAroundLinker -I ./src/tools/FeatureCounting -I ./src/lib --std=c++17 $(CXXFLAGS)
+	g++ -c src/lib/BarcodeMapping.cpp -I ./external/ -I ./src/lib -I tools/Demultiplexing --std=c++17 $(CXXFLAGS)
+	g++ -c tools/DemultiplexAroundLinker/MappingAroundLinker.cpp -I ./external/ -I ./src/lib -I tools/DemultiplexAroundLinker --std=c++17 $(CXXFLAGS)
+	g++ -c tools/DemultiplexAroundLinker/main.cpp -I ./external/ -I ./tools/DemultiplexAroundLinker -I ./tools/FeatureCounting -I ./src/lib --std=c++17 $(CXXFLAGS)
 	g++ main.o MappingAroundLinker.o BarcodeMapping.o -o ./bin/demultiplexAroundLinker -lpthread -lz -lboost_program_options -lboost_iostreams
 
 testDemultiplexAroundLinker:
@@ -128,9 +234,9 @@ testDemultiplexAroundLinker:
 #Umiqual is a toll to analuze the quality of the CI reads based on the UMI. Imagine we have an explosion of barocode combinations
 # we can use this tool to see in which BC round those combinations occure (based on the UMI)
 umiqual:
-	g++ -c src/tools/FeatureCounting/BarcodeProcessingHandler.cpp -I ./include/ -I ./src/lib -I ./src/tools/Demultiplexing --std=c++17 $(CXXFLAGS)
-	g++ -c src/tools/UmiQualityCheck/UmiQualityHelper.cpp -I ./include/ -I ./src/lib -I ./src/tools/FeatureCounting --std=c++17 $(CXXFLAGS)
-	g++ -c src/tools/UmiQualityCheck/main.cpp -I ./include/ -I ./src/lib -I ./src/tools/FeatureCounting --std=c++17 $(CXXFLAGS)
+	g++ -c tools/FeatureCounting/BarcodeProcessingHandler.cpp -I ./external/ -I ./src/lib -I ./tools/Demultiplexing --std=c++17 $(CXXFLAGS)
+	g++ -c tools/UmiQualityCheck/UmiQualityHelper.cpp -I ./external/ -I ./src/lib -I ./tools/FeatureCounting --std=c++17 $(CXXFLAGS)
+	g++ -c tools/UmiQualityCheck/main.cpp -I ./external/ -I ./src/lib -I ./tools/FeatureCounting --std=c++17 $(CXXFLAGS)
 	g++ main.o UmiQualityHelper.o BarcodeProcessingHandler.o -o ./bin/umiqual -lpthread -lz -lboost_program_options -lboost_iostreams
 
 #this test is run on github.com

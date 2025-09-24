@@ -19,7 +19,7 @@ private:
     std::string barcodeFile;
     const char* bamFile;
     const char* featureTag;
-
+    
     std::unordered_map<std::string, std::string> readnameToFeatureMap;
 
     // Methods

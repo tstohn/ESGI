@@ -176,7 +176,7 @@ class ConstantBarcode final : public Barcode
         if(targetOffset + substringLength > fastqLine.size()){substringLength = fastqLine.size()-targetOffset;};
         //std::cout << "\t LENGTH: " <<substringLength << " seq: " << fastqLine.size()<< "\n";
         target = fastqLine.substr(targetOffset, substringLength);
-
+        
         //map the pattern to the target sequence
         foundAlignment = run_alignment(usedPattern, target, targetEnd, config, delNum,  insNum, substNum);
         matchedBarcode = pattern;
@@ -240,7 +240,7 @@ class VariableBarcode final : public Barcode
                 barcodeSet.insert(*ptr);  // Dereference the shared_ptr
             }
         }
-
+        
         //calculate minimum conversion rates of barcodes
         //for now this is only calculated if the number of barcodes is less than 1000, 
         // to avoid billions of comaprisons for 10X data
