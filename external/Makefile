@@ -5,7 +5,6 @@ CFLAGS=-g -Wall -O2 -Wno-unused-function
 BINDIR=/usr/local/bin
 
 WIN_SHIM =
-
 ifeq ($(findstring MINGW, $(UNAME_S)),MINGW)
 	WIN_SHIM = rand_win.c
 endif
