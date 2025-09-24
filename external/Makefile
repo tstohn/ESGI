@@ -15,8 +15,8 @@ WIN_SHIM = rand_win.c
 
 all: seqtk
 
-seqtk: seqtk.c $(WIN_SHIM) khash.h kseq.h rand_win.h
-	$(CC) $(CFLAGS) seqtk.c $(WIN_SHIM) -o $@ -lz -lm
+seqtk: seqtk.c rand_win.c khash.h kseq.h rand_win.h
+	$(CC) $(CFLAGS) seqtk.c rand_win.c -o $@ -lz -lm
 
 install: all
 	install seqtk $(BINDIR)

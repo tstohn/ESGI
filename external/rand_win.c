@@ -1,10 +1,9 @@
 // lrand48_win.c – shim for Windows to support lrand48/drand48/srand48
-#ifndef _LRAND48_WIN_H
-#define _LRAND48_WIN_H
 
 #include <stdlib.h>
 #include <stdint.h>
 #include <time.h>
+#include "rand_win.h"
 
 // internal state
 static uint64_t lrand48_state = 0;
@@ -24,5 +23,3 @@ double drand48(void)
 {
     return lrand48() / (double)(1L << 31);
 }
-
-#endif
