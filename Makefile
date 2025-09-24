@@ -15,6 +15,9 @@
 #	esgi is for now build WITHOUT htslib on windows and therefore DOES NOT SUPPORT annotation of demultiplexed files
 #	with BAM-information from STAR
 
+# LIBRARIES: dependecies are linked statically EXCEPT htslib!!! Which must be availabel when donwloading binaries
+# and running them on a server
+
 
 #######################################
 # SYSTEM REQUIREMENTS 
@@ -122,8 +125,8 @@ LIB := $(LIB_DIR)/libesgi.a
 LIBSRC := $(shell find $(SRC_DIR) -name '*.cpp')
 
 # remove htslib dependent files for Windows
-ifeq echo "$(UNAME_S)" | grep -E -q "MINGW|MSYS"; then \
-    LIBSRC := $(filter-out src/BAMAnnotation/BarcodeBamAnnotator.hpp,$(LIBSRC))
+ifneq (,$(findstring MINGW,$(UNAME_S))$(findstring MSYS,$(UNAME_S)))
+	LIBSRC := $(filter-out src/BAMAnnotation/BarcodeBamAnnotator.hpp,$(LIBSRC))
 endif
 
 # Mirror src/ tree under build/
@@ -160,17 +163,18 @@ TOOLS := \
     count:tools/FeatureCounting/main.cpp \
     demultiplex:tools/Demultiplexing/main.cpp
 
-# 2.) DECLARE TOOL LIBRARY DEPENDENCIES
-ANNOTATE_FLAGS := $(LDFLAGS) -lboost_iostreams -lboost_program_options -lhts
-COUNT_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
-DEMULTIPLEX_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
+# 2.) DECLARE TOOL LIBRARY DEPENDENCIES - build with STATIC ($BOOST_FLAGS), which contains boost,posix thread and zlib,
+#	 libesgi is anyways static and contains edlib, seqtk
+ANNOTATE_FLAGS := -Wl,-Bstatic $(LDFLAGS) -lboost_iostreams -lboost_program_options -Wl,-Bdynamic -lhts
+COUNT_FLAGS := -Wl,-Bstatic $(LDFLAGS) $(BOOST_FLAGS) -Wl,-Bdynamic
+DEMULTIPLEX_FLAGS := -Wl,-Bstatic $(LDFLAGS) $(BOOST_FLAGS) -Wl,-Bdynamic
 
 # 3.) DECLARE RULES FOR TOOLS
-bin/annotate: tools/BarcodefileBamAnnotator/main.cpp $(LIB)
+bin/annotate: tools/BarcodefileBamAnnotator/main.cpp $(LIB) | $(BIN_DIR)
 	$(CXX) $(CXXFLAGS) -o $@ $< $(LIB) $(ANNOTATE_FLAGS)
-bin/count: tools/FeatureCounting/main.cpp $(LIB)
+bin/count: tools/FeatureCounting/main.cpp $(LIB)| $(BIN_DIR)
 	$(CXX) $(CXXFLAGS) -o $@ $< $(LIB) $(COUNT_FLAGS)
-bin/demultiplex: tools/Demultiplexing/main.cpp $(LIB)
+bin/demultiplex: tools/Demultiplexing/main.cpp $(LIB)| $(BIN_DIR)
 	$(CXX) $(CXXFLAGS) -o $@ $< $(LIB) $(DEMULTIPLEX_FLAGS)
 
 # 4.) DECLARE ALIASES TO BUILD WITH TOOL-NAME ONLY
