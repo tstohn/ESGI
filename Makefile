@@ -72,7 +72,7 @@ install:
 	git submodule update --init --recursive
 
 	#we use seqtk to handle fastq files, we directly include the files and need to download them from git
-	cd ./external; git clone https://github.com/lh3/seqtk --branch v1.3; mv Makefile ./seqtk/; mv rand_win.c ./seqtk/; cd ./seqtk; make;
+	cd ./external; ls -l rand_win.c; git clone https://github.com/lh3/seqtk --branch v1.3; mv Makefile ./seqtk/; mv rand_win.c ./seqtk/; cd ./seqtk; make;
 
 	#install libboost for various systems LINUX/ WINDOWS/ macOS
 	#TODO: we do not need all libboost-dev for LINUX and boost for macOS (check which libs are needed and install only those!)
@@ -85,7 +85,7 @@ install:
 	fi
 
 	#build htslib manually
-	#cd ./external; ls -l rand_win.c; git clone --recurse-submodules https://github.com/samtools/htslib.git; cd htslib; $(MAKE); $(MAKE) -C htslib install; cd ..
+	#cd ./external; git clone --recurse-submodules https://github.com/samtools/htslib.git; cd htslib; $(MAKE); $(MAKE) -C htslib install; cd ..
 
 #######################################
 # BUILD LIBRARY/TOOLS
