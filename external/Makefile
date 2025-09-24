@@ -5,17 +5,17 @@ CFLAGS=-g -Wall -O2 -Wno-unused-function
 BINDIR=/usr/local/bin
 
 WIN_SHIM = rand_win.c
-ifeq ($(findstring MINGW, $(UNAME_S)),MINGW)
-	WIN_SHIM = rand_win.c
-endif
+#ifeq ($(findstring MINGW, $(UNAME_S)),MINGW)
+#	WIN_SHIM = rand_win.c
+#endif
 
-ifeq ($(findstring MSYS, $(UNAME_S)),MSYS)
-	WIN_SHIM = rand_win.c
-endif
+#ifeq ($(findstring MSYS, $(UNAME_S)),MSYS)
+#	WIN_SHIM = rand_win.c
+#endif
 
 all: seqtk
 
-seqtk: seqtk.c $(WIN_SHIM) khash.h kseq.h
+seqtk: seqtk.c $(WIN_SHIM) khash.h kseq.h rand_win.h
 	$(CC) $(CFLAGS) seqtk.c $(WIN_SHIM) -o $@ -lz -lm
 
 install: all
