@@ -1,4 +1,4 @@
-#DEPENDANCIES: 
+#DEPENDENCIES: 
 #	+ zlib /(input is a ONE READ fastq file, therefore convert forward/ reverse fastqs into one e.g. with fastq-join/)
 #	+ boost
 #	+ edlib: public github repo to calculate edit distance, we compile it along the esgi library
@@ -97,7 +97,7 @@ install:
 	#cd ./external; git clone --recurse-submodules https://github.com/samtools/htslib.git; cd htslib; $(MAKE); $(MAKE) -C htslib install; cd ..
 
 #######################################
-# BUILD LIBRARY/TOOLS
+# SETUP BUILDING ENVIRONMENT
 #######################################
 
 # Compiler
@@ -118,6 +118,11 @@ OBJDIR := build
 LIB_DIR := lib
 BIN_DIR := bin
 
+#######################################
+# BUILD LIBRARY into lib/libesgi.a
+# this library is then used for individual tools (demultiplex, annotate, count), the wrapping and all-in-one tool esgi and also the GUI
+#######################################
+
 # Targets
 LIB := $(LIB_DIR)/libesgi.a
 
@@ -126,7 +131,7 @@ LIBSRC := $(shell find $(SRC_DIR) -name '*.cpp')
 
 # remove htslib dependent files for Windows
 ifneq (,$(findstring MINGW,$(UNAME_S))$(findstring MSYS,$(UNAME_S)))
-	LIBSRC := $(filter-out src/BAMAnnotation/BarcodeBamAnnotator.hpp,$(LIBSRC))
+	LIBSRC := $(filter-out %BarcodeBamAnnotator.cpp,$(LIBSRC))
 endif
 
 # Mirror src/ tree under build/
@@ -143,7 +148,6 @@ $(EDLIB_OBJ): $(EDLIB_SRC)
 # Build static library
 $(LIB): $(LIBOBJ) $(EDLIB_OBJ) | $(LIB_DIR)
 	ar rcs $@ $^
-
 .PHONY: libesgi.a
 libesgi.a: $(LIB)   # alias
 	@true
@@ -161,13 +165,15 @@ $(OBJDIR)/%.o: $(SRC_DIR)/%.cpp
 TOOLS := \
     annotate:tools/BarcodefileBamAnnotator/main.cpp \
     count:tools/FeatureCounting/main.cpp \
-    demultiplex:tools/Demultiplexing/main.cpp
+    demultiplex:tools/Demultiplexing/main.cpp \
+    esgi:tools/ESGI/main.cpp
 
 # 2.) DECLARE TOOL LIBRARY DEPENDENCIES - build with STATIC ($BOOST_FLAGS), which contains boost,posix thread and zlib,
 #	 libesgi is anyways static and contains edlib, seqtk
 ANNOTATE_FLAGS := -Wl,-Bstatic $(LDFLAGS) -lboost_iostreams -lboost_program_options -Wl,-Bdynamic -lhts
 COUNT_FLAGS := -Wl,-Bstatic $(LDFLAGS) $(BOOST_FLAGS) -Wl,-Bdynamic
 DEMULTIPLEX_FLAGS := -Wl,-Bstatic $(LDFLAGS) $(BOOST_FLAGS) -Wl,-Bdynamic
+ESGI_FLAGS := -Wl,-Bstatic $(LDFLAGS) $(BOOST_FLAGS) -Wl,-Bdynamic
 
 # 3.) DECLARE RULES FOR TOOLS
 bin/annotate: tools/BarcodefileBamAnnotator/main.cpp $(LIB) | $(BIN_DIR)
@@ -176,6 +182,8 @@ bin/count: tools/FeatureCounting/main.cpp $(LIB)| $(BIN_DIR)
 	$(CXX) $(CXXFLAGS) -o $@ $< $(LIB) $(COUNT_FLAGS)
 bin/demultiplex: tools/Demultiplexing/main.cpp $(LIB)| $(BIN_DIR)
 	$(CXX) $(CXXFLAGS) -o $@ $< $(LIB) $(DEMULTIPLEX_FLAGS)
+bin/esgi: tools/ESGI/main.cpp $(LIB)| $(BIN_DIR)
+	$(CXX) $(CXXFLAGS) -o $@ $< $(LIB) $(ESGI_FLAGS)
 
 # 4.) DECLARE ALIASES TO BUILD WITH TOOL-NAME ONLY
 .PHONY: annotate count demultiplex
@@ -184,6 +192,8 @@ annotate: bin/annotate
 count: bin/count
 	@true
 demultiplex: bin/demultiplex
+	@true
+esgi: bin/esgi
 	@true
 
 #############################
