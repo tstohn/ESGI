@@ -4,7 +4,7 @@ CC:=gcc
 CFLAGS:=-g -Wall -O2 -Wno-unused-function
 BINDIR:=/usr/local/bin
 
-WIN_SHIM:=rand_win.c
+#WIN_SHIM:=rand_win.c
 #ifeq ($(findstring MINGW, $(UNAME_S)),MINGW)
 #	WIN_SHIM = rand_win.c
 #endif
@@ -13,14 +13,13 @@ WIN_SHIM:=rand_win.c
 #	WIN_SHIM = rand_win.c
 #endif
 
-ifeq ($(findstring MINGW, $(UNAME_S)),MINGW)
-	@echo "Patching seqtk.c to include rand_win.h..."
-	@sed -i '1i#ifdef _WIN32\n#include "rand_win.h"\n#endif' seqtk.c
-endif
-
 all: seqtk
 
 seqtk: seqtk.c rand_win.c khash.h kseq.h rand_win.h
+	@if echo $(UNAME_S) | grep -q MINGW; then \
+		echo "Patching seqtk.c to include rand_win.h..."; \
+		sed -i '1i#ifdef _WIN32\n#include "rand_win.h"\n#endif' seqtk.c; \
+	fi
 	$(CC) $(CFLAGS) seqtk.c rand_win.c -o $@ -lz -lm
 
 install: all
