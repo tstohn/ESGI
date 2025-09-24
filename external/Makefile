@@ -4,15 +4,6 @@ CC:=gcc
 CFLAGS:=-g -Wall -O2 -Wno-unused-function
 BINDIR:=/usr/local/bin
 
-#WIN_SHIM:=rand_win.c
-#ifeq ($(findstring MINGW, $(UNAME_S)),MINGW)
-#	WIN_SHIM = rand_win.c
-#endif
-
-#ifeq ($(findstring MSYS, $(UNAME_S)),MSYS)
-#	WIN_SHIM = rand_win.c
-#endif
-
 all: seqtk
 
 seqtk: seqtk.c rand_win.c khash.h kseq.h rand_win.h
