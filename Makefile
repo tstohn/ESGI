@@ -10,6 +10,12 @@
 # 		FOR NOW RNA-MAPPING IS NOT SUPPORTED UNDER WINDOWS: missing htslib installation!
 #		 we need htslib to annotate mapped barcodes to the mapped genes in the BAM file
 
+# SUPPORT:
+#	ONLY LINUX/MAC support the full esgi functionality for now
+#	esgi is for now build WITHOUT htslib on windows and therefore DOES NOT SUPPORT annotation of demultiplexed files
+#	with BAM-information from STAR
+
+
 #######################################
 # SYSTEM REQUIREMENTS 
 # (e.g., system dependent boost flags)
@@ -79,12 +85,12 @@ install:
 	@if [ "$(UNAME_S)" = "Linux" ]; then \
 		sudo apt-get update && sudo apt-get install -y zlib1g-dev libboost-all-dev libhts-dev; \
 	elif echo "$(UNAME_S)" | grep -E -q "MINGW|MSYS"; then \
-		vcpkg install htslib:x64-windows-static zlib boost-asio boost-system boost-thread boost-iostreams boost-program-options --triplet x64-mingw-static; \
+		vcpkg install zlib boost-asio boost-system boost-thread boost-iostreams boost-program-options --triplet x64-mingw-static; \
 	elif [ "$(UNAME_S)" = "Darwin" ]; then \
 		brew install zlib boost htslib; \
 	fi
 
-	#build htslib manually
+	#build htslib manually - for windows support we need a solution like this, however, for now not supported
 	#cd ./external; git clone --recurse-submodules https://github.com/samtools/htslib.git; cd htslib; $(MAKE); $(MAKE) -C htslib install; cd ..
 
 #######################################
@@ -114,6 +120,12 @@ LIB := $(LIB_DIR)/libesgi.a
 
 # Sources & objects
 LIBSRC := $(shell find $(SRC_DIR) -name '*.cpp')
+
+# remove htslib dependent files for Windows
+ifeq echo "$(UNAME_S)" | grep -E -q "MINGW|MSYS"; then \
+    LIBSRC := $(filter-out src/BAMAnnotation/BarcodeBamAnnotator.hpp,$(LIBSRC))
+endif
+
 # Mirror src/ tree under build/
 LIBOBJ := $(patsubst $(SRC_DIR)/%.cpp,$(OBJDIR)/%.o,$(LIBSRC))
 
