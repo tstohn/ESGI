@@ -1,10 +1,10 @@
 UNAME_S := $(shell uname -s)
 
-CC=gcc
-CFLAGS=-g -Wall -O2 -Wno-unused-function
-BINDIR=/usr/local/bin
+CC:=gcc
+CFLAGS:=-g -Wall -O2 -Wno-unused-function
+BINDIR:=/usr/local/bin
 
-WIN_SHIM = rand_win.c
+WIN_SHIM:=rand_win.c
 #ifeq ($(findstring MINGW, $(UNAME_S)),MINGW)
 #	WIN_SHIM = rand_win.c
 #endif
