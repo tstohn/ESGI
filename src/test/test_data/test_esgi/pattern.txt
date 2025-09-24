@@ -1,0 +1,1 @@
+PROTEIN:[src/test/test_data/test_esgi/BC_AB.txt][-][src/test/test_data/test_esgi/BC1.txt][22X][src/test/test_data/test_esgi/BC2_3.txt][30X][src/test/test_data/test_esgi/BC2_3.txt][10X]

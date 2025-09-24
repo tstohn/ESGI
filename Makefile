@@ -108,8 +108,14 @@ INCLUDE_DIRS += $(shell find include -type d -print | sed 's/^/-I/')
 #inlcude all below the external dir
 INCLUDE_DIRS += -Iexternal/seqtk -Iexternal/edlib
 
-CXXFLAGS := -O3 -march=native -flto=5 -Wall -Wextra -Wsign-compare -g $(INCLUDE_DIRS)
+CXXFLAGS := -O3 -march=native -Wall -Wextra -Wsign-compare -g $(INCLUDE_DIRS)
 CXXFLAGS += -MMD -MP
+# add LTO only for Linux/Mac
+ifeq ($(UNAME_S),Linux)
+	CXXFLAGS += -flto=5
+else ifeq ($(UNAME_S),Darwin)
+	CXXFLAGS += -flto=5
+endif
 
 # Directories
 SRC_DIR := src
@@ -183,7 +189,7 @@ bin/count: tools/FeatureCounting/main.cpp $(LIB)| $(BIN_DIR)
 bin/demultiplex: tools/Demultiplexing/main.cpp $(LIB)| $(BIN_DIR)
 	$(CXX) $(CXXFLAGS) -o $@ $< $(LIB) $(DEMULTIPLEX_FLAGS)
 bin/esgi: tools/ESGI/main.cpp $(LIB)| $(BIN_DIR)
-	$(CXX) $(CXXFLAGS) -o $@ $< $(LIB) $(ESGI_FLAGS)
+	$(CXX) $(CXXFLAGS) -Itools/ESGI/ -o $@ $< $(LIB) $(ESGI_FLAGS)
 
 # 4.) DECLARE ALIASES TO BUILD WITH TOOL-NAME ONLY
 .PHONY: annotate count demultiplex

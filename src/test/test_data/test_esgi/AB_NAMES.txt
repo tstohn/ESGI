@@ -1,0 +1,1 @@
+Rat_IgG_Control,CD44_v4,pP120-Catenin_[T310],pRB_[S807/811]_v1,me2_Histone_H3_[K4],cCaspase_3_[D175]_v2,Mouse_IgG_Control,pPDPK1_[S241],pMKK4/SEK1_[S257],pBTK_[Y551]_1_v2,p4E-BP1_[T37/46]_v2,pAKT_[T308],pNF-κB_p65_[S529],pP38_MAPK_[T180/Y182]_v2,pHistone_H2A.X_[S139]_3,pS6_[S240/S244]_2,Pan-CK,CK18,Vimentin,Cyclin_B1_2,pNDRG1_[T346],pHistone_H3_[Ser28]_v3,Rabbit_IgG_Control
