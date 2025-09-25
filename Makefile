@@ -177,9 +177,16 @@ TOOLS := \
 # 2.) DECLARE TOOL LIBRARY DEPENDENCIES - build with STATIC ($BOOST_FLAGS), which contains boost,posix thread and zlib,
 #	 libesgi is anyways static and contains edlib, seqtk
 ANNOTATE_FLAGS := -Wl,-Bstatic $(LDFLAGS) -lboost_iostreams -lboost_program_options -Wl,-Bdynamic -lhts
-COUNT_FLAGS := -Wl,-Bstatic $(LDFLAGS) $(BOOST_FLAGS) -Wl,-Bdynamic
-DEMULTIPLEX_FLAGS := -Wl,-Bstatic $(LDFLAGS) $(BOOST_FLAGS) -Wl,-Bdynamic
-ESGI_FLAGS := -Wl,-Bstatic $(LDFLAGS) $(BOOST_FLAGS) -Wl,-Bdynamic
+COUNT_FLAGS := -Wl,-Bstatic $(LDFLAGS) $(BOOST_FLAGS)
+DEMULTIPLEX_FLAGS := -Wl,-Bstatic $(LDFLAGS) $(BOOST_FLAGS)
+ESGI_FLAGS := -Wl,-Bstatic $(LDFLAGS) $(BOOST_FLAGS)
+# ANNOTATE can not be compiled on windows due to htslib, but for other tools we need to add dynamic linking of 
+# system libraries (and others statically)
+ifneq (,$(filter $(UNAME_S),Linux Darwin))
+    COUNT_FLAGS += -Wl,-Bdynamic
+    DEMULTIPLEX_FLAGS += -Wl,-Bdynamic
+    ESGI_FLAGS += -Wl,-Bdynamic
+endif
 
 # 3.) DECLARE RULES FOR TOOLS
 bin/annotate: tools/BarcodefileBamAnnotator/main.cpp $(LIB) | $(BIN_DIR)
