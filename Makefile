@@ -50,7 +50,7 @@ ifneq (,$(findstring MINGW,$(UNAME_S))$(findstring MSYS,$(UNAME_S)))
 		for lib in $(BOOST_LIB)/libboost_system*.a; do \
 			basename $$lib | sed -n 's/libboost_system\(.*\)\.a/\1/p'; \
 		done | head -n 1)
-    BOOST_FLAGS := -I$(BOOST_INCLUDE) -L$(BOOST_LIB) $(foreach lib,$(BOOST_LIB_NAMES),-lboost_$(lib)$(BOOST_SUFFIX)) -lpthread -lz -lwinpthread
+    BOOST_FLAGS := -I$(BOOST_INCLUDE) -L$(BOOST_LIB) $(foreach lib,$(BOOST_LIB_NAMES),-lboost_$(lib)$(BOOST_SUFFIX)) -lz -lwinpthread
 endif
 
 #only include boost flags if needed
