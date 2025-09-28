@@ -47,7 +47,7 @@ struct baseNum
     int C=0;
     int G=0;
 
-    bool operator==(const baseNum& other) const 
+    inline bool operator==(const baseNum& other) const 
     {
         return A == other.A && T == other.T &&
                C == other.C && G == other.G;
@@ -58,7 +58,7 @@ namespace std
 {
 template <>
 struct hash<baseNum> {
-    std::size_t operator()(const baseNum& b) const noexcept {
+    inline std::size_t operator()(const baseNum& b) const noexcept {
         return (b.A << 12) | (b.T << 8) | (b.C << 4) | b.G;
     }
 };
@@ -66,7 +66,7 @@ struct hash<baseNum> {
 
 // Custom hash function for std::array<int, 16>
 struct ArrayHash {
-    std::size_t operator()(const std::array<int, 16>& arr) const {
+    inline std::size_t operator()(const std::array<int, 16>& arr) const {
         std::size_t h = 0;
         for (int val : arr) {
             h ^= std::hash<int>{}(val) + 0x9e3779b9 + (h << 6) + (h >> 2);  // boost-style hash combine
@@ -82,7 +82,7 @@ class Barcode
     //per default the length of a barcode is set to 0 (unknown), only for UMIs it must be set
     Barcode(std::string name, int inMismatches, int inLength = 0) : name(name), mismatches(inMismatches), length(inLength) {}
     //virtual destructor, needed to be called when destructing classes that inherit from Barcode
-    virtual ~Barcode() = default;
+    virtual ~Barcode(){};
     virtual std::shared_ptr<Barcode> clone() const = 0;
 
     std::string name;
@@ -147,7 +147,7 @@ class ConstantBarcode final : public Barcode
         return std::make_shared<ConstantBarcode>(*this);
     }
 
-    bool align(std::string& matchedBarcode, const std::string& fastqLine,const unsigned int targetOffset,
+    inline bool align(std::string& matchedBarcode, const std::string& fastqLine,const unsigned int targetOffset,
                int& targetEnd, int& delNum, int& insNum, int& substNum,
                bool reverse = false)
     {
@@ -184,7 +184,7 @@ class ConstantBarcode final : public Barcode
         return foundAlignment;
     }
 
-    std::vector<std::shared_ptr<std::string>> get_patterns()
+    inline std::vector<std::shared_ptr<std::string>> get_patterns()
     {
         std::vector<std::shared_ptr<std::string>> patterns = {std::make_shared<std::string>(pattern)};
         return patterns;
@@ -278,7 +278,7 @@ class VariableBarcode final : public Barcode
     }
 */
 
-    void calculate_hamming_map()
+    inline void calculate_hamming_map()
     {
         std::cout << "    pre-calculate 1-hamming-distace barcodes\n";
         const std::string bases = "ATGC";
@@ -304,7 +304,7 @@ class VariableBarcode final : public Barcode
         }
     }
 
-    unsigned long long binomial_coefficient(int n, int k) {
+    inline unsigned long long binomial_coefficient(int n, int k) {
         if (k < 0 || k > n) return 0;
         if (k == 0 || k == n) return 1;
         if (k > n - k) k = n - k; // Take advantage of symmetry
@@ -317,7 +317,7 @@ class VariableBarcode final : public Barcode
         return result;
     }
 
-    void count_bases(const std::string& seq, baseNum& baseCount) 
+    inline void count_bases(const std::string& seq, baseNum& baseCount) 
     {
         for (char base : seq) 
         {
@@ -332,7 +332,7 @@ class VariableBarcode final : public Barcode
         }
     }
 
-    void generateAllBaseNums(int length, std::vector<baseNum>& possibleBaseNumVector)
+    inline void generateAllBaseNums(int length, std::vector<baseNum>& possibleBaseNumVector)
     {
         for (int a = 0; a <= length; ++a) {
             for (int t = 0; t <= length - a; ++t) {
@@ -344,7 +344,7 @@ class VariableBarcode final : public Barcode
         }
     }
 
-    bool compare_baseNums(const baseNum& a, const baseNum& b, int dist)
+    inline bool compare_baseNums(const baseNum& a, const baseNum& b, int dist)
     {
         int a_dist = std::abs(a.A - b.A);
         int g_dist = std::abs(a.G - b.G);
@@ -363,7 +363,7 @@ class VariableBarcode final : public Barcode
 
     //creates a map that assigns for a certain number of bases all possible barcodes that could have that base number
     //given a certain number of MM
-    void calculate_baseNum_hash()
+    inline void calculate_baseNum_hash()
     {
         std::cout << "    * Calculating base numbers in barcodes\n";
         //create all possible baseNum combinations: this is the lookup hash that gets filled below
@@ -427,7 +427,7 @@ class VariableBarcode final : public Barcode
 
 
     // Encode a 2-mer as integer using 2-bit encoding per base (A=00, C=01, G=10, T=11)
-    int encode_kmer(const std::string& kmer)
+    inline int encode_kmer(const std::string& kmer)
     {
         if (kmer.length() != KMER) return -1;
         int code = 0;
@@ -445,7 +445,7 @@ class VariableBarcode final : public Barcode
     }
 
     // Count 2-mers in a sequence into a 16-element array
-    KmerArray count_kmers_fast(const std::string& seq) 
+    inline KmerArray count_kmers_fast(const std::string& seq) 
     {
         KmerArray counts = {0};
         if (seq.size() < KMER) return counts;
@@ -463,7 +463,7 @@ class VariableBarcode final : public Barcode
     //threshold is MM * 2(2kmers are removed) * 2(2new kmers appear)
     //for a 16bp long barcode there are 15 kmers, this makes a max dist of 30 for 2 barcodes
     //and for 3MM a maximum distance of 3*2*2==12 
-    bool kmers_within_distance(const KmerArray& a,
+    inline bool kmers_within_distance(const KmerArray& a,
                                const KmerArray& b,
                                int mismatches) 
     {   
@@ -477,7 +477,7 @@ class VariableBarcode final : public Barcode
         return true;
     }
 
-    void calculate_kmer_hash()
+    inline void calculate_kmer_hash()
     {
         std::cout << "    * Calculating kmers(2) in barcodes\n";
 
@@ -500,7 +500,7 @@ class VariableBarcode final : public Barcode
     }
 
     //returns a pruned list of potential barcodes, that map in at least the expected number of kmers
-    std::vector<std::shared_ptr<std::string>> kmer_align_patterns(const std::vector<std::shared_ptr<std::string>>& patternsToMap, 
+    inline std::vector<std::shared_ptr<std::string>> kmer_align_patterns(const std::vector<std::shared_ptr<std::string>>& patternsToMap, 
                                                                   const std::string& target,
                                                                   const bool reverse)
     {
@@ -520,7 +520,7 @@ class VariableBarcode final : public Barcode
         return(resultbarcodes);
     }
 
-    void calculate_barcode_conversionRates()
+    inline void calculate_barcode_conversionRates()
     {
         EdlibAlignConfig barcodeConversionConfig = edlibNewAlignConfig(
             -1,                 // no limit for edit distancve
@@ -584,7 +584,7 @@ class VariableBarcode final : public Barcode
         }
     }
 
-    bool align(std::string& matchedBarcode, const std::string& fastqLine, const unsigned int targetOffset,
+    inline bool align(std::string& matchedBarcode, const std::string& fastqLine, const unsigned int targetOffset,
         int& targetEnd, int& delNum, int& insNum, int& substNum,
         bool reverse = false)
     {
@@ -793,7 +793,7 @@ class VariableBarcode final : public Barcode
         return bestFoundAlignment;
     }
 
-    std::vector<std::shared_ptr<std::string>> get_patterns()
+    inline std::vector<std::shared_ptr<std::string>> get_patterns()
     {
         return patterns;
     }
@@ -844,7 +844,7 @@ class WildcardBarcode final : public Barcode
         return std::make_shared<WildcardBarcode>(*this);
     }
 
-    bool align(std::string& matchedBarcode, const std::string& target, const unsigned int positionInFastqLine,
+    inline bool align(std::string& matchedBarcode, const std::string& target, const unsigned int positionInFastqLine,
         int& targetEnd, int& delNum, int& insNum, int& substNum,
         bool reverse = false)
     {
@@ -859,7 +859,7 @@ class WildcardBarcode final : public Barcode
         return true;
     }
 
-    std::vector<std::shared_ptr<std::string>> get_patterns()
+    inline std::vector<std::shared_ptr<std::string>> get_patterns()
     {
         std::vector<std::shared_ptr<std::string>> patterns = {std::make_shared<std::string>(std::string(length, 'X'))};
         return patterns;
@@ -881,7 +881,7 @@ class StopBarcode final : public Barcode
     std::shared_ptr<Barcode> clone() const override {
         return std::make_shared<StopBarcode>(*this);
     }
-    bool align(std::string& matchedBarcode, const std::string& target, const unsigned int targetOffset,
+    inline bool align(std::string& matchedBarcode, const std::string& target, const unsigned int targetOffset,
         int& targetEnd, int& delNum, int& insNum, int& substNum,
         bool reverse = false)
 
@@ -897,7 +897,7 @@ class StopBarcode final : public Barcode
 
             return false;
         }
-    std::vector<std::shared_ptr<std::string>> get_patterns()
+    inline std::vector<std::shared_ptr<std::string>> get_patterns()
     {
         std::vector<std::shared_ptr<std::string>> patterns = {std::make_shared<std::string>(pattern)};
         return patterns;
@@ -921,7 +921,7 @@ class ReadSeperatorBarcode final : public Barcode
     std::shared_ptr<Barcode> clone() const override {
         return std::make_shared<ReadSeperatorBarcode>(*this);
     }
-    bool align(std::string& matchedBarcode, const std::string& target, const unsigned int targetOffset,
+    inline bool align(std::string& matchedBarcode, const std::string& target, const unsigned int targetOffset,
         int& targetEnd, int& delNum, int& insNum, int& substNum,
         bool reverse = false)
 
@@ -937,7 +937,7 @@ class ReadSeperatorBarcode final : public Barcode
 
             return false;
         }
-    std::vector<std::shared_ptr<std::string>> get_patterns()
+    inline std::vector<std::shared_ptr<std::string>> get_patterns()
     {
         std::vector<std::shared_ptr<std::string>> patterns = {std::make_shared<std::string>(pattern)};
         return patterns;
@@ -962,7 +962,7 @@ class DNABarcode final : public Barcode
     std::shared_ptr<Barcode> clone() const override {
         return std::make_shared<DNABarcode>(*this);
     }
-    bool align(std::string& matchedBarcode, const std::string& target, const unsigned int targetOffset,
+    inline bool align(std::string& matchedBarcode, const std::string& target, const unsigned int targetOffset,
         int& targetEnd, int& delNum, int& insNum, int& substNum,
         bool reverse = false)
 
@@ -978,7 +978,7 @@ class DNABarcode final : public Barcode
 
             return false;
         }
-    std::vector<std::shared_ptr<std::string>> get_patterns()
+    inline std::vector<std::shared_ptr<std::string>> get_patterns()
     {
         std::vector<std::shared_ptr<std::string>> patterns = {std::make_shared<std::string>(pattern)};
         return patterns;
@@ -1020,16 +1020,16 @@ class BarcodePattern
 
         //class functions
         //write multiplexed lines to file (must be specific for DNA, AB-barcodes, etc.)
-        void write_demultiplexed_line(const std::vector<std::string> barcodeList, std::string dna = "");
+        //void write_demultiplexed_line(const std::vector<std::string> barcodeList, std::string dna = "");
 
         //barcodeVector/ iterator functions
         // Add a barcode to the barcodePattern
-        void add_barcode(const BarcodePtr& barcode, PatternType type = PatternType::Forward) 
+        inline void add_barcode(const BarcodePtr& barcode, PatternType type = PatternType::Forward) 
         {
             get_pattern(type)->push_back(barcode);
         }
         // Get the size of the barcodePattern
-        std::size_t size(PatternType type = PatternType::Forward) const 
+        inline std::size_t size(PatternType type = PatternType::Forward) const 
         {
             return get_pattern(type)->size();
         }
