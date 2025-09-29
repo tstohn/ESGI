@@ -112,12 +112,10 @@ CXXFLAGS := -std=c++17 -O3 -march=native -Wall -Wextra -Wsign-compare -g $(INCLU
 CXXFLAGS += -MMD -MP
 # add LTO only for Linux/Mac
 ifeq ($(UNAME_S),Linux)
-	CXXFLAGS += -flto=5
-	#CXXFLAGS += -fno-implicit-templates
+	#CXXFLAGS += -flto=5
+	CXXFLAGS += -fno-implicit-templates
 else ifeq ($(UNAME_S),Darwin)
 	CXXFLAGS += -flto=5
-else
-	CXXFLAGS += -fsanitize=address
 endif
 
 # Directories
@@ -309,6 +307,11 @@ test_multipattern:
 	diff ./bin/MULTI_PATTERN3_cut.tsv src/test/test_data/test_multipatterns/MULTI_PATTERN3.tsv
 
 test_demultiplex:
+
+	gdb bin/demultiplex
+	run -i ./src/test/test_data/inFastqTest.fastq -o ./bin/ -p ./src/test/test_data/test1Pattern.txt -m ./src/test/test_data/test1MM.txt -t 1 -n TEST -q 1
+	bt
+
 	#test order on one thread
 	./bin/demultiplex -i ./src/test/test_data/inFastqTest.fastq -o ./bin/ -p ./src/test/test_data/test1Pattern.txt -m ./src/test/test_data/test1MM.txt -t 1 -n TEST -q 1
 	cut -f2-  ./bin/TEST_TEST1.tsv >  ./bin/TEST_TEST1_cut.tsv
