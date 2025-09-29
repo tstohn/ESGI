@@ -18,7 +18,7 @@ void DemultiplexedResult::concatenateFiles(const std::vector<std::string>& tmpFi
         in.close();
 
         //write temporary file into final file
-        std::ofstream out(outputFile, std::ios::app);  // Final output file
+        std::ofstream out(outputFile, std::ios::app | std::ios::binary);  // Final output file
         out.write(content.c_str(), content.size());
         out.close();
 

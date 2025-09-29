@@ -112,8 +112,8 @@ CXXFLAGS := -std=c++17 -O3 -march=native -Wall -Wextra -Wsign-compare -g $(INCLU
 CXXFLAGS += -MMD -MP
 # add LTO only for Linux/Mac
 ifeq ($(UNAME_S),Linux)
-	#CXXFLAGS += -flto=5
-	CXXFLAGS += -fno-implicit-templates
+	CXXFLAGS += -flto=5
+	#CXXFLAGS += -fno-implicit-templates
 else ifeq ($(UNAME_S),Darwin)
 	CXXFLAGS += -flto=5
 endif
@@ -308,7 +308,7 @@ test_multipattern:
 
 test_demultiplex:
 
-	gdb -ex "run" -ex "bt" --args bin/demultiplex -i ./src/test/test_data/inFastqTest.fastq -o ./bin/ -p ./src/test/test_data/test1Pattern.txt -m ./src/test/test_data/test1MM.txt -t 1 -n TEST -q 1
+	#gdb -ex "run" -ex "bt" --args bin/demultiplex -i ./src/test/test_data/inFastqTest.fastq -o ./bin/ -p ./src/test/test_data/test1Pattern.txt -m ./src/test/test_data/test1MM.txt -t 1 -n TEST -q 1
 
 	#test order on one thread
 	./bin/demultiplex -i ./src/test/test_data/inFastqTest.fastq -o ./bin/ -p ./src/test/test_data/test1Pattern.txt -m ./src/test/test_data/test1MM.txt -t 1 -n TEST -q 1
