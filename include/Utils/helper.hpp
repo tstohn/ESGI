@@ -284,9 +284,9 @@ inline std::string stripQuotes(const std::string& input)
 
     //TODO: add an alternative strategy without saving ins, del, subst for cases where the quality is not needed
     //and running time is more important
-inline bool run_alignment(std::string pattern, const std::string target, 
+inline bool run_alignment(const std::string& pattern, const std::string& target, 
                           int& targetEnd,
-                          EdlibAlignConfig& config,
+                          EdlibAlignConfig config,
                           int& delNum, int& insNum, int& substNum)
 {
     // bool to check if we found a result

@@ -178,6 +178,8 @@ class ConstantBarcode final : public Barcode
         target = fastqLine.substr(targetOffset, substringLength);
         
         //map the pattern to the target sequence
+                    std::cout << __LINE__ << "\n";
+
         foundAlignment = run_alignment(usedPattern, target, targetEnd, config, delNum,  insNum, substNum);
         matchedBarcode = pattern;
 
@@ -549,6 +551,8 @@ class VariableBarcode final : public Barcode
                 //for stagger barcode the first barcode has to be pattern, the secone the target, bcs. we do not cound deletions on the target
                 // e.g.: barcode A and AGT should have a conversion rate of 0! So for staggered barcodes we need to test ALL barcodes and then take
                 //the best match with the longest matching sequence...
+                        std::cout << __LINE__ << "\n";
+
                 if (a.length() > b.length()) 
                 {
                     run_alignment(b, a, targetEnd, barcodeConversionConfig, del, ins, subst);
@@ -727,6 +731,7 @@ class VariableBarcode final : public Barcode
             target = fastqLine.substr(targetOffset, substringLength);
             
             //map the pattern to the target sequence
+            std::cout << __LINE__ << "\n";
             foundAlignment = run_alignment(usedPattern, target, targetEnd, config, delNumTmp,  insNumTmp, substNumTmp);
             
             if(foundAlignment && (delNumTmp+insNumTmp+substNumTmp)<=bestEditDist)
