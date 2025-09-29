@@ -362,6 +362,7 @@ void DemultiplexedResult::initialize_output_for_pattern(const std::string& outpu
             //write tabs before next header-col
             //like this we avoid wrong tabs in the front or back by just checking the for first/last headers since some headers aren t written
             //like *, -, ...
+            strip_crlf(filename);
             barcodeOutputStream << "\t" << filename;
         }
     }
@@ -411,7 +412,6 @@ void DemultiplexedResult::initialize(const input& input, const MultipleBarcodePa
     //create universal output files
     // 2 statistics files: mismatches per pattern, and mismatches in barcodes
     // file with failed lines
-    
     initialize_additional_output(input);
 }
 

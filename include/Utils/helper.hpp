@@ -292,7 +292,8 @@ inline bool run_alignment(std::string pattern, const std::string target,
     // bool to check if we found a result
     bool alignmentFound = false;
 
-    std::cout << "MODE: " << config.mode << "\n";
+    //std::cout << "MODE: " << config.mode << "\n";
+
     // Run the alignment
     EdlibAlignResult result = edlibAlign(
         pattern.c_str(), pattern.length(),
@@ -575,4 +576,9 @@ inline std::vector<std::string> splitByDelimiter(std::string line, const std::st
     tokens.push_back(line);
 
     return tokens;
+}
+
+inline void strip_crlf(std::string& s) 
+{
+    while (!s.empty() && (s.back() == '\r' || s.back() == '\n')) s.pop_back();
 }
