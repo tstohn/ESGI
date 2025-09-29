@@ -292,12 +292,14 @@ inline bool run_alignment(std::string pattern, const std::string target,
     // bool to check if we found a result
     bool alignmentFound = false;
 
+    std::cout << __LINE__ << " EDLIB CALL START\n";
     // Run the alignment
     EdlibAlignResult result = edlibAlign(
         pattern.c_str(), pattern.length(),
         target.c_str(), target.length(),
         config
     );
+    std::cout << __LINE__ << " EDLIB CALL END\n";
 
     std::vector<char> alignmentPath;
 
