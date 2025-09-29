@@ -206,34 +206,6 @@ class UnprocessedDemultiplexedData
             return positonsOfABSingleCellPtr;
         }
 
-        //we have to move the dataLine from the vector of lines for of oldUmi to newUmi
-        //additionally inside this line we must update the new UMI sequence
-        //THIS FUNCTION IS NOT TESTED, also not used at the moment: be aware when using !!!!
-        inline void changeUmi(const char* oldUmi, const char* newUmi, dataLinePtr oldLine)
-        {
-            //we have 3 dictionaries to update
-
-            //we have the key for the umiDict, but need the two keys for the other dicts
-            std::string abScIdxStr = std::string((oldLine->abName)) + std::string((oldLine->scID));
-            const char* abScIdxChar = uniqueChars->getUniqueChar(abScIdxStr.c_str());
-
-            //std::string singleCell = std::string((oldLine->scID));
-            //const char* singleCellChar = uniqueChars->getUniqueChar(singleCell.c_str());
-            
-            //remove all the old unnecessary lines from the dicts
-            remove(positionsOfUmiPtr->at(oldUmi).begin(), positionsOfUmiPtr->at(oldUmi).end(), oldLine);
-            remove(positonsOfABSingleCellPtr->at(abScIdxChar).begin(), positonsOfABSingleCellPtr->at(abScIdxChar).end(), oldLine);
-
-            //generate the new line
-            dataLine newLine = *oldLine;
-            newLine.umiSeq = newUmi;
-            std::shared_ptr<dataLine> newLinePtr = std::make_shared<dataLine>(newLine);
-            std::shared_ptr<dataLine> newLineUmiPtr = std::make_shared<dataLine> (newLine);
-
-            //and add the new line to all dicts
-            positionsOfUmiPtr->at(newUmi).push_back(newLineUmiPtr);
-            positonsOfABSingleCellPtr->at(abScIdxChar).push_back(newLinePtr);
-        }
         inline void setAnnotationDict(std::unordered_map< int, std::unordered_map<std::string, std::string >> dict)
         {
             annotationDict = dict;

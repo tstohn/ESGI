@@ -116,6 +116,8 @@ ifeq ($(UNAME_S),Linux)
 	#CXXFLAGS += -fno-implicit-templates
 else ifeq ($(UNAME_S),Darwin)
 	CXXFLAGS += -flto=5
+else
+	CXXFLAGS += -fsanitize=address
 endif
 
 # Directories
