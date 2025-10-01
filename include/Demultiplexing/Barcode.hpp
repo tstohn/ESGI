@@ -254,8 +254,8 @@ class VariableBarcode final : public Barcode
             calculate_kmer_hash();
             if(patterns.size() < 100000)
             {
-                //calculateConversionRate = true;
-                //calculate_barcode_conversionRates();
+                calculateConversionRate = true;
+                calculate_barcode_conversionRates();
             }
         }
     }
@@ -551,8 +551,6 @@ class VariableBarcode final : public Barcode
                 //for stagger barcode the first barcode has to be pattern, the secone the target, bcs. we do not cound deletions on the target
                 // e.g.: barcode A and AGT should have a conversion rate of 0! So for staggered barcodes we need to test ALL barcodes and then take
                 //the best match with the longest matching sequence...
-                        std::cout << __LINE__ << "\n";
-
                 if (a.length() > b.length()) 
                 {
                     run_alignment(b, a, targetEnd, barcodeConversionConfig, del, ins, subst);

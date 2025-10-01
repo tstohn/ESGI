@@ -286,7 +286,7 @@ inline std::string stripQuotes(const std::string& input)
     //and running time is more important
 inline bool run_alignment(const std::string& pattern, const std::string& target, 
                           int& targetEnd,
-                          EdlibAlignConfig config,
+                          const EdlibAlignConfig& config,
                           int& delNum, int& insNum, int& substNum)
 {
     // bool to check if we found a result
