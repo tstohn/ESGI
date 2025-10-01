@@ -254,8 +254,8 @@ class VariableBarcode final : public Barcode
             calculate_kmer_hash();
             if(patterns.size() < 100000)
             {
-                calculateConversionRate = true;
-                calculate_barcode_conversionRates();
+                //calculateConversionRate = true;
+                //calculate_barcode_conversionRates();
             }
         }
     }
@@ -636,45 +636,6 @@ class VariableBarcode final : public Barcode
         bool severalMatches = false; //if there are several best-fitting solutions (only the case when the number of allowed mismatches
         //is bigger than possible barcode-conversion numbers) we discard the solution
 
-        //if we have a hash map, fill the patterns that we need to check
-        /*if(pefixMapCalculated)
-        {
-            std::vector<std::shared_ptr<std::string>> prefixPatterns;
-            std::vector<std::string> fwPrefixPatterns;
-
-            std::unordered_map<std::string, std::vector<std::shared_ptr<std::string>>> prefixMap = fwPrefixMap;
-            if(reverse)
-            {
-                prefixMap = rvPrefixMap;
-            }
-            for (const auto& pair : prefixMap) 
-            {
-                std::string usedPattern = pair.first;
-
-                int delNumTmp;
-                int insNumTmp;
-                int substNumTmp;
-                delNumTmp=insNumTmp=substNumTmp=targetEnd=0;
-                std::string target;
-                int substringLength = usedPattern.length()+mismatches;
-                target = fastqLine.substr(targetOffset, substringLength);
-                bool foundAlignment = run_alignment(usedPattern, target, targetEnd, config, delNumTmp,  insNumTmp, substNumTmp);
-                if(foundAlignment)
-                {
-                    for (const std::shared_ptr<std::string> seq : pair.second)
-                    {
-                            prefixPatterns.push_back(seq);
-                            std::string storePattern = *seq;
-                            if(reverse){storePattern = generate_reverse_complement(*seq);}
-                            fwPrefixPatterns.push_back(storePattern);
-                    }
-                }
-            }
-            //normally patternsToMap is just all FW or RV patterns, here we create these vectors new to only include patterns with a prefix that
-            //is possible given a number of MM
-            patternsToMap = prefixPatterns;
-        }*/
-
         //3.) reduce possible patterns but comparing base number/ kmers
         //get the basenum hashes: based on counts of bases (considering allowed MM) - how many barcodes could fit
         if(equalLengthBarcodes)
@@ -829,11 +790,6 @@ class VariableBarcode final : public Barcode
 
         std::unordered_map<std::string, int> pattern_conversionrates;
         bool calculateConversionRate = false;
-
-        // Map: first 5 bases → list of sequences
-        //std::unordered_map<std::string, std::vector<std::shared_ptr<std::string>>> fwPrefixMap;
-        //std::unordered_map<std::string, std::vector<std::shared_ptr<std::string>>> rvPrefixMap;
-        bool pefixMapCalculated = false;
 
         EdlibAlignConfig config;
 };

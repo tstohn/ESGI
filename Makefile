@@ -113,7 +113,6 @@ CXXFLAGS += -MMD -MP
 # add LTO only for Linux/Mac
 ifeq ($(UNAME_S),Linux)
 	CXXFLAGS += -flto=5
-	#CXXFLAGS += -fno-implicit-templates
 else ifeq ($(UNAME_S),Darwin)
 	CXXFLAGS += -flto=5
 endif
