@@ -178,8 +178,6 @@ class ConstantBarcode final : public Barcode
         target = fastqLine.substr(targetOffset, substringLength);
         
         //map the pattern to the target sequence
-                    std::cout << __LINE__ << "\n";
-
         foundAlignment = run_alignment(usedPattern, target, targetEnd, config, delNum,  insNum, substNum);
         matchedBarcode = pattern;
 
@@ -690,7 +688,6 @@ class VariableBarcode final : public Barcode
             target = fastqLine.substr(targetOffset, substringLength);
             
             //map the pattern to the target sequence
-            std::cout << __LINE__ << "\n";
             foundAlignment = run_alignment(usedPattern, target, targetEnd, config, delNumTmp,  insNumTmp, substNumTmp);
             
             if(foundAlignment && (delNumTmp+insNumTmp+substNumTmp)<=bestEditDist)
