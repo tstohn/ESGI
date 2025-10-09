@@ -108,7 +108,9 @@ INCLUDE_DIRS += $(shell find include -type d -print | sed 's/^/-I/')
 #inlcude all below the external dir
 INCLUDE_DIRS += -Iexternal/seqtk -Iexternal/edlib
 
-CXXFLAGS := -std=c++17 -O3 -march=native -Wall -Wextra -Wsign-compare -g $(INCLUDE_DIRS)
+#CXXFLAGS := -std=c++17 -O3 -march=native -Wall -Wextra -Wsign-compare -g $(INCLUDE_DIRS)
+CXXFLAGS := -std=c++17 -O0 -g -fno-omit-frame-pointer
+
 CXXFLAGS += -MMD -MP
 # add LTO only for Linux/Mac
 ifeq ($(UNAME_S),Linux)
