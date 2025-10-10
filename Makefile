@@ -270,12 +270,12 @@ testDemultiplexAroundLinker:
 	#simple example with a few missing barcodes
 	./bin/demultiplexAroundLinker -i ./src/test/test_data/inFile_DemAroundLinker.txt -o ./bin/output.tsv -p [CATGAGCGTCATG][NNNN][XXX][ATCAGTCAACAGATAAGCGA][NNNN] -m 1,1,1,1,1 -t 1 -b ./src/test/test_data/barcodeFile.txt
 	(head -n 1 ./bin/DemultiplexedAroundLinker_output.tsv && tail -n +2 ./bin/DemultiplexedAroundLinker_output.tsv | LC_ALL=c sort)  > ./bin/demultiplexAroundLinker_output1_sorted.tsv
-	diff ./src/test/test_data/demultiplexAroundLinker_output1_sorted.tsv ./bin/demultiplexAroundLinker_output1_sorted.tsv
+	diff  --strip-trailing-cr ./src/test/test_data/demultiplexAroundLinker_output1_sorted.tsv ./bin/demultiplexAroundLinker_output1_sorted.tsv
 
 	#more complex example with several barcodes missing in the middle that are all the same (sevel BCR missing with same barcodes)
 	./bin/demultiplexAroundLinker -i ./src/test/test_data/inFile_DemAroundLinker_2.txt -o ./bin/output.tsv -p [CATGAGCGTCATG][NNNN][CATGAGCGTCATG][NNNN][XXX][ATCAGTCAACAGATAAGCGA][NNNN] -m 1,1,1,1,1,1,1 -t 1 -b ./src/test/test_data/barcodeFile_2.txt
 	(head -n 1 ./bin/DemultiplexedAroundLinker_output.tsv && tail -n +2 ./bin/DemultiplexedAroundLinker_output.tsv | LC_ALL=c sort)  > ./bin/demultiplexAroundLinker_output2_sorted.tsv
-	diff ./src/test/test_data/demultiplexAroundLinker_output2_sorted.tsv ./bin/demultiplexAroundLinker_output2_sorted.tsv
+	diff  --strip-trailing-cr ./src/test/test_data/demultiplexAroundLinker_output2_sorted.tsv ./bin/demultiplexAroundLinker_output2_sorted.tsv
 
 #Umiqual is a toll to analuze the quality of the CI reads based on the UMI. Imagine we have an explosion of barocode combinations
 # we can use this tool to see in which BC round those combinations occure (based on the UMI)
@@ -308,9 +308,9 @@ test_multipattern:
 	cut -f2- ./bin/MULTI_PATTERN1.tsv > ./bin/MULTI_PATTERN1_cut.tsv
 	cut -f2- ./bin/MULTI_PATTERN2.tsv > ./bin/MULTI_PATTERN2_cut.tsv
 	cut -f2- ./bin/MULTI_PATTERN3.tsv > ./bin/MULTI_PATTERN3_cut.tsv
-	diff ./bin/MULTI_PATTERN1_cut.tsv src/test/test_data/test_multipatterns/MULTI_PATTERN1.tsv
-	diff ./bin/MULTI_PATTERN2_cut.tsv src/test/test_data/test_multipatterns/MULTI_PATTERN2.tsv
-	diff ./bin/MULTI_PATTERN3_cut.tsv src/test/test_data/test_multipatterns/MULTI_PATTERN3.tsv
+	diff --strip-trailing-cr ./bin/MULTI_PATTERN1_cut.tsv src/test/test_data/test_multipatterns/MULTI_PATTERN1.tsv
+	diff --strip-trailing-cr ./bin/MULTI_PATTERN2_cut.tsv src/test/test_data/test_multipatterns/MULTI_PATTERN2.tsv
+	diff --strip-trailing-cr ./bin/MULTI_PATTERN3_cut.tsv src/test/test_data/test_multipatterns/MULTI_PATTERN3.tsv
 
 test_demultiplex:
 
@@ -375,7 +375,7 @@ test_count:
 	#default with 1 MM
 	./bin/count -i ./src/test/test_data/test_count3/umiEditDistTest.txt -o ./bin/TESTCOUNT3.tsv -t 2 -d ./src/test/test_data/test_count2  -c 0,5 -a ./src/test/test_data/antibody_2.txt -x 3 -g ./src/test/test_data/treatment_2.txt -y 0 -u 2 -f 0.9 -m 1
 	(head -n 1 ./bin/UMIDATA_TESTCOUNT3.tsv && tail -n +2 ./bin/UMIDATA_TESTCOUNT3.tsv | LC_ALL=c sort) > ./bin/sortedUMITESTCOUNT3_a.tsv
-	diff ./bin/sortedUMITESTCOUNT3_a.tsv ./src/test/test_data/test_count3/UMIprocessed_out_editTest_a.tsv
+	diff --strip-trailing-cr ./bin/sortedUMITESTCOUNT3_a.tsv ./src/test/test_data/test_count3/UMIprocessed_out_editTest_a.tsv
 	#with 2MM
 	./bin/count -i ./src/test/test_data/test_count3/umiEditDistTest.txt -o ./bin/TESTCOUNT3.tsv -t 2 -d ./src/test/test_data/test_count2  -c 0,5 -a ./src/test/test_data/antibody_2.txt -x 3 -g ./src/test/test_data/treatment_2.txt -y 0 -u 2 -f 0.9 -m 2
 	(head -n 1 ./bin/UMIDATA_TESTCOUNT3.tsv && tail -n +2 ./bin/UMIDATA_TESTCOUNT3.tsv | LC_ALL=c sort) > ./bin/sortedUMITESTCOUNT3_b.tsv
@@ -434,30 +434,30 @@ testProcessing:
 #testing the specific removal of two lines bcs the same SC (with two lines only) has two different treatments (additional one line is removed for UMI)
 	./bin/processing -i ./src/test/test_data/test_treatmentReadRemoval_Log.txt.gz -o ./bin/processed_out.tsv -t 2 -d ./src/test/test_data/processingBarcodeFile_2.txt  -c 0 -a ./src/test/test_data/antibody_2.txt -x 1 -g ./src/test/test_data/treatment_2.txt -y 2 -u 2 -g ./src/test/test_data/guideTest_class_seqs.txt -n ./src/test/test_data/guideTest_class_names.txt -f 0.9
 	(head -n 1 ./bin/LOGprocessed_out.tsv && tail -n +2 ./bin/LOGprocessed_out.tsv | LC_ALL=c sort) > ./bin/sortedLOGprocessed_out.tsv
-	diff ./bin/sortedLOGprocessed_out.tsv ./src/test/test_data/sortedLOGprocessed_treatment_out.tsv
+	diff --strip-trailing-cr ./bin/sortedLOGprocessed_out.tsv ./src/test/test_data/sortedLOGprocessed_treatment_out.tsv
 
 #testing the whole analysis pipeline to smoothly run through with a few additional test scenarios
 testAnalysis:
 #a basic test from mostly already existing files, just to check tool runs through
 	php ./src/Pipelines/analyze.php -a ./src/test/test_data/antibody_3.txt -i ./src/test/test_data/inFastqTest_2.fastq -o ./bin/AnalysisTestOutput -p [NNNN][ATCAGTCAACAGATAAGCGA][NNNN][XXX][GATCAT] -m 1,4,1,2,2 -t 1 -b ./src/test/test_data/barcodeFile.txt -g ./src/test/test_data/guideTest_class_seqs.txt -n ./src/test/test_data/guideTest_class_names.txt -x 1 -c 0 -f 0.9 -h true
 	(head -n 1 ./bin/AnalysisTestOutput/ABProcessing.tsv && tail -n +2 ./bin/AnalysisTestOutput/ABProcessing.tsv | LC_ALL=c sort) > ./bin/AnalysisTestOutput/ABProcessing_Sorted.tsv
-	diff ./bin/AnalysisTestOutput/ABProcessing_Sorted.tsv ./src/test/test_data/ABProcessing_AnalyzePipeline.tsv
+	diff --strip-trailing-cr ./bin/AnalysisTestOutput/ABProcessing_Sorted.tsv ./src/test/test_data/ABProcessing_AnalyzePipeline.tsv
 #more elaborate test with common real world scenarios: a test with three single cells with two different proteins each, one cell beeing removed bcs it has no guide read, two reads removed for same UMI but different proteins, and one cell
 #beeing removed for having different guide reads, also one duplicate UMI read is present that has to only be counted ONCE
 	php ./src/Pipelines/analyze.php -a ./src/test/test_data/antibody_3.txt -i ./src/test/test_data/inFastqTest_3.fastq -o ./bin/AnalysisTestOutput -p [NNNN][ATCAGTCA][NNNN][ACAGATAAGCGA][NNNN][XXXX] -m 1,2,1,2,1,1 -t 1 -b ./src/test/test_data/barcodeFile_2.txt -g ./src/test/test_data/guideTest_class_seqs.txt -n ./src/test/test_data/guideTest_class_names.txt -x 2 -c 0,1 -f 0.9 -h true
 	(head -n 1 ./bin/AnalysisTestOutput/ABProcessing.tsv && tail -n +2 ./bin/AnalysisTestOutput/ABProcessing.tsv | LC_ALL=c sort) > ./bin/AnalysisTestOutput/ABProcessing_Sorted.tsv
-	diff ./bin/AnalysisTestOutput/ABProcessing_Sorted.tsv ./src/test/test_data/ABProcessing_AnalyzePipeline_2.tsv
+	diff --strip-trailing-cr ./bin/AnalysisTestOutput/ABProcessing_Sorted.tsv ./src/test/test_data/ABProcessing_AnalyzePipeline_2.tsv
 #also test the output of UMI counts (so was not tested anywhere else, so just added it here out of convenience) tests umi duplicates without mismatches and
 #also one umi that has one deletion but should still be counted twice as we allow for one MM
 	(head -n 1 ./bin/AnalysisTestOutput/UMIProcessing.tsv && tail -n +2 ./bin/AnalysisTestOutput/UMIProcessing.tsv | LC_ALL=c sort) > ./bin/AnalysisTestOutput/UMIProcessing_Sorted.tsv
-	diff ./bin/AnalysisTestOutput/UMIProcessing_Sorted.tsv ./src/test/test_data/UmiProcessed_Test.tsv
+	diff --strip-trailing-cr ./bin/AnalysisTestOutput/UMIProcessing_Sorted.tsv ./src/test/test_data/UmiProcessed_Test.tsv
 #test combination of running demultiplexing/ and then processing on actual data (duplicated some reads to make sure they r not counted twice and dublicated two reads and added a new UMI to make sure they r counted)
 	./bin/demultiplexing -i ./src/test/test_data/testFullAnalysisR1.fastq -r ./src/test/test_data/testFullAnalysisR2.fastq -o ./bin/AnalysisTestOutput/FullAnalysis.tsv -p [NNNNNNNNN][CTTGTGGAAAGGACGAAACACCG][XXXXXXXXXXXXXXX][NNNNNNNNNN][GTTTTAGAGCTAGAAATAGCAA][NNNNNNNN][CGAATGCTCTGGCCTCTCAAGCACGTGGAT][NNNNNNNN][AGTCGTACGCCGATGCGAAACATCGGCCAC][NNNNNNNN] -b ./src/test/test_data/barcodesFullAnalysis.txt -m 1,15,0,1,15,1,15,1,15,1 -t 1 -q true -f true
 	gzip ./bin/AnalysisTestOutput/Demultiplexed_FullAnalysis.tsv
 	./bin/processing -i ./bin/AnalysisTestOutput/Demultiplexed_FullAnalysis.tsv.gz -o ./bin/AnalysisTestOutput/FullAnalysis_ABCOUNT_RESULT.tsv -b ./src/test/test_data/barcodesFullAnalysis.txt -a ./src/test/test_data/antibodiesFullAnalysis.txt -x 1 -c 0,2,3,4 -u 0 -t 1 -d ./src/test/test_data/treatmentsFullAnalysis.txt -y 2
 	rm ./bin/AnalysisTestOutput/Demultiplexed_FullAnalysis.tsv.gz
 	(head -n 1 ./bin/AnalysisTestOutput/ABFullAnalysis_ABCOUNT_RESULT.tsv && tail -n +2 ./bin/AnalysisTestOutput/ABFullAnalysis_ABCOUNT_RESULT.tsv | LC_ALL=c sort) > ./bin/AnalysisTestOutput/ABFullAnalysis_ABCOUNT_RESULT_SORTED.tsv
-	diff ./bin/AnalysisTestOutput/ABFullAnalysis_ABCOUNT_RESULT_SORTED.tsv ./src/test/test_data/FullAnalysis_ABCOUNT_RESULT.tsv
+	diff --strip-trailing-cr ./bin/AnalysisTestOutput/ABFullAnalysis_ABCOUNT_RESULT_SORTED.tsv ./src/test/test_data/FullAnalysis_ABCOUNT_RESULT.tsv
 
 
 debug:
@@ -482,13 +482,13 @@ bigTestRNA:
 
 testGuideMapping:
 	./bin/demultiplex -i ./src/test/test_data/guideTestInput.txt -o ./bin/output.tsv -p [NNNNNNN][GTTTAAA][XXXXXXXXXX][NNNNNNNNNN] -m 1,1,1,1 -t 1 -b ./src/test/test_data/barcodesGuideTest.txt -c ./src/test/test_data/guidesGuideTest.txt -e 1
-	diff ./bin/Demultiplexed_guideReadsoutput.tsv ./src/test/test_data/guideTestGUIDEOutput.txt
-	diff ./bin/Demultiplexed_output.tsv ./src/test/test_data/guideTestABOutput.txt
+	diff --strip-trailing-cr ./bin/Demultiplexed_guideReadsoutput.tsv ./src/test/test_data/guideTestGUIDEOutput.txt
+	diff --strip-trailing-cr ./bin/Demultiplexed_output.tsv ./src/test/test_data/guideTestABOutput.txt
 
 testUmiqual:
 	./bin/umiqual -i ./src/test/test_data/testSet.txt.gz -o ./bin/processed_out.tsv -t 1 -b ./src/test/test_data/processingBarcodeFile.txt  -c 0,2,3,4 -a ./src/test/test_data/antibody.txt -x 1 -g ./src/test/test_data/treatment.txt -y 2 -u 2
 	(head -n 1 ./bin/UmiQualityCheckprocessed_out.tsv && tail -n +2 ./bin/UmiQualityCheckprocessed_out.tsv | LC_ALL=c sort)  > ./bin/UmiQualityCheckprocessedSorted_out.tsv
-	diff ./bin/UmiQualityCheckprocessedSorted_out.tsv ./src/test/test_data/UmiQualityCheckprocessed_out.tsv
+	diff --strip-trailing-cr ./bin/UmiQualityCheckprocessedSorted_out.tsv ./src/test/test_data/UmiQualityCheckprocessed_out.tsv
 
 debug_test:
 	./bin/demultiplex -i ./src/test/test_data/inFastqTest.fastq -o ./bin -p ./src/test/test_data/pattern.txt -m ./src/test/test_data/mismatches.txt -t 20 -q 1
