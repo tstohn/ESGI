@@ -37,6 +37,7 @@ inline int handle_special_patterns(const std::vector<std::string>& patterns)
         making an additional [-] obsolete\n";
     }
 
+    return -1;
 }
 
 inline bool call_demultiplex(const ESGIConfig& config)
@@ -112,11 +113,14 @@ inline bool run_star(const ESGIConfig& config, ESGIIntermediateFiles& intermedia
 
 inline bool run_annotate(const ESGIConfig& config, ESGIIntermediateFiles& intermediateFiles)
 {
-        const std::string annotateCmd =
-        "/usr/bin/time -v /DATA/t.stohn/SCDemultiplexing/bin/annotate "
-        "-i ./SIGNALseq_Analysis/output/ESGI_RNA/RNA.tsv "
-        "-b ./SIGNALseq_Analysis/output/ESGI_RNA/RNA_Aligned.out.bam "
-        "-f GX";
+    std::string demultiplexingPatternOutput = intermediateFiles.demultiplexingOutput + ".tsv";
+    std::string starAlignmentOutput = intermediateFiles.demultiplexingOutput + "_Aligned.out.bam";
+
+    const std::string annotateCmd = std::string("./bin/annotate ") +
+        " -i " + demultiplexingPatternOutput +
+        " -b " + starAlignmentOutput +
+        " -f " + config.starFeature;
+
     int rc = std::system(annotateCmd.c_str());
     if (rc != 0) 
     {
@@ -128,13 +132,17 @@ inline bool run_annotate(const ESGIConfig& config, ESGIIntermediateFiles& interm
 
 inline bool run_rna_mapping(const ESGIConfig& config, ESGIIntermediateFiles& intermediateFiles)
 {
-    bool star;
-    bool annotate;
-
     //call STAR
-    star = run_star(config, intermediateFiles);
+    if(!run_star(config, intermediateFiles))
+    {
+        std::cerr << "Error: STAR failed\n";
+    }
 
     //call annotate
+    if(!run_annotate(config, intermediateFiles))
+    {
+        std::cerr << "Error: Annotation of demultiplexed reads with STAR-mapping failed\n";
+    }
 
     return true;
 }
