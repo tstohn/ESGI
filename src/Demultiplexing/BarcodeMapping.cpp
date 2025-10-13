@@ -22,8 +22,7 @@ std::string trim(const std::string& str)
 }
 
 //parse a new file with barcodes and writes all barcodes into a vector
-template <typename MappingPolicy, typename FilePolicy>
-std::vector<std::string> Mapping<MappingPolicy, FilePolicy>::parse_variable_barcode_file(const std::string& barcodeFile)
+std::vector<std::string> parse_variable_barcode_file(const std::string& barcodeFile)
 {
     std::vector<std::string> barcodes;
     try
@@ -110,8 +109,7 @@ std::vector<std::string> Mapping<MappingPolicy, FilePolicy>::parse_variable_barc
 }
 
 //parse a single line of the pattern file like: [GACTTCAG][15X][barcodes.txt][DNA]
-template <typename MappingPolicy, typename FilePolicy>
-std::pair<std::string, std::vector<std::string> > Mapping<MappingPolicy, FilePolicy>::parse_pattern_line(std::string& line, int number)
+std::pair<std::string, std::vector<std::string> >parse_pattern_line(std::string& line, int number)
 {
     std::vector<std::string> patterns;
     std::string name;
@@ -190,8 +188,7 @@ std::pair<std::string, std::vector<std::string> > Mapping<MappingPolicy, FilePol
 //parsing a new pattern line of the patterns file and store it in a vector
 //it also parses names for lines if present:
 //GUIDELINE:[GCAGCT][10X][GUIDES.txt]
-template <typename MappingPolicy, typename FilePolicy>
-std::vector<std::pair<std::string, std::vector<std::string>>> Mapping<MappingPolicy, FilePolicy>::parse_pattern_file(const std::string& patternFile)
+std::vector<std::pair<std::string, std::vector<std::string>>> parse_pattern_file(const std::string& patternFile)
 {
 
     std::vector<std::pair<std::string, std::vector<std::string>>> patternList;
@@ -219,8 +216,7 @@ std::vector<std::pair<std::string, std::vector<std::string>>> Mapping<MappingPol
 }
 
 //parse a new lnie in mismatch file
-template <typename MappingPolicy, typename FilePolicy>
-std::vector<std::vector<int>> Mapping<MappingPolicy, FilePolicy>::parse_mismatch_file(const std::string& mismatchFile)
+std::vector<std::vector<int>> parse_mismatch_file(const std::string& mismatchFile)
 {
     std::vector<std::vector<int>> mismatchList;
 

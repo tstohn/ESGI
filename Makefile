@@ -202,8 +202,13 @@ bin/count: tools/FeatureCounting/main.cpp $(LIB)| $(BIN_DIR)
 	$(CXX) $(CXXFLAGS) -o $@ $< $(LIB) $(COUNT_FLAGS)
 bin/demultiplex: tools/Demultiplexing/main.cpp $(LIB)| $(BIN_DIR)
 	$(CXX) $(CXXFLAGS) -o $@ $< $(LIB) $(DEMULTIPLEX_FLAGS)
-bin/esgi: tools/ESGI/main.cpp $(LIB)| $(BIN_DIR)
-	$(CXX) $(CXXFLAGS) -Itools/ESGI/ -o $@ $< $(LIB) $(ESGI_FLAGS)
+#ESGI has additional hpp files that must be included / and we need to force recompilation if they change
+$(OBJDIR)/tools/%.o: tools/%.cpp
+	mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+$(OBJDIR)/tools/ESGI/main.o: CXXFLAGS += -Itools/ESGI/
+bin/esgi: $(OBJDIR)/tools/ESGI/main.o $(LIB)| $(BIN_DIR) bin/demultiplex bin/count bin/annotate
+	$(CXX) $(CXXFLAGS) -o $@ $< $(LIB) $(ESGI_FLAGS)
 
 # 4.) DECLARE ALIASES TO BUILD WITH TOOL-NAME ONLY
 .PHONY: annotate count demultiplex
@@ -232,7 +237,10 @@ $(LIB_DIR) $(BIN_DIR):
 	mkdir -p $@
 
 # Include generated dependency files (to track also changed in hpp files)
--include $(LIBOBJ:.o=.d)
+TOOL_SRCS := $(foreach t,$(TOOLS),$(word 2,$(subst :, ,$(t))))
+TOOL_OBJS := $(patsubst %.cpp,$(OBJDIR)/%.o,$(TOOL_SRCS))
+TOOL_DEPS := $(TOOL_OBJS:.o=.d)
+-include $(LIBOBJ:.o=.d) $(TOOL_DEPS)
 
 #############################
 # TESTS
@@ -299,6 +307,10 @@ test:
 	make test_count
 	make test_umiCollapse
 	make test_barcode_merging
+
+	#test tool esgi
+	make esgi
+	make test_esgi
 
 test_independent_reads:
 	./bin/demultiplex -i ./src/test/test_data/test_detached/input_fw.fastq -r ./src/test/test_data/test_detached/input_rv.fastq -d 1 -o ./bin/ -p ./src/test/test_data/test_detached/patterns.txt -m ./src/test/test_data/test_detached/mismatches.txt -t 1 -n DETACHED -q 1 -f 1
@@ -392,7 +404,8 @@ test_big:
 	#test that pipeline runs through a slightly bigger fastq
 	./bin/demultiplex -i ./src/test/test_data/test_input/testBig.fastq.gz -o ./bin/ -p ./src/test/test_data/test_input/barcodePatternsBig.txt -m ./src/test/test_data/test_input/barcodeMismatchesBig.txt -t 1 -f 1 -q 1
 
-
+test_esgi:
+	./bin/esgi src/test/test_data/test_esgi/esgi_example.ini
 
 
 

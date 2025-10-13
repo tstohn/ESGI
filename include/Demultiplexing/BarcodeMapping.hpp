@@ -320,11 +320,7 @@ class Mapping : protected MappingPolicy, protected FilePolicy
         //e.g. delete old output files if present, parse barcode from barcodeFile, match them to their
         //number of mismatches etc.
         void initialize_mapping(const input& input);
-        std::vector<std::string> parse_variable_barcode_file(const std::string& barcodeFile);
-        std::pair<std::string, std::vector<std::string> > parse_pattern_line(std::string& line, int number);
-        //vector of pattern lines, pattern lines can ahve names, but don t have to
-        std::vector<std::pair<std::string, std::vector<std::string>>> parse_pattern_file(const std::string& patternFile);
-        std::vector<std::vector<int>> parse_mismatch_file(const std::string& mismatchFile);
+        
         BarcodePatternPtr create_barcodeVector_from_patternLine(
             const std::vector<std::string>& barcodeList, 
             const std::vector<int>& mismatchList, 

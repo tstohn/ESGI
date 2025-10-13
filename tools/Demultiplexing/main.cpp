@@ -101,7 +101,7 @@ bool parse_arguments(char** argv, int argc, input& input)
             This should be a comma seperated list of numbers for each substring of the sequence enclosed in squared brackets. E.g.: 2,1,2,1,2. (Also add mismatches for the STOP[*], UMI[X], READSEPERATOR[-] -  \
             this number is not used however, UMIs are aligned in BarcodeProcessing.) We need one line for every line in the barcodePatternsFile.")
 
-            ("threat,t", value<int>(&(input.threads))->default_value(5), "number of threads")
+            ("threads,t", value<int>(&(input.threads))->default_value(5), "number of threads")
             ("fastqReadBucketSize,s", value<long long int>(&(input.fastqReadBucketSize))->default_value(-1), "number of lines of the fastQ file that should be read into RAM \
             and be processed, before the next fastq read is processed. By default it equal to 100K lines a time.")
             ("writeStats,q", value<bool>(&(input.writeStats))->default_value(false), "writing Statistics about the barcode mapping. This creates three files: \
