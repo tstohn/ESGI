@@ -139,6 +139,7 @@ int main(int argc, char** argv)
     {
         demultiplexOutput = config.prefix.value() + "_" + demultiplexOutput;
     }
+    //the output of deultiplexing wihtout the file ending: it can be .tsv for patterns or .fastq for DNA
     std::filesystem::path demultiplexOutputPath = std::filesystem::path(config.output) / demultiplexOutput;
     intermediateFiles.demultiplexingOutput = demultiplexOutputPath.string();
     
@@ -167,8 +168,10 @@ int main(int argc, char** argv)
     if(config.UMI_ID.has_value()){intermediateFiles.umiMismatches = mismatches.at(0).at(std::stoi(config.UMI_ID.value()));}
 
     // output file for count is basically just the output file of demultiplex, count will then add a COUNTDATA prefix
-    std::string demultiplexOutputFile = demultiplexOutput + ".tsv";
-    std::filesystem::path countingOutputPath = std::filesystem::path(config.output) / demultiplexOutputFile;
+    std::string demultiplexOutputPatternFile = demultiplexOutput + ".tsv";
+
+    // the output for counting should be the same output name from demultiplexing: count will then add a COUNTDATA_ prefix
+    std::filesystem::path countingOutputPath = std::filesystem::path(config.output) / demultiplexOutputPatternFile;
     intermediateFiles.countingOutput = countingOutputPath.string();
 
     if (dnaPatternPresent) {
@@ -176,6 +179,15 @@ int main(int argc, char** argv)
         "╔══════════════════════════════════════════════════════╗\n"
         "║ 2b.) RUN COUNTING: create single-cell feature matrix ║\n"
         "╚══════════════════════════════════════════════════════╝\n";
+        if(!run_rna_mapping(config, intermediateFiles))
+        {
+            std::cerr << "Mapping of DNA pattern failed\n";
+        }
+        
+        // now counting input is the annotate data, this is the origional demultiplexed output with annotated-suffix
+        std::string demultiplexOutputAnnotated = demultiplexOutput + "_annotated.tsv";
+        std::filesystem::path annotatedOutputPath = std::filesystem::path(config.output) / demultiplexOutputAnnotated;
+        intermediateFiles.countingInput = annotatedOutputPath.string();
     }
     else {
         std::cout <<

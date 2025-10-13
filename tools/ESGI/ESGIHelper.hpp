@@ -71,20 +71,68 @@ inline bool call_demultiplex(const ESGIConfig& config)
     return true;
 }
 
-inline bool run_star()
+
+
+
+
+
+inline bool run_star(const ESGIConfig& config, ESGIIntermediateFiles& intermediateFiles)
 {
+    std::string starExecutable = "STAR";
+    if(config.STAR.has_value()){starExecutable = config.STAR.value();}
+
+    std::filesystem::path outfilePrefixPath = std::filesystem::path(config.output) / "STAR_";
+    std::string outfilePrefix = outfilePrefixPath.string();
+
+    if(!config.genomeDir.has_value())
+    {
+        std::cerr << "No parameter <genomeDir> provided, please provide this parameter in the.ini file to enable STAR\n";
+    }
+    const std::string starCmd = starExecutable +
+        " --runThreadN " + std::to_string(config.threads) +
+        " --genomeDir " + config.genomeDir.value() +
+        " --readFilesIn " + intermediateFiles.demultiplexingOutput + ".fastq" +
+        " --outFileNamePrefix " + outfilePrefix +
+        " --outSAMtype BAM Unsorted " +
+        " --outSAMattributes NH HI AS nM GX GN " +
+        " --quantMode TranscriptomeSAM " +
+        " --outFilterMultimapNmax 50 " +
+        " --outSAMmultNmax 1 --outSAMunmapped Within " +
+        " --limitOutSJcollapsed 2000000 " +
+        " --twopassMode Basic";
+
+    int rc = std::system(starCmd.c_str());
+    if (rc != 0) 
+    {
+        std::cerr << "STAR failed with code " << rc << "\n";
+    }
 
     return true;
 }
 
-inline bool run_annotate()
+inline bool run_annotate(const ESGIConfig& config, ESGIIntermediateFiles& intermediateFiles)
 {
+        const std::string annotateCmd =
+        "/usr/bin/time -v /DATA/t.stohn/SCDemultiplexing/bin/annotate "
+        "-i ./SIGNALseq_Analysis/output/ESGI_RNA/RNA.tsv "
+        "-b ./SIGNALseq_Analysis/output/ESGI_RNA/RNA_Aligned.out.bam "
+        "-f GX";
+    int rc = std::system(annotateCmd.c_str());
+    if (rc != 0) 
+    {
+        std::cerr << "annotate failed with code " << rc << "\n";
+    }
+
     return true;
 }
 
-inline bool run_rna_mapping(const ESGIConfig& config, const ESGIIntermediateFiles& intermediateFiles)
+inline bool run_rna_mapping(const ESGIConfig& config, ESGIIntermediateFiles& intermediateFiles)
 {
+    bool star;
+    bool annotate;
+
     //call STAR
+    star = run_star(config, intermediateFiles);
 
     //call annotate
 

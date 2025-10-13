@@ -29,6 +29,9 @@ struct ESGIConfig
     std::optional<int>         fastqReadBucketSize;
     std::optional<std::string> barcodeSharing;
 
+    std::optional<std::string> STAR;
+    std::optional<std::string> genomeDir;
+
     // DEFAULT ARGUMENTS
     bool independent = false;      
     bool hamming = false;
@@ -38,6 +41,7 @@ struct ESGIConfig
     bool SC_ID_string = false;
     int  threads = 5;
     double umiThreshold = 0.0;
+    std::string starFeature = "GX";
 
     void write(std::ostream& os = std::cout) const
     {
@@ -70,6 +74,13 @@ struct ESGIConfig
         os << "\tSC_ID_string="     << SC_ID_string     << "\n";
         os << "\tthreads="          << threads          << "\n";
         os << "\tumiThreshold="        << umiThreshold        << "\n";
+
+        //Star values
+        if (reverse)             os << "\treverse="                << *reverse           << "\n";
+        if (STAR)                os << "\tSTAR executable="        << *STAR           << "\n";
+        //print the star feature to annotate only if a genomeDir is given, since
+        if (genomeDir)           os << "\tSTAR feature="           << starFeature           << "\n";
+
     }
 };
 
@@ -201,6 +212,8 @@ inline ESGIConfig loadESGIConfigFromFile(const std::string& path)
             else if (KEY == "UMI_ID")              cfg.UMI_ID = value.empty() ? std::optional<std::string>{} : std::optional<std::string>{value};
             else if (KEY == "PREFIX")              cfg.prefix = value.empty() ? std::optional<std::string>{} : std::optional<std::string>{value};
             else if (KEY == "BARCODESHARING")      cfg.barcodeSharing = value.empty() ? std::optional<std::string>{} : std::optional<std::string>{value};
+            else if (KEY == "STAR")                cfg.STAR = value.empty() ? std::optional<std::string>{} : std::optional<std::string>{value};
+            else if (KEY == "GENOMEDIR")           cfg.genomeDir = value.empty() ? std::optional<std::string>{} : std::optional<std::string>{value};
 
             // DEFAULTED SCALARS
             else if (KEY == "THREADS")             cfg.threads = parsing::parse_int(value);
@@ -212,11 +225,7 @@ inline ESGIConfig loadESGIConfigFromFile(const std::string& path)
             else if (KEY == "UMITHRESHOLD")        cfg.umiThreshold = parsing::parse_double(value);
             else if (KEY == "UMICOLLAPSING")       cfg.umiCollapsing = parsing::parse_bool(value);
             else if (KEY == "SC_ID_STRING")        cfg.SC_ID_string = parsing::parse_bool(value);
-
-            // tolerant aliasing (some configs use slightly different keys)
-            else if (KEY == "PATTERNFILE")         set_required_string(cfg.patternFile, value);
-            else if (KEY == "MISMATCHESFILE")      set_required_string(cfg.mismatchesFile, value);
-
+            else if (KEY == "FEATURE")             cfg.starFeature = value;
             else 
             {
                 // Unknown key: ignore or warn. Here we warn to stderr.
