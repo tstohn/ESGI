@@ -48,18 +48,18 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             ("barcodeDir,d", value<std::string>(&(barcodeDir)), " path to a directory which must contain all the barcode files (for variable barcodes). When running <demultiplex> we \
             provided files for variable barcodes in the pattern-file, these files are now in the header of the output of <demultiplex>, but we still need to access those files again to assign features (e.g., protein names) or single-cell IDs to the barcode.")
             
-            ("antibodyList,a", value<std::string>(&(abFile)), "file with a list of all feature names (e.g., protein names), should be in same order as the feature-barcodes in the barcode file.\
+            ("featureNames,a", value<std::string>(&(abFile)), "file with a list of all feature names (e.g., protein names), should be in same order as the feature-barcodes in the barcode file.\
             If this list is not given the features will simply be the nucleotide sequences of the feature column (-x) in the input file")
             ("featureIndex,x", value<int>(&featureIdx)->required(), "Index used for feature counting (e.g., index of the protein barcode). This is the index of the column that should be used for features (0 indexed)")
             
-            ("groupList,g", value<std::vector<std::string>>(&(annotationFiles))->multitoken(), "list of paths to files: every file contains a list of all single-cell annotations (e.g.treatment groups in specific wells). This is just a file with annotations, comma seperated and should be in same order as the specific barcodes for the annotation barcode. \
+            ("annotationFiles,g", value<std::vector<std::string>>(&(annotationFiles))->multitoken(), "list of paths to files: every file contains a list of all single-cell annotations (e.g.treatment groups in specific wells). This is just a file with annotations, comma seperated and should be in same order as the specific barcodes for the annotation barcode. \
             If this argument is given, you must also add the index of barcodes used for group annotation with <-y>. \
             E.g., imagine we have a barcode file like : ACGT,TACG,CCCG. And the barcodes also define different treatment conditions \
             then we can provide a grouping file -g groupingFile.txt with groupingFile.txt: untreated, treated_time1, treated_time2. The barcodes to map \
             barcodes to a group are taken form the header of the column. this can be used to assign treatment (e.g., certain treatments for barcodes in a certain round, or for spatial data\
             certain barcodes for x-y coordiantes like in 10X, or other protocols where one has two barcode, one for the x and one for the y coordinate, or many more possibilitiers.\
             This list of files must be comma seperated). Example: file1.txt,file2.txt where every file contains a list of annotations for the barcode in the file state in the column header.")
-            ("groupingIndex,y", value<std::vector<int>>(&annotationIdxs)->multitoken(), "List of Indices used to annotate cells (e.g. by treatment, spatial location). This is the barcode used to assign groups that have to be given in <-g>. This is the x-th barcode from the barcodeFile (0 indexed). \
+            ("annotationIdxs,y", value<std::vector<int>>(&annotationIdxs)->multitoken(), "List of Indices used to annotate cells (e.g. by treatment, spatial location). This is the barcode used to assign groups that have to be given in <-g>. This is the x-th barcode from the barcodeFile (0 indexed). \
             This list of indices must be comma seperate. Example: 2,3 to annotate barcode in the third and fourth column with information in -g.")
 
             ("singleCellIndices,c", value<std::string>(&(barcodeIndices))->default_value(""), "comma seperated list of indexes, that are used for \
@@ -79,7 +79,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             contains the barcode position (0-indexed), the 2nd columns contains the retained barcode (barcode the that should be assign to the other one), \
             and the 3rd column contains a barcode that should be replaced by the barcode in column 2. E.g., 1 AGT GGG will convert all AGT barcodes at position 1 into GGG>")
 
-            ("thread,t", value<int>(&threats)->default_value(5), "number of threads")
+            ("threads,t", value<int>(&threats)->default_value(5), "number of threads")
             ("help,h", "help message");
 
         variables_map vm;

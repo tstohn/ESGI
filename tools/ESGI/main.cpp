@@ -6,6 +6,7 @@
 
 #include <ESGIConfig.hpp>
 #include <ESGIHelper.hpp>
+#include <BarcodeMapping.hpp>
 
 /**
  * @brief ESGI combines the individual tools in this library, namely demultiplex/ (run STAR with annotate)/ and count
@@ -99,10 +100,10 @@ int main(int argc, char** argv)
     //parse the ini file and store all necessary parameter in structure
     ESGIConfig config = loadESGIConfigFromFile(argv[1]);
     config.write();
-    bool rnaPatternPresent = containsRNAPattern(config.patternFile);
+    bool dnaPatternPresent = containsDNAPattern(config.patternFile);
 
     // if we r on windows and the pattern contain RNA throw an error (therefore we need to quickly parse the pattern file)
-    if(windows && rnaPatternPresent)
+    if(windows && dnaPatternPresent)
     {
         std::cerr << "We do not support demultiplexing with a RNA pattern on Windows for now, \n" \
         "We struggled to use the htslib for annotating demultiplexed reads with the STAR output under windows and disabled it for now. \n" \
@@ -126,17 +127,31 @@ int main(int argc, char** argv)
         std::cerr << "EXITING ESGI: demultiplexing failed!\n";
     }
     //output file of demultipelxed reads is DIR/PREFIX_(PATTERN_0 | PROTEIN).tsv
-
+    std::vector<std::pair<std::string, std::vector<std::string>>> patterns = parse_pattern_file(config.patternFile);
+    std::vector<std::vector<int>> mismatches = parse_mismatch_file(config.mismatchesFile);
+    if(patterns.size() > 1 || mismatches.size() > 1){std::cerr << "For now ESGI can handle only a single pattern. If you want to demultiplex several patterns at once\n"\
+    "we recommend to use the tools demultiplex and count individually since every pattern might have different positions for different features.";}
+    if(patterns.size() != mismatches.size() ){std::cerr << "The number of patterns in pattern file is not equal to the number of mismatches in mismatch file. Even the \
+    [-],[*] patterns need an arbitrary mismatch number like 0\n";}
+    // if we have no RNA data the extension is tsv, if we do have a RNA pattern we have a tsv and a fastq file
+    std::string demultiplexOutput = stripQuotes(patterns.at(0).first);
+    if(config.prefix != "")
+    {
+        demultiplexOutput = config.prefix.value() + "_" + demultiplexOutput;
+    }
+    std::filesystem::path demultiplexOutputPath = std::filesystem::path(config.output) / demultiplexOutput;
+    intermediateFiles.demultiplexingOutput = demultiplexOutputPath.string();
+    
     // #########################
     // call rna mapping
     // #########################
-    if(rnaPatternPresent)
+    if(dnaPatternPresent)
     {
         std::cout <<
         "╔═════════════════════════════════════════════════════════════════════════════════╗\n"
         "║ 2a.) RUN RNA-MAPPING: run STAR and annotate reads from step 1 with mapped genes ║\n"
         "╚═════════════════════════════════════════════════════════════════════════════════╝\n";
-        if(!run_rna_mapping(config))
+        if(!run_rna_mapping(config, intermediateFiles))
         {
             std::cerr << "EXITING ESGI: running RNA mapping failed!\n";
         }
@@ -145,7 +160,18 @@ int main(int argc, char** argv)
     // #########################
     //call count
     // #########################
-    if (rnaPatternPresent) {
+    //return a position where we have -,*. Then from every index beyond this we need to substract -1, and no index can be equal to this (e.g., feature, single-cell, UMI indices)
+    int specialPatternPos = handle_special_patterns(patterns.at(0).second);
+    intermediateFiles.specialPatternPos = specialPatternPos;
+    //set the number of MM for the UMI
+    if(config.UMI_ID.has_value()){intermediateFiles.umiMismatches = mismatches.at(0).at(std::stoi(config.UMI_ID.value()));}
+
+    // output file for count is basically just the output file of demultiplex, count will then add a COUNTDATA prefix
+    std::string demultiplexOutputFile = demultiplexOutput + ".tsv";
+    std::filesystem::path countingOutputPath = std::filesystem::path(config.output) / demultiplexOutputFile;
+    intermediateFiles.countingOutput = countingOutputPath.string();
+
+    if (dnaPatternPresent) {
         std::cout <<
         "╔══════════════════════════════════════════════════════╗\n"
         "║ 2b.) RUN COUNTING: create single-cell feature matrix ║\n"
@@ -156,8 +182,11 @@ int main(int argc, char** argv)
         "╔═════════════════════════════════════════════════════╗\n"
         "║ 2.) RUN COUNTING: create single-cell feature matrix ║\n"
         "╚═════════════════════════════════════════════════════╝\n";
+        //there was no RNA-mapping before, the input to counting is just the output of demultiplexing
+        intermediateFiles.countingInput = countingOutputPath.string();
     }
-    if(!call_count(config))
+
+    if(!call_count(config, intermediateFiles))
     {
         std::cerr << "EXITING ESGI: counting failed!\n";
     }

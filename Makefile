@@ -183,7 +183,7 @@ TOOLS := \
 
 # 2.) DECLARE TOOL LIBRARY DEPENDENCIES - build with STATIC ($BOOST_FLAGS), which contains boost,posix thread and zlib,
 #	 libesgi is anyways static and contains edlib, seqtk
-ANNOTATE_FLAGS := -Wl,-Bstatic $(LDFLAGS) -lboost_iostreams -lboost_program_options -Wl,-Bdynamic -lhts
+ANNOTATE_FLAGS := -Wl,-Bstatic $(LDFLAGS) $(BOOST_FLAGS) -Wl,-Bdynamic -lhts
 COUNT_FLAGS := -Wl,-Bstatic $(LDFLAGS) $(BOOST_FLAGS)
 DEMULTIPLEX_FLAGS := -Wl,-Bstatic $(LDFLAGS) $(BOOST_FLAGS)
 ESGI_FLAGS := -Wl,-Bstatic $(LDFLAGS) $(BOOST_FLAGS)
@@ -207,7 +207,14 @@ $(OBJDIR)/tools/%.o: tools/%.cpp
 	mkdir -p $(dir $@)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 $(OBJDIR)/tools/ESGI/main.o: CXXFLAGS += -Itools/ESGI/
-bin/esgi: $(OBJDIR)/tools/ESGI/main.o $(LIB)| $(BIN_DIR) bin/demultiplex bin/count bin/annotate
+#for windows compile WITHOUT annotate, which needs htslib
+ifeq ($(OS),Windows_NT)
+    # Windows (MinGW / MSVC)
+    TOOLDEPENDENCIES := bin/demultiplex bin/count
+else
+    TOOLDEPENDENCIES := bin/demultiplex bin/count bin/annotate
+endif
+bin/esgi: $(OBJDIR)/tools/ESGI/main.o $(LIB)| $(BIN_DIR) $(TOOLDEPENDENCIES)
 	$(CXX) $(CXXFLAGS) -o $@ $< $(LIB) $(ESGI_FLAGS)
 
 # 4.) DECLARE ALIASES TO BUILD WITH TOOL-NAME ONLY

@@ -93,6 +93,9 @@ bool parse_arguments(char** argv, int argc, input& input)
             \nSIGN DETAILS: \
             \n[*]: mapping stops at this position on both sides from FW and RV read, completely disregarding any sequence that follows from FW/ RV read. This sign can only be used ONCE in a pattern). E.g.: [AGCTATCACGTAGC][XXXXXXXXXX][BC1.txt][*][AGAGCATGCCTTCAG][BC1.txt]. in the FW read we map only [AGCTATCACGTAGC][XXXXXXXXXX][BC1.txt] and in the reverse read only [AGAGCATGCCTTCAG][BC1.txt].\
             \n[-]: seperates FW and RV reads. Useful if one read contains DNA and (after mapping a barcode in the beginning) the rest of the read should be assign to DNA. E.g.: [BC1.txt][DNA][-][15X][BC1.txt]: extracts BC1 in FW read and assigns the rest of the read to DNA that can be mapped to a reference. \
+            \n This is often used together with <--independent> flag since both reads are demultiplexed independently with no expected overlap and we need no reverse complement of the reverse read.\
+            \n In summary, [*] stops mapping at this position, can be used with single-end reads or for paired reads stops from both sides,\
+               [-] defines the end of the fw/rv reads and can be useful to cut out DNA parts between a barcode and the end of the read.\
             \n[DNA]: DNA can only be at the end of a read (we map the FW and RV read from the 5' to the 3' end), this mean that we can have any barcodes before a DNA pattern, but we can not have barcodes after. In other words the DNA pattern must always be at the end of a read and valid patterns must look like this (where ... can be any pattern except [*],[-]): ...[DNA][-][DNA]... \
             \nvalid structures: [BC1.txt][DNA][-][15X][BC1.txt], [BC1.txt][-][DNA][15X][BC1.txt], [DNA][-][15X][BC1.txt], [15X][BC1.txt][-][DNA], [BC1.txt][15X][BC1.txt][DNA] \
             \nNOT valid structures: [BC1.txt][DNA][BC2.txt][-][15X][BC1.txt], [BC1.txt][DNA][15X][BC1.txt]")

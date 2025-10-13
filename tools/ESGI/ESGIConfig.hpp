@@ -37,7 +37,7 @@ struct ESGIConfig
     bool umiCollapsing = true;
     bool SC_ID_string = false;
     int  threads = 5;
-    double umiFilter = 0.0;
+    double umiThreshold = 0.0;
 
     void write(std::ostream& os = std::cout) const
     {
@@ -69,14 +69,19 @@ struct ESGIConfig
         os << "\tumiCollapsing="    << umiCollapsing    << "\n";
         os << "\tSC_ID_string="     << SC_ID_string     << "\n";
         os << "\tthreads="          << threads          << "\n";
-        os << "\tumiFilter="        << umiFilter        << "\n";
+        os << "\tumiThreshold="        << umiThreshold        << "\n";
     }
 };
 
 struct ESGIIntermediateFiles
 {
-    
+
     std::string demultiplexingOutput;
+    int specialPatternPos=-1;
+    int umiMismatches=-1;
+
+    std::string countingInput;
+    std::string countingOutput;
 
 };
 
@@ -204,7 +209,7 @@ inline ESGIConfig loadESGIConfigFromFile(const std::string& path)
             else if (KEY == "WRITESTATS")          cfg.writeStats = parsing::parse_bool(value);
             else if (KEY == "HAMMING")             cfg.hamming = parsing::parse_int(value);
             else if (KEY == "FASTQREADBUCKETSIZE") cfg.fastqReadBucketSize = parsing::parse_int(value);
-            else if (KEY == "UMIFILTER")           cfg.umiFilter = parsing::parse_double(value);
+            else if (KEY == "UMITHRESHOLD")        cfg.umiThreshold = parsing::parse_double(value);
             else if (KEY == "UMICOLLAPSING")       cfg.umiCollapsing = parsing::parse_bool(value);
             else if (KEY == "SC_ID_STRING")        cfg.SC_ID_string = parsing::parse_bool(value);
 
@@ -257,7 +262,7 @@ inline ESGIConfig loadESGIConfigFromFile(const std::string& path)
 }
 
 //check if there is a RNA pattern present - since windows can not handle it
-bool containsRNAPattern(const std::string& filename)
+bool containsDNAPattern(const std::string& filename)
 {
     std::ifstream file(filename);
     if (!file) 
@@ -268,7 +273,7 @@ bool containsRNAPattern(const std::string& filename)
     std::string line;
     while (std::getline(file, line)) 
     {
-        if (line.find("[RNA]") != std::string::npos) return true;
+        if (line.find("[DNA]") != std::string::npos) return true;
     }
 
     return false; 

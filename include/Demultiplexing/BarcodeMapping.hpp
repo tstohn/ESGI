@@ -351,3 +351,7 @@ class Mapping : protected MappingPolicy, protected FilePolicy
                               OneLineDemultiplexingStatsPtr stats);
 
 };
+
+//functions to parse pattern file and mismatches - also used in final ESGI tool therefore made accessible here
+std::vector<std::pair<std::string, std::vector<std::string>>> parse_pattern_file(const std::string& patternFile);
+std::vector<std::vector<int>> parse_mismatch_file(const std::string& mismatchFile);
