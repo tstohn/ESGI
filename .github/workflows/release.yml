@@ -5,7 +5,6 @@ on:
     tags:
       - "v*.*.*"
 
-# 1) Allow the release job to upload assets
 permissions:
   contents: write
 
@@ -79,45 +78,64 @@ jobs:
           # No annotate on Windows
           make demultiplex count esgi
 
-      # Package artifacts
-      - name: Package (Linux/macOS)
+      # ---------- NEW PACKAGING: one zip per OS with whole repo + bin ----------
+      - name: Package (Linux/macOS) — repo + bin
         if: matrix.os != 'windows-2022'
         run: |
-          chmod +x scripts/package.sh
+          set -e
           VER="${GITHUB_REF_NAME#v}"
-          ./scripts/package.sh "$VER" "${{ matrix.ostag }}"
+          NAME="esgi-${VER}-${{ matrix.ostag }}"
+          mkdir -p dist pkg
+          # Export clean tree of current commit (no .git, no previous build junk)
+          git archive --format=tar HEAD | tar -x -C pkg
+          # Ensure bin exists and copy built binaries (if any)
+          mkdir -p pkg/bin
+          if ls bin/* >/dev/null 2>&1; then
+            cp -a bin/* pkg/bin/ || true
+          fi
+          # Zip the whole exported repo tree (with bin/)
+          ( cd pkg && zip -r ../dist/${NAME}.zip . )
+          # Clean staging dir
+          rm -rf pkg
 
-      - name: Package (Windows)
+      - name: Package (Windows) — repo + bin
         if: matrix.os == 'windows-2022'
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
           $ver = $env:GITHUB_REF_NAME.TrimStart('v')
-          New-Item -ItemType Directory -Path dist -Force | Out-Null
-          if (Test-Path bin\demultiplex.exe) { Compress-Archive -Path bin\demultiplex.exe -DestinationPath ("dist/demultiplex-$ver-${{ matrix.ostag }}.zip") -Force }
-          if (Test-Path bin\count.exe)       { Compress-Archive -Path bin\count.exe       -DestinationPath ("dist/count-$ver-${{ matrix.ostag }}.zip") -Force }
-          if (Test-Path bin\esgi.exe)        { Compress-Archive -Path bin\esgi.exe        -DestinationPath ("dist/esgi-$ver-${{ matrix.ostag }}.zip") -Force }
-          cd dist
-          Get-ChildItem *.zip | ForEach-Object {
-            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash
-            "$($hash)  $($_.Name)" | Add-Content -Path SHA256SUMS.txt
+          $name = "esgi-$ver-${{ matrix.ostag }}"
+          New-Item -ItemType Directory -Path dist,pkg -Force | Out-Null
+          # Export tree of current commit (no .git)
+          git archive --format=tar HEAD | tar -xf - -C pkg
+          # Copy built EXEs (if present)
+          New-Item -ItemType Directory -Path pkg\bin -Force | Out-Null
+          if (Test-Path bin) {
+            Get-ChildItem bin | Copy-Item -Destination pkg\bin -Force -Recurse
           }
+          Compress-Archive -Path pkg\* -DestinationPath ("dist\$name.zip") -Force
+          Remove-Item -Recurse -Force pkg
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.ostag }}
-          path: dist/*
+          path: dist/*.zip
 
   release:
     needs: build
     runs-on: ubuntu-24.04
     steps:
-      # 2) Place all downloaded artifacts into ./dist
       - uses: actions/download-artifact@v4
         with:
           merge-multiple: true
           path: dist
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum *.zip > SHA256SUMS.txt
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
