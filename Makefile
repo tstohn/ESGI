@@ -27,14 +27,20 @@
 UNAME_S := $(shell uname -s)
 VCPKG_ROOT ?= C:/vcpkg
 
+#definitions for systems
+IS_WIN    := $(or $(findstring Windows_NT,$(OS)), \
+                $(findstring MINGW,$(UNAME_S)),$(findstring MSYS,$(UNAME_S)),$(findstring CYGWIN,$(UNAME_S)))
+IS_LINUX  := $(filter Linux%,$(UNAME_S))
+IS_DARWIN := $(filter Darwin%,$(UNAME_S))
+
 #system dependent boost flags
-ifeq ($(UNAME_S),Linux)
+ifneq ($(IS_LINUX),)
     BOOST_FLAGS = -lboost_iostreams -lboost_program_options -lpthread
 	BOOST_INCLUDE =
 	BOOST_LIB =
 endif
 
-ifeq ($(UNAME_S),Darwin)
+ifneq ($(IS_DARWIN),)
     BOOST_FLAGS = -lboost_iostreams -lboost_program_options -lpthread
 	BOOST_INCLUDE =
 	BOOST_LIB =
@@ -42,7 +48,7 @@ endif
 
 # Check for any Windows-like environments: MINGW, MSYS, or CYGWIN
 BOOST_LIB_NAMES = system thread program_options iostreams
-ifneq (,$(findstring MINGW,$(UNAME_S))$(findstring MSYS,$(UNAME_S)))
+ifneq ($(IS_WIN),)
     BOOST_INCLUDE = $(VCPKG_ROOT)/installed/x64-mingw-static/include
     BOOST_LIB = $(VCPKG_ROOT)/installed/x64-mingw-static/lib
 	#dynamically detect the right boost suffix
@@ -57,11 +63,11 @@ endif
 BOOST_INCLUDE_FLAG := $(if $(BOOST_INCLUDE),-I$(BOOST_INCLUDE),)
 
 #LDFLAGS
-ifeq ($(OS), Windows_NT)
+ifneq ($(IS_WIN),)
 	LDFLAGS += -static -static-libgcc -static-libstdc++ -Wl,-Bstatic -lz -lwinpthread 
-else ifeq ($(UNAME_S),Linux)
+else ifneq ($(IS_LINUX),)
 	LDFLAGS += -static-libstdc++ -static-libgcc -Wl,-Bstatic  -lz
-else ifeq ($(UNAME_S),Darwin)
+else ifneq ($(IS_DARWIN),)
 	LDFLAGS += -static-libstdc++ -static-libgcc -Wl,-Bstatic -lz
 endif
 
@@ -109,7 +115,7 @@ INCLUDE_DIRS += $(shell find include -type d -print | sed 's/^/-I/')
 INCLUDE_DIRS += -Iexternal/seqtk -Iexternal/edlib
 
 # WINDOWS crashes with -march=native
-ifeq ($(OS),Windows_NT)
+ifneq ($(IS_WIN),)
     # Windows (MinGW / MSVC)
     CXXFLAGS := -std=c++17 -O0 -g $(INCLUDE_DIRS)
 else
@@ -118,9 +124,9 @@ endif
 
 CXXFLAGS += -MMD -MP
 # add LTO only for Linux/Mac
-ifeq ($(UNAME_S),Linux)
+ifneq ($(IS_LINUX),)
 	CXXFLAGS += -flto=5
-else ifeq ($(UNAME_S),Darwin)
+else ifneq ($(IS_DARWIN),)
 	CXXFLAGS += -flto
 endif
 
@@ -143,7 +149,7 @@ LIB := $(LIB_DIR)/libesgi.a
 LIBSRC := $(shell find $(SRC_DIR) -name '*.cpp')
 
 # remove htslib dependent files for Windows
-ifneq (,$(findstring MINGW,$(UNAME_S))$(findstring MSYS,$(UNAME_S)))
+ifneq ($(IS_WIN),)
 	LIBSRC := $(filter-out %BarcodeBamAnnotator.cpp,$(LIBSRC))
 endif
 
@@ -183,17 +189,22 @@ TOOLS := \
 
 # 2.) DECLARE TOOL LIBRARY DEPENDENCIES - build with STATIC ($BOOST_FLAGS), which contains boost,posix thread and zlib,
 #	 libesgi is anyways static and contains edlib, seqtk
-ANNOTATE_FLAGS := $(LDFLAGS) $(BOOST_FLAGS) -lhts
-COUNT_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
-DEMULTIPLEX_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
-ESGI_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
-# ANNOTATE can not be compiled on windows due to htslib, but for other tools we need to add dynamic linking of 
-# system libraries (and others statically)
-ifneq (,$(filter $(UNAME_S),Linux Darwin))
-    ANNOTATE_FLAGS += -Wl,-Bdynamic
-    COUNT_FLAGS += -Wl,-Bdynamic
-    DEMULTIPLEX_FLAGS += -Wl,-Bdynamic
-    ESGI_FLAGS += -Wl,-Bdynamic
+ifneq ($(IS_WIN),)
+	ANNOTATE_FLAGS := $(LDFLAGS) $(BOOST_FLAGS) -Wl,-Bdynamic -lhts
+	COUNT_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
+	DEMULTIPLEX_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
+	ESGI_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
+else ifneq ($(IS_LINUX),)
+	ANNOTATE_FLAGS := $(LDFLAGS) $(BOOST_FLAGS) -Wl,-Bdynamic -lhts
+	COUNT_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
+	DEMULTIPLEX_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
+	ESGI_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
+else ifneq ($(IS_DARWIN),)
+	#darwin can not handle Bdynamic
+	ANNOTATE_FLAGS := $(LDFLAGS) $(BOOST_FLAGS) -lhts
+	COUNT_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
+	DEMULTIPLEX_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
+	ESGI_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
 endif
 
 # 3.) DECLARE RULES FOR TOOLS

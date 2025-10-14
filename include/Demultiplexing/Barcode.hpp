@@ -11,7 +11,6 @@
 #include <functional>
 #include <array>
 #include <cmath>
-#include <immintrin.h>
 
 #include "helper.hpp"
 
