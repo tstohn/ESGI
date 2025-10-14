@@ -94,7 +94,7 @@ install:
 	@if [ "$(UNAME_S)" = "Linux" ]; then \
 		sudo apt-get update && sudo apt-get install -y zlib1g-dev libboost-all-dev libhts-dev; \
 	elif echo "$(UNAME_S)" | grep -E -q "MINGW|MSYS"; then \
-		vcpkg install zlib boost-asio boost-system boost-thread boost-iostreams boost-program-options --triplet x64-mingw-static; \
+		$(VCPKG_ROOT)/vcpkg install zlib boost-asio boost-system boost-thread boost-iostreams boost-program-options --triplet x64-mingw-static; \
 	elif [ "$(UNAME_S)" = "Darwin" ]; then \
 		brew install zlib boost htslib; \
 	fi
