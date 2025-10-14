@@ -1,0 +1,111 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            ostag: linux-x86_64
+          - os: macos-14
+            ostag: macos-arm64
+          - os: windows-2022
+            ostag: windows-x86_64
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # Provide vcpkg for your Makefile's 'make install' on Windows
+      - name: Install vcpkg (Windows)
+        if: matrix.os == 'windows-2022'
+        shell: powershell
+        run: |
+          if (!(Test-Path 'C:\vcpkg')) {
+            git clone https://github.com/microsoft/vcpkg C:\vcpkg
+            C:\vcpkg\bootstrap-vcpkg.bat
+          }
+
+      # Linux/macOS build (keeps 'make install' exactly as in your Makefile)
+      - name: Build (Linux/macOS)
+        if: matrix.os != 'windows-2022'
+        run: |
+          make clean
+          make install
+          # Build all tools; annotate is supported here
+          make demultiplex count esgi annotate
+
+      # Windows build via MSYS2 so your Makefile runs unchanged
+      - name: MSYS2 setup (Windows)
+        if: matrix.os == 'windows-2022'
+        uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          msystem: MINGW64
+          install: >-
+            git
+            make
+            mingw-w64-x86_64-gcc
+            zip
+
+      - name: Build (Windows)
+        if: matrix.os == 'windows-2022'
+        shell: msys2 {0}
+        env:
+          VCPKG_ROOT: /c/vcpkg
+        run: |
+          make clean
+          make install
+          # No annotate on Windows
+          make demultiplex count esgi
+
+      # Package artifacts
+      - name: Package (Linux/macOS)
+        if: matrix.os != 'windows-2022'
+        run: |
+          chmod +x scripts/package.sh
+          VER="${GITHUB_REF_NAME#v}"
+          ./scripts/package.sh "$VER" "${{ matrix.ostag }}"
+
+      - name: Package (Windows)
+        if: matrix.os == 'windows-2022'
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          $ver = $env:GITHUB_REF_NAME.TrimStart('v')
+          New-Item -ItemType Directory -Path dist -Force | Out-Null
+          if (Test-Path bin\demultiplex.exe) { Compress-Archive -Path bin\demultiplex.exe -DestinationPath ("dist/demultiplex-$ver-${{ matrix.ostag }}.zip") -Force }
+          if (Test-Path bin\count.exe)       { Compress-Archive -Path bin\count.exe       -DestinationPath ("dist/count-$ver-${{ matrix.ostag }}.zip") -Force }
+          if (Test-Path bin\esgi.exe)        { Compress-Archive -Path bin\esgi.exe        -DestinationPath ("dist/esgi-$ver-${{ matrix.ostag }}.zip") -Force }
+          cd dist
+          Get-ChildItem *.zip | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash
+            "$($hash)  $($_.Name)" | Add-Content -Path SHA256SUMS.txt
+          }
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.ostag }}
+          path: dist/*
+
+  release:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: |
+            dist/*
