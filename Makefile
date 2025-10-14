@@ -35,15 +35,14 @@ IS_DARWIN := $(filter Darwin%,$(UNAME_S))
 
 #system dependent boost flags
 ifneq ($(IS_LINUX),)
-    BOOST_FLAGS = -lboost_iostreams -lboost_program_options -lpthread
-	BOOST_INCLUDE =
-	BOOST_LIB =
-endif
-
-ifneq ($(IS_DARWIN),)
-    BOOST_FLAGS = -lboost_iostreams -lboost_program_options -lpthread
-	BOOST_INCLUDE =
-	BOOST_LIB =
+    BOOST_FLAGS := -lboost_iostreams -lboost_program_options -lpthread
+	BOOST_INCLUDE :=
+	BOOST_LIB :=
+else ifneq ($(IS_DARWIN),)
+    BOOST_FLAGS := -lboost_iostreams -lboost_program_options -lpthread
+  	BOOST_PREFIX := $(shell brew --prefix boost 2>/dev/null || echo /opt/homebrew)
+  	BOOST_INCLUDE := $(BOOST_PREFIX)/include
+  	BOOST_LIB := $(BOOST_PREFIX)/lib
 endif
 
 # Check for any Windows-like environments: MINGW, MSYS, or CYGWIN
