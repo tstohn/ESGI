@@ -68,7 +68,7 @@ ifneq ($(IS_WIN),)
 else ifneq ($(IS_LINUX),)
 	LDFLAGS += -static-libstdc++ -static-libgcc -Wl,-Bstatic  -lz
 else ifneq ($(IS_DARWIN),)
-	LDFLAGS += -static-libstdc++ -static-libgcc -Wl,-Bstatic -lz
+	LDFLAGS += -lz
 endif
 
 #######################################
