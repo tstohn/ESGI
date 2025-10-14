@@ -39,6 +39,7 @@ ifneq ($(IS_LINUX),)
 	BOOST_INCLUDE :=
 	BOOST_LIB :=
 else ifneq ($(IS_DARWIN),)
+	#make install installs boost with brew, we need to get the actual path to include boost correctly
     BOOST_FLAGS := -lboost_iostreams -lboost_program_options -lpthread
   	BOOST_PREFIX := $(shell brew --prefix boost 2>/dev/null || echo /opt/homebrew)
   	BOOST_INCLUDE := $(BOOST_PREFIX)/include
@@ -112,6 +113,12 @@ INCLUDE_DIRS := -Iinclude -Isrc -Iexternal $(BOOST_INCLUDE_FLAG)
 INCLUDE_DIRS += $(shell find include -type d -print | sed 's/^/-I/')
 #inlcude all below the external dir
 INCLUDE_DIRS += -Iexternal/seqtk -Iexternal/edlib
+
+#we had problems on macOS to detect the htslib
+ifneq ($(IS_DARWIN),)
+    HTS_PREFIX ?= $(shell brew --prefix htslib 2>/dev/null || echo /opt/homebrew/opt/htslib)
+	INCLUDE_DIRS += -I$(HTS_PREFIX)/include
+endif
 
 # WINDOWS crashes with -march=native
 ifneq ($(IS_WIN),)
@@ -199,8 +206,10 @@ else ifneq ($(IS_LINUX),)
 	DEMULTIPLEX_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
 	ESGI_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
 else ifneq ($(IS_DARWIN),)
+	#macOS has torubles finding htslib, include path explicitely
+    HTS_PREFIX ?= $(shell brew --prefix htslib 2>/dev/null || echo /opt/homebrew/opt/htslib)
 	#darwin can not handle Bdynamic
-	ANNOTATE_FLAGS := $(LDFLAGS) $(BOOST_FLAGS) -lhts
+	ANNOTATE_FLAGS := $(LDFLAGS) $(BOOST_FLAGS) -L$(HTS_PREFIX)/lib -lhts
 	COUNT_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
 	DEMULTIPLEX_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
 	ESGI_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
