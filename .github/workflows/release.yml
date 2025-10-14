@@ -17,8 +17,12 @@ jobs:
         include:
           - os: ubuntu-24.04
             ostag: linux-x86_64
+          - os: macos-13
+            ostag: macos-x86_64
+            mac_arch: x86_64
           - os: macos-14
             ostag: macos-arm64
+            mac_arch: arm64
           - os: windows-2022
             ostag: windows-x86_64
 
@@ -42,8 +46,13 @@ jobs:
         if: matrix.os != 'windows-2022'
         run: |
           make clean
+          # Add arch flags for mac builds
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            export CFLAGS="-arch ${{ matrix.mac_arch }} -mmacosx-version-min=11.0"
+            export CXXFLAGS="$CFLAGS"
+            export LDFLAGS="-arch ${{ matrix.mac_arch }}"
+          fi
           make install
-          # Build all tools; annotate is supported here
           make demultiplex count esgi annotate
 
       # Windows build via MSYS2 so your Makefile runs unchanged
