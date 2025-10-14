@@ -35,9 +35,34 @@ bool parse_arguments(int argc, char** argv, std::string& input) {
                       .positional(p)
                       .run(), vm);
 
-        if (vm.count("help")) {
+        if (vm.count("help")) 
+        {
+            // 1.) PRINT THE USAGE
             std::cout << "Usage: " << argv[0] << " <input.ini>\n";
             std::cout << desc << "\n";
+
+            // 2.) PRINT AN INI EXAMPLE
+            std::filesystem::path iniPath = "src/test/test_data/test_esgi/esgi_example.ini";
+            std::ifstream in;
+            in.open(iniPath);
+            if (in) 
+            {
+                std::cout << "You have to run esgi with a single argument, the input.ini which contains all the information of how to run esgi.\n";
+                std::cout << "You find an example below.\n";
+                std::cout << 
+                "╔═════════════════════╗\n"
+                "║   EXAMPLE INI FILE  ║\n"
+                "╚═════════════════════╝\n";
+            }
+            if (!in) 
+            {
+                std::cerr << "Could not find the example.ini file for esgi.\n";
+                return 0;
+            }
+            std::ostringstream buf;
+            buf << in.rdbuf();
+            std::cout << buf.str() << "\n";
+            
             return false;
         }
 

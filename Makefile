@@ -29,13 +29,13 @@ VCPKG_ROOT ?= C:/vcpkg
 
 #system dependent boost flags
 ifeq ($(UNAME_S),Linux)
-    BOOST_FLAGS = -lboost_iostreams -lboost_program_options -lpthread -lz
+    BOOST_FLAGS = -lboost_iostreams -lboost_program_options -lpthread
 	BOOST_INCLUDE =
 	BOOST_LIB =
 endif
 
 ifeq ($(UNAME_S),Darwin)
-    BOOST_FLAGS = -lboost_iostreams -lboost_program_options -lpthread -lz
+    BOOST_FLAGS = -lboost_iostreams -lboost_program_options -lpthread
 	BOOST_INCLUDE =
 	BOOST_LIB =
 endif
@@ -60,9 +60,9 @@ BOOST_INCLUDE_FLAG := $(if $(BOOST_INCLUDE),-I$(BOOST_INCLUDE),)
 ifeq ($(OS), Windows_NT)
 	LDFLAGS += -static -static-libgcc -static-libstdc++ -Wl,-Bstatic -lz -lwinpthread 
 else ifeq ($(UNAME_S),Linux)
-	LDFLAGS +=
+	LDFLAGS += -static-libstdc++ -static-libgcc -Wl,-Bstatic  -lz
 else ifeq ($(UNAME_S),Darwin)
-	LDFLAGS += 
+	LDFLAGS += -static-libstdc++ -static-libgcc -Wl,-Bstatic -lz
 endif
 
 #######################################
@@ -183,10 +183,10 @@ TOOLS := \
 
 # 2.) DECLARE TOOL LIBRARY DEPENDENCIES - build with STATIC ($BOOST_FLAGS), which contains boost,posix thread and zlib,
 #	 libesgi is anyways static and contains edlib, seqtk
-ANNOTATE_FLAGS := -Wl,-Bstatic $(LDFLAGS) $(BOOST_FLAGS) -Wl,-Bdynamic -lhts
-COUNT_FLAGS := -Wl,-Bstatic $(LDFLAGS) $(BOOST_FLAGS)
-DEMULTIPLEX_FLAGS := -Wl,-Bstatic $(LDFLAGS) $(BOOST_FLAGS)
-ESGI_FLAGS := -Wl,-Bstatic $(LDFLAGS) $(BOOST_FLAGS)
+ANNOTATE_FLAGS := $(LDFLAGS) $(BOOST_FLAGS) -Wl,-Bdynamic -lhts
+COUNT_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
+DEMULTIPLEX_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
+ESGI_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
 # ANNOTATE can not be compiled on windows due to htslib, but for other tools we need to add dynamic linking of 
 # system libraries (and others statically)
 ifneq (,$(filter $(UNAME_S),Linux Darwin))
@@ -414,6 +414,9 @@ test_big:
 test_esgi:
 	./bin/esgi src/test/test_data/test_esgi/esgi_example.ini
 
+# mini test example, using a tiny index-example from chr21 only
+test_esgi_RNA:
+	./bin/esgi src/test/test_data/test_esgi_RNA/esgi_example_RNA.ini
 
 
 
