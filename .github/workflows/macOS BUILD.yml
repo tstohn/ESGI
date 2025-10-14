@@ -1,0 +1,25 @@
+name: MAC BUILD (macOS 14)
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build-macos:
+    runs-on: macos-14
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # Your Makefile handles brew installs on Darwin; we keep it as-is.
+      - name: Install dependencies
+        run: |
+          make clean
+          make install
+
+      - name: Run tests
+        run: make test
