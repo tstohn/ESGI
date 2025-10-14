@@ -5,6 +5,10 @@ on:
     tags:
       - "v*.*.*"
 
+# 1) Allow the release job to upload assets
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -100,9 +104,11 @@ jobs:
     needs: build
     runs-on: ubuntu-24.04
     steps:
+      # 2) Place all downloaded artifacts into ./dist
       - uses: actions/download-artifact@v4
         with:
           merge-multiple: true
+          path: dist
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
