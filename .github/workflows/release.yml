@@ -103,17 +103,28 @@ jobs:
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
-          $ver = $env:GITHUB_REF_NAME.TrimStart('v')
+          $ProgressPreference = "SilentlyContinue"
+      
+          $ver  = $env:GITHUB_REF_NAME.TrimStart('v')
           $name = "esgi-$ver-${{ matrix.ostag }}"
+      
           New-Item -ItemType Directory -Path dist,pkg -Force | Out-Null
-          # Export tree of current commit (no .git)
-          git archive --format=tar HEAD | tar -xf - -C pkg
-          # Copy built EXEs (if present)
+      
+          # Export clean repo tree (no .git) as ZIP, then expand it -> pkg\
+          git archive --format=zip -o repo.zip HEAD
+          Expand-Archive repo.zip -DestinationPath pkg -Force
+          Remove-Item repo.zip -Force
+      
+          # Ensure bin exists and copy built binaries (if any)
           New-Item -ItemType Directory -Path pkg\bin -Force | Out-Null
           if (Test-Path bin) {
-            Get-ChildItem bin | Copy-Item -Destination pkg\bin -Force -Recurse
+            Copy-Item -Path bin\* -Destination pkg\bin -Recurse -Force
           }
+      
+          # Create final per-OS zip containing whole repo + bin/
           Compress-Archive -Path pkg\* -DestinationPath ("dist\$name.zip") -Force
+      
+          # Cleanup
           Remove-Item -Recurse -Force pkg
 
       - name: Upload artifacts
