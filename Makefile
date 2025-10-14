@@ -64,11 +64,11 @@ BOOST_INCLUDE_FLAG := $(if $(BOOST_INCLUDE),-I$(BOOST_INCLUDE),)
 
 #LDFLAGS
 ifneq ($(IS_WIN),)
-	LDFLAGS += -static -static-libgcc -static-libstdc++ -Wl,-Bstatic -lz -lwinpthread 
+	LDFLAGS += -static -static-libgcc -static-libstdc++ -Wl,-Bstatic -lz -lwinpthread -L$(BOOST_LIB)
 else ifneq ($(IS_LINUX),)
 	LDFLAGS += -static-libstdc++ -static-libgcc -Wl,-Bstatic  -lz
 else ifneq ($(IS_DARWIN),)
-	LDFLAGS += -lz
+	LDFLAGS += -lz -L$(BOOST_LIB)
 endif
 
 #######################################
