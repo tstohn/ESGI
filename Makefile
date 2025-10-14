@@ -183,13 +183,14 @@ TOOLS := \
 
 # 2.) DECLARE TOOL LIBRARY DEPENDENCIES - build with STATIC ($BOOST_FLAGS), which contains boost,posix thread and zlib,
 #	 libesgi is anyways static and contains edlib, seqtk
-ANNOTATE_FLAGS := $(LDFLAGS) $(BOOST_FLAGS) -Wl,-Bdynamic -lhts
+ANNOTATE_FLAGS := $(LDFLAGS) $(BOOST_FLAGS) -lhts
 COUNT_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
 DEMULTIPLEX_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
 ESGI_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
 # ANNOTATE can not be compiled on windows due to htslib, but for other tools we need to add dynamic linking of 
 # system libraries (and others statically)
 ifneq (,$(filter $(UNAME_S),Linux Darwin))
+    ANNOTATE_FLAGS += -Wl,-Bdynamic
     COUNT_FLAGS += -Wl,-Bdynamic
     DEMULTIPLEX_FLAGS += -Wl,-Bdynamic
     ESGI_FLAGS += -Wl,-Bdynamic
