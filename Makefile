@@ -121,7 +121,7 @@ CXXFLAGS += -MMD -MP
 ifeq ($(UNAME_S),Linux)
 	CXXFLAGS += -flto=5
 else ifeq ($(UNAME_S),Darwin)
-	CXXFLAGS += -flto=5
+	CXXFLAGS += -flto
 endif
 
 # Directories
