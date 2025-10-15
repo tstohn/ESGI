@@ -9,7 +9,7 @@
 //check if we have patterns like -,*. These are not included in the demultiplexed output and therefore
 //indices for counting must be adjusted. Additioanly, these two patterns can ONLY BE at the end of a sequence, 
 //e.g., we can t have an arbitrary pattern * at ther beginning of a read
-inline int handle_special_patterns(const std::vector<std::string>& patterns)
+inline int get_special_pattern_pos(const std::vector<std::string>& patterns)
 {
     int posDash = -1;
     int posStar = -1;
@@ -38,6 +38,12 @@ inline int handle_special_patterns(const std::vector<std::string>& patterns)
     }
 
     return -1;
+}
+//get the position of the DNA pattern
+inline int get_DNA_pattern_pos(const std::vector<std::string>& patterns)
+{
+    auto it = std::find(patterns.begin(), patterns.end(), "DNA");
+    return( (it == patterns.end() ? -1 : static_cast<int>(it - patterns.begin())) );
 }
 
 inline bool call_demultiplex(const ESGIConfig& config)
@@ -72,10 +78,81 @@ inline bool call_demultiplex(const ESGIConfig& config)
     return true;
 }
 
+// --- capture helper (kept minimal) ---
+static std::string run_system_capture(const std::string& cmd) {
+    std::string tmp = "star_ver_" + std::to_string(
+        std::chrono::high_resolution_clock::now().time_since_epoch().count()
+    ) + ".txt";
+    std::string full = cmd + " > \"" + tmp + "\" 2>&1";
+    if (std::system(full.c_str()) == -1) return std::string();
+    std::ifstream f(tmp, std::ios::in | std::ios::binary);
+    std::string s((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    f.close();
+    std::remove(tmp.c_str());
+    return s;
+}
 
+// parse "A.B.C[letter]" from an arbitrary string (finds first number run)
+static bool parse_version_triplet(const std::string& src,
+                                  int& A, int& B, int& C, int& S /*-1 no suffix*/) {
+    A = B = C = 0; S = -1;
+    size_t i = src.find_first_of("0123456789");
+    if (i == std::string::npos) return false;
 
+    auto read_int = [&](size_t& p, int& out)->bool {
+        if (p >= src.size() || !std::isdigit((unsigned char)src[p])) return false;
+        long v = 0;
+        while (p < src.size() && std::isdigit((unsigned char)src[p])) {
+            v = v*10 + (src[p]-'0'); ++p;
+        }
+        out = (int)v; return true;
+    };
 
+    if (!read_int(i, A)) return false;
+    if (i >= src.size() || src[i++] != '.') return false;
+    if (!read_int(i, B)) return false;
+    if (i >= src.size() || src[i++] != '.') return false;
+    if (!read_int(i, C)) return false;
 
+    if (i < src.size() && std::isalpha((unsigned char)src[i])) {
+        S = std::tolower((unsigned char)src[i]) - 'a'; // a=0, b=1, ...
+    } else {
+        S = -1; // no suffix = newest among same A.B.C
+    }
+    return true;
+}
+
+// return positive if (A1,B1,C1,S1) > (A2,B2,C2,S2), 0 if equal, negative if less
+static int compare_versions(int A1,int B1,int C1,int S1, int A2,int B2,int C2,int S2) {
+    if (A1 != A2) return (A1 > A2) ? 1 : -1;
+    if (B1 != B2) return (B1 > B2) ? 1 : -1;
+    if (C1 != C2) return (C1 > C2) ? 1 : -1;
+    if (S1 == S2) return 0;
+    if (S1 == -1) return 1;        // no suffix newer than any suffix
+    if (S2 == -1) return -1;
+    return (S1 > S2) ? 1 : -1;     // a(0) < b(1) < c(2) ...
+}
+
+// returns 0 if STAR exists and version >= minimumVersion (e.g. "2.7.10b"), else 1
+static int check_star_version(const std::string& minimumVersion, std::string& currentVersion) 
+{
+    std::string out = run_system_capture("STAR --version");
+    currentVersion = out;
+    if (out.empty()) { std::cerr << "STAR not found or no output\n"; return 1; }
+
+    int a,b,c,s, ra,rb,rc, rs;
+    if (!parse_version_triplet(out, a,b,c,s)) {
+        std::cerr << "Could not parse STAR version from output: " << out << "\n";
+        return 1;
+    }
+    if (!parse_version_triplet(minimumVersion, ra,rb,rc, rs)) {
+        std::cerr << "Invalid required version string: " << minimumVersion << "\n";
+        return 1;
+    }
+
+    int cmp = compare_versions(a,b,c,s, ra,rb,rc,rs);
+    return (cmp >= 0) ? 1 : 0;
+}
 
 inline bool run_star(const ESGIConfig& config, ESGIIntermediateFiles& intermediateFiles)
 {
@@ -84,6 +161,18 @@ inline bool run_star(const ESGIConfig& config, ESGIIntermediateFiles& intermedia
 
     std::filesystem::path outfilePrefixPath = std::filesystem::path(config.output) / "STAR_";
     std::string outfilePrefix = outfilePrefixPath.string();
+
+    // we need a STAR version > 2.7.10b to also get GX/GN tags
+    std::string miniumStar = "2.7.10b";
+    std::string currentVersion;
+    if(!check_star_version(miniumStar, currentVersion))
+    {
+        std::cerr << "STAR VERSION is not compatible with ESGI, since we require GX/GN annotations from STAR.\n"
+         << " We need a minimum version of STAR " << miniumStar << "\n"
+         << " Current version is: " << currentVersion << "\n";
+        std::cerr << "Please upgrade STAR to a newer version, or set the path for STAR in the input.ini file with <STAR=...>\n";
+        exit(EXIT_FAILURE);
+    }
 
     if(!config.genomeDir.has_value())
     {
@@ -114,7 +203,8 @@ inline bool run_star(const ESGIConfig& config, ESGIIntermediateFiles& intermedia
 inline bool run_annotate(const ESGIConfig& config, ESGIIntermediateFiles& intermediateFiles)
 {
     std::string demultiplexingPatternOutput = intermediateFiles.demultiplexingOutput + ".tsv";
-    std::string starAlignmentOutput = intermediateFiles.demultiplexingOutput + "_Aligned.out.bam";
+    // we hard-coded and gave the STAR-output the prefix <STAR>
+    std::string starAlignmentOutput = config.output + "/" + "STAR_Aligned.out.bam";
 
     const std::string annotateCmd = std::string("./bin/annotate ") +
         " -i " + demultiplexingPatternOutput +
@@ -147,7 +237,7 @@ inline bool run_rna_mapping(const ESGIConfig& config, ESGIIntermediateFiles& int
     return true;
 }
 
-std::string adjust_position_due_to_special_patterns(const std::string& indexList, int specialPatternPos)
+std::string adjust_position_due_to_special_patterns(const std::string& indexList, const ESGIIntermediateFiles& intermediateFiles)
 {
     std::stringstream ss(indexList);
     std::string index;
@@ -162,10 +252,15 @@ std::string adjust_position_due_to_special_patterns(const std::string& indexList
     // Modify values
     for (int &v : values) 
     {
+        //check if we had a DNA pattern that got 'cut out' and therefore need to adjust pattern positions
+        int dnaShift = 0;
+        if(intermediateFiles.dnaPatternPos >= 0 && v > intermediateFiles.dnaPatternPos){dnaShift = -1;}
         //if the index is behind a -,* we need to substract one bcs this poattern is not in the demultiplex output
-        if (v > specialPatternPos) v -= 1;
+        if (v > intermediateFiles.specialPatternPos) v -= 1;
         //also we need to add 1 to every column, bcs we will ahve the additional READNAME column
         v += 1;
+        //and finally add the dna shift
+        v += dnaShift;
     }
 
     // Rebuild the string
@@ -179,19 +274,31 @@ std::string adjust_position_due_to_special_patterns(const std::string& indexList
     return(out.str());
 }
 
-inline bool call_count(ESGIConfig& config, const ESGIIntermediateFiles& intermediateFiles)
+inline bool call_count(ESGIConfig& config, const ESGIIntermediateFiles& intermediateFiles, const bool dnaPatternPresent)
 {
     std::filesystem::path toolPath = std::filesystem::path("bin") / "count";
     std::filesystem::path patternPath(config.patternFile);
     std::filesystem::path dir = patternPath.parent_path();
 
     //index re-assignment due to -,*
-    if(intermediateFiles.specialPatternPos!= -1)
+    if(intermediateFiles.specialPatternPos!= -1 || dnaPatternPresent)
     {
-        config.SC_ID = adjust_position_due_to_special_patterns(config.SC_ID, intermediateFiles.specialPatternPos);
-        config.FEATURE_ID = adjust_position_due_to_special_patterns(config.FEATURE_ID, intermediateFiles.specialPatternPos);
-        if(config.UMI_ID.has_value()){config.UMI_ID = adjust_position_due_to_special_patterns(config.UMI_ID.value(), intermediateFiles.specialPatternPos);}
-        if(config.ANNOTATION_IDs.has_value()){config.ANNOTATION_IDs = adjust_position_due_to_special_patterns(config.ANNOTATION_IDs.value(), intermediateFiles.specialPatternPos);}
+        config.SC_ID = adjust_position_due_to_special_patterns(config.SC_ID, intermediateFiles);
+        if(intermediateFiles.dnaPatternPos >=0)
+        {
+            // if we have a DNA pattern, we firstly set the FEATURE column index to patternlength
+            // as the DNA is added as a last column, o-indexed it is at position patternlength
+            config.FEATURE_ID = std::to_string(intermediateFiles.patternLength);            
+            //however, if there were special patterns (like -,*) that are not in the demultiplexed output we need to adust the FEATURE column index
+            //basically: -1 for removing the DNA pattern, -1 if there is a -,* and +1 for READNAME col
+            config.FEATURE_ID = adjust_position_due_to_special_patterns(config.FEATURE_ID, intermediateFiles);
+        }
+        else
+        {
+            config.FEATURE_ID = adjust_position_due_to_special_patterns(config.FEATURE_ID, intermediateFiles);
+        }
+        if(config.UMI_ID.has_value()){config.UMI_ID = adjust_position_due_to_special_patterns(config.UMI_ID.value(), intermediateFiles);}
+        if(config.ANNOTATION_IDs.has_value()){config.ANNOTATION_IDs = adjust_position_due_to_special_patterns(config.ANNOTATION_IDs.value(), intermediateFiles);}
     }
 
     // Build command string with parameters

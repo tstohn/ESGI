@@ -1,0 +1,19 @@
+### STAR   --runMode genomeGenerate      --runThreadN 4   --genomeDir star_index/toy   --genomeFastaFiles toy_ref.fa      --genomeSAindexNbases 7   --genomeChrBinNbits 12   --genomeSAsparseD 3   --sjdbGTFfile toy_ref.gtf
+### GstrandBit 32
+versionGenome	2.7.4a
+genomeType	Full
+genomeFastaFiles	toy_ref.fa 
+genomeSAindexNbases	7
+genomeChrBinNbits	12
+genomeSAsparseD	3
+genomeTransformType	None
+genomeTransformVCF	-
+sjdbOverhang	100
+sjdbFileChrStartEnd	- 
+sjdbGTFfile	toy_ref.gtf
+sjdbGTFchrPrefix	-
+sjdbGTFfeatureExon	exon
+sjdbGTFtagExonParentTranscript	transcript_id
+sjdbGTFtagExonParentGene	gene_id
+sjdbInsertSave	Basic
+genomeFileSizes	122500 440005

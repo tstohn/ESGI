@@ -89,6 +89,9 @@ struct ESGIIntermediateFiles
 
     std::string demultiplexingOutput;
     int specialPatternPos=-1;
+    int dnaPatternPos=-1;
+    int patternLength=-1;
+
     int umiMismatches=-1;
 
     std::string countingInput;

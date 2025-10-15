@@ -187,8 +187,13 @@ int main(int argc, char** argv)
     //call count
     // #########################
     //return a position where we have -,*. Then from every index beyond this we need to substract -1, and no index can be equal to this (e.g., feature, single-cell, UMI indices)
-    int specialPatternPos = handle_special_patterns(patterns.at(0).second);
+    int specialPatternPos = get_special_pattern_pos(patterns.at(0).second);
     intermediateFiles.specialPatternPos = specialPatternPos;
+    int dnaPatternPos = get_DNA_pattern_pos(patterns.at(0).second);
+    intermediateFiles.dnaPatternPos = dnaPatternPos;
+
+    intermediateFiles.patternLength = static_cast<int>(patterns.at(0).second.size());
+           
     //set the number of MM for the UMI
     if(config.UMI_ID.has_value()){intermediateFiles.umiMismatches = mismatches.at(0).at(std::stoi(config.UMI_ID.value()));}
 
@@ -204,11 +209,7 @@ int main(int argc, char** argv)
         "╔══════════════════════════════════════════════════════╗\n"
         "║ 2b.) RUN COUNTING: create single-cell feature matrix ║\n"
         "╚══════════════════════════════════════════════════════╝\n";
-        if(!run_rna_mapping(config, intermediateFiles))
-        {
-            std::cerr << "Mapping of DNA pattern failed\n";
-        }
-        
+
         // now counting input is the annotate data, this is the origional demultiplexed output with annotated-suffix
         std::string demultiplexOutputAnnotated = demultiplexOutput + "_annotated.tsv";
         std::filesystem::path annotatedOutputPath = std::filesystem::path(config.output) / demultiplexOutputAnnotated;
@@ -223,7 +224,7 @@ int main(int argc, char** argv)
         intermediateFiles.countingInput = countingOutputPath.string();
     }
 
-    if(!call_count(config, intermediateFiles))
+    if(!call_count(config, intermediateFiles, dnaPatternPresent))
     {
         std::cerr << "EXITING ESGI: counting failed!\n";
     }

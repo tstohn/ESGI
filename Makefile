@@ -437,12 +437,7 @@ test_esgi:
 # mini test example, using a tiny index-example from chr21 only
 test_esgi_RNA:
 	./bin/esgi src/test/test_data/test_esgi_RNA/esgi_example_RNA.ini
-
-
-
-
-
-
+	diff --strip-trailing-cr src/test/test_data/test_esgi_RNA/COUNTDATA_output.tsv ./bin/COUNTDATA_SIGNALseq_RNA.tsv
 
 ############################################
 #.  TODO

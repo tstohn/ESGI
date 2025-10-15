@@ -1,0 +1,1 @@
+RNA:[DNA][-][src/test/test_data/test_esgi/BC1.txt][CCACAGTCTCAAGCACGTGGAT][src/test/test_data/test_esgi/BC2_3.txt][AGTCGTACGCCGATGCGAAACATCGGCCAC][src/test/test_data/test_esgi/BC2_3.txt][10X]
