@@ -310,7 +310,8 @@ inline bool call_count(ESGIConfig& config, const ESGIIntermediateFiles& intermed
         " --featureIndex " + config.FEATURE_ID +
         " --singleCellIndices " + config.SC_ID + 
         " --umiThreshold " +  std::to_string(config.umiThreshold) +
-        " --umiRemoval " +  std::to_string(config.umiCollapsing);
+        " --umiRemoval " +  std::to_string(config.umiCollapsing) +
+        " --hamming " + std::to_string(config.hamming);
 
     // optional arguments
     if(config.FEATURE_NAMES.has_value()){cmd += " --featureNames " + config.FEATURE_NAMES.value();}

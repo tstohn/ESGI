@@ -254,6 +254,36 @@ inline bool outputSense(const std::string& sequence, const std::string& pattern,
     return false;
 }
 
+//ONLY used to compare UMIs, therefore the two strings should always have the same length, if not
+// we might run into a segmentation error
+inline bool hamming_dist(const std::string& sequence, const std::string& pattern, 
+                         const unsigned int& mismatches, unsigned int& score)
+{
+    //sequences must be same lenth
+    if (sequence.size() != pattern.size())
+    {
+        std::cout << "Comparing UMI sequences of different length\n";
+        std::cout << "This is not supported by default and can cause segmentation errors if the first sequence is longer!\n";
+    }
+    score = 0;
+
+    const size_t n = sequence.size();
+    // Tight loop with early exit
+    for (size_t i = 0; i < n; ++i) 
+    {
+        if(sequence.at(i) != pattern.at(i)){score += 1;}
+        if (score > mismatches) 
+        {
+            //we do not store how many MM we actually have, at this point the MM is also mismatches +1 but
+            //for explicitely set it here
+            score = mismatches +1;
+            return false;
+        }
+    }
+
+    return true; // score <= mismatches
+}
+
 inline void free_levenshtein(levenshtein_value** dist, int ls)
 {
     for (int i = 0; i <= ls; ++i) 

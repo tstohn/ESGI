@@ -36,7 +36,8 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
                      std::string& umiIdx, int& umiMismatches,
                      std::string& abFile, int& featureIdx, std::vector<std::string>& annotationFiles, 
                      std::vector<int>& annotationIdxs,
-                     double& umiThreshold, bool& umiRemoval,  bool& scIdString, std::string& fuseBarcodesFile)
+                     double& umiThreshold, bool& umiRemoval,  bool& scIdString, std::string& fuseBarcodesFile,
+                     bool& hamming)
 {
     try
     {
@@ -71,6 +72,9 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             If this parameter is not given all columns with an X from the pattern-input-file (e.g., [10X]) are used as UMI. But you can also just provide one pattern to be used as UMI in case several are present.")
             ("mismatches,m", value<int>(&umiMismatches)->default_value(1), "number of allowed mismatches in a UMI (all UMIs are aligned to one another and collapsed if possible). If there are several UMI-barcodes in one sequence\
             the sequences are concatenated and the whole sequence is aligned to other UMI-seuqences by this here provided mismatch number.")
+            ("hamming,H", value<bool>(&hamming)->default_value(false), "Set to true if you do not want UMIs to be collapsed with insertions/deletions.")
+
+            
             ("umiThreshold,f", value<double>(&umiThreshold)->default_value(0.0), "threshold for filtering UMIs. E.g. if set to 0.9 we only retain reads of a UMI, if more \
             than 90percent of them have the same SC-AB combination. All other reads are deleted. Default is zero. (You can keep it at 0 if UMIs should not be collapsed).")
             ("umiRemoval,z", value<bool>(&umiRemoval)->default_value(true), "Set to false if UMIs should NOT be collapsed. By default UMIs are collapsed.")
@@ -233,17 +237,19 @@ int main(int argc, char** argv)
     //vector of barcode vectors, equivalent to the content in annotationFiles, but that one did not parse the annotations yet
     std::vector<std::vector<std::string>> annotationBarcodesVector;
     std::string umiIdx;
+    bool hamming = false;
 
     if(!parse_arguments(argv, argc, inFile, outFile, thread, 
                         barcodeDir, barcodeIndices, umiIdx, umiMismatches, 
                         abFile, featureIdx, annotationFiles, annotationIdxs,
-                        umiThreshold, umiRemoval, scIdAsString, fuseBarcodesFile))
+                        umiThreshold, umiRemoval, scIdAsString, fuseBarcodesFile, hamming))
     {
         exit(EXIT_FAILURE);
     }
     
     //generate the dictionary of barcode alternatives to idx
     BarcodeInformation barcodeIdData;
+    barcodeIdData.hamming = hamming;
 
     //get the first line of headers from input file
     std::ifstream file;

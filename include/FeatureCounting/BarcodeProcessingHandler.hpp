@@ -46,6 +46,7 @@ struct BarcodeInformation
     std::vector<int> umiIdx; //UMI index
     unsigned int umiMismatches;
     unsigned int umiLength = 0; //the sum of lengths for all UMIs
+    bool hamming = false;
 };
 
 //data type to represent final processed AB counts per single cell
