@@ -65,7 +65,7 @@ ifneq ($(IS_WIN),)
     BOOST_INCLUDE := $(VCPKG_ROOT)/installed/$(BOOST_TRIPLET)/include
     BOOST_LIB     := $(VCPKG_ROOT)/installed/$(BOOST_TRIPLET)/lib
 
-    # helper to pick the first matching archive name (evaluated when used)
+    # Resolve filenames lazily (evaluated at recipe time)
     boost_file = $(notdir $(firstword $(wildcard $(BOOST_LIB)/libboost_$(1)*.a)))
 
     BOOST_SYS_FILE       = $(call boost_file,system)
@@ -73,11 +73,22 @@ ifneq ($(IS_WIN),)
     BOOST_PO_FILE        = $(call boost_file,program_options)
     BOOST_IOSTREAMS_FILE = $(call boost_file,iostreams)
 
-    # do NOT use ':=' here; keep this recursive so it resolves after deps are installed
+    # If Boost.System archive is absent (header-only), don't link it and define the macro
+    ifeq ($(BOOST_SYS_FILE),)
+      $(info [boost] libboost_system*.a not found; using header-only Boost.System)
+      CXXFLAGS += -DBOOST_ERROR_CODE_HEADER_ONLY
+    endif
+
+    # Build the library list, skipping any empty entries
+    BOOST_LIBS := \
+      $(if $(BOOST_SYS_FILE),-l:$(BOOST_SYS_FILE)) \
+      $(if $(BOOST_THREAD_FILE),-l:$(BOOST_THREAD_FILE)) \
+      $(if $(BOOST_PO_FILE),-l:$(BOOST_PO_FILE)) \
+      $(if $(BOOST_IOSTREAMS_FILE),-l:$(BOOST_IOSTREAMS_FILE))
+
+    # Final flags (keep recursive expansion!)
     BOOST_FLAGS = -I"$(BOOST_INCLUDE)" -L"$(BOOST_LIB)" -Wl,-Bstatic \
-                  -l:$(BOOST_SYS_FILE) -l:$(BOOST_THREAD_FILE) \
-                  -l:$(BOOST_PO_FILE)  -l:$(BOOST_IOSTREAMS_FILE) \
-                  -lz -lwinpthread
+                  $(BOOST_LIBS) -lz -lwinpthread -lws2_32
 endif
 
 #only include boost flags if needed
