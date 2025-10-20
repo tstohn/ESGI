@@ -47,16 +47,50 @@ else ifneq ($(IS_DARWIN),)
 endif
 
 # Check for any Windows-like environments: MINGW, MSYS, or CYGWIN
-BOOST_LIB_NAMES = system thread program_options iostreams
-ifneq ($(IS_WIN),)
-    BOOST_INCLUDE = $(VCPKG_ROOT)/installed/x64-mingw-static/include
-    BOOST_LIB = $(VCPKG_ROOT)/installed/x64-mingw-static/lib
+#BOOST_LIB_NAMES = system thread program_options iostreams
+#ifneq ($(IS_WIN),)
+#    BOOST_INCLUDE = $(VCPKG_ROOT)/installed/x64-mingw-static/include
+#    BOOST_LIB = $(VCPKG_ROOT)/installed/x64-mingw-static/lib
 	#dynamically detect the right boost suffix
-	BOOST_SUFFIX := $(shell \
+#	BOOST_SUFFIX := $(shell \
 		for lib in $(BOOST_LIB)/libboost_system*.a; do \
 			basename $$lib | sed -n 's/libboost_system\(.*\)\.a/\1/p'; \
 		done | head -n 1)
-    BOOST_FLAGS := -I$(BOOST_INCLUDE) -L$(BOOST_LIB) $(foreach lib,$(BOOST_LIB_NAMES),-lboost_$(lib)$(BOOST_SUFFIX)) -lz -lwinpthread
+#    BOOST_FLAGS := -I$(BOOST_INCLUDE) -L$(BOOST_LIB) $(foreach lib,$(BOOST_LIB_NAMES),-lboost_$(lib)$(BOOST_SUFFIX)) -lz -lwinpthread
+#endif
+
+ifneq ($(IS_WIN),)
+    VCPKG_ROOT ?= C:/vcpkg
+    BOOST_INCLUDE := $(VCPKG_ROOT)/installed/x64-mingw-static/include
+    BOOST_LIB     := $(VCPKG_ROOT)/installed/x64-mingw-static/lib
+
+    # Resolve the real filenames (Make's $(wildcard) won’t leave a literal *)
+    BOOST_SYS_FILE       := $(notdir $(firstword $(wildcard $(BOOST_LIB)/libboost_system*.a)))
+    BOOST_THREAD_FILE    := $(notdir $(firstword $(wildcard $(BOOST_LIB)/libboost_thread*.a)))
+    BOOST_PO_FILE        := $(notdir $(firstword $(wildcard $(BOOST_LIB)/libboost_program_options*.a)))
+    BOOST_IOSTREAMS_FILE := $(notdir $(firstword $(wildcard $(BOOST_LIB)/libboost_iostreams*.a)))
+
+    # Fail early if anything is missing
+    ifeq ($(BOOST_SYS_FILE),)
+      $(error Could not find libboost_system*.a in $(BOOST_LIB) (check vcpkg triplet x64-mingw-static))
+    endif
+    ifeq ($(BOOST_THREAD_FILE),)
+      $(error Could not find libboost_thread*.a in $(BOOST_LIB))
+    endif
+    ifeq ($(BOOST_PO_FILE),)
+      $(error Could not find libboost_program_options*.a in $(BOOST_LIB))
+    endif
+    ifeq ($(BOOST_IOSTREAMS_FILE),)
+      $(error Could not find libboost_iostreams*.a in $(BOOST_LIB))
+    endif
+
+    BOOST_FLAGS := -I$(BOOST_INCLUDE) -L$(BOOST_LIB) \
+                   -Wl,-Bstatic \
+                   -l:$(BOOST_SYS_FILE) \
+                   -l:$(BOOST_THREAD_FILE) \
+                   -l:$(BOOST_PO_FILE) \
+                   -l:$(BOOST_IOSTREAMS_FILE) \
+                   -lz -lwinpthread
 endif
 
 #only include boost flags if needed
