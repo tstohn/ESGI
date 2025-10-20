@@ -61,36 +61,23 @@ endif
 
 ifneq ($(IS_WIN),)
     VCPKG_ROOT ?= C:/vcpkg
-    BOOST_INCLUDE := $(VCPKG_ROOT)/installed/x64-mingw-static/include
-    BOOST_LIB     := $(VCPKG_ROOT)/installed/x64-mingw-static/lib
+    BOOST_TRIPLET := x64-mingw-static
+    BOOST_INCLUDE := $(VCPKG_ROOT)/installed/$(BOOST_TRIPLET)/include
+    BOOST_LIB     := $(VCPKG_ROOT)/installed/$(BOOST_TRIPLET)/lib
 
-    # Resolve the real filenames (Make's $(wildcard) won’t leave a literal *)
-    BOOST_SYS_FILE       := $(notdir $(firstword $(wildcard $(BOOST_LIB)/libboost_system*.a)))
-    BOOST_THREAD_FILE    := $(notdir $(firstword $(wildcard $(BOOST_LIB)/libboost_thread*.a)))
-    BOOST_PO_FILE        := $(notdir $(firstword $(wildcard $(BOOST_LIB)/libboost_program_options*.a)))
-    BOOST_IOSTREAMS_FILE := $(notdir $(firstword $(wildcard $(BOOST_LIB)/libboost_iostreams*.a)))
+    # helper to pick the first matching archive name (evaluated when used)
+    boost_file = $(notdir $(firstword $(wildcard $(BOOST_LIB)/libboost_$(1)*.a)))
 
-    # Fail early if anything is missing
-    ifeq ($(BOOST_SYS_FILE),)
-      $(error Could not find libboost_system*.a in $(BOOST_LIB) (check vcpkg triplet x64-mingw-static))
-    endif
-    ifeq ($(BOOST_THREAD_FILE),)
-      $(error Could not find libboost_thread*.a in $(BOOST_LIB))
-    endif
-    ifeq ($(BOOST_PO_FILE),)
-      $(error Could not find libboost_program_options*.a in $(BOOST_LIB))
-    endif
-    ifeq ($(BOOST_IOSTREAMS_FILE),)
-      $(error Could not find libboost_iostreams*.a in $(BOOST_LIB))
-    endif
+    BOOST_SYS_FILE       = $(call boost_file,system)
+    BOOST_THREAD_FILE    = $(call boost_file,thread)
+    BOOST_PO_FILE        = $(call boost_file,program_options)
+    BOOST_IOSTREAMS_FILE = $(call boost_file,iostreams)
 
-    BOOST_FLAGS := -I$(BOOST_INCLUDE) -L$(BOOST_LIB) \
-                   -Wl,-Bstatic \
-                   -l:$(BOOST_SYS_FILE) \
-                   -l:$(BOOST_THREAD_FILE) \
-                   -l:$(BOOST_PO_FILE) \
-                   -l:$(BOOST_IOSTREAMS_FILE) \
-                   -lz -lwinpthread
+    # do NOT use ':=' here; keep this recursive so it resolves after deps are installed
+    BOOST_FLAGS = -I"$(BOOST_INCLUDE)" -L"$(BOOST_LIB)" -Wl,-Bstatic \
+                  -l:$(BOOST_SYS_FILE) -l:$(BOOST_THREAD_FILE) \
+                  -l:$(BOOST_PO_FILE)  -l:$(BOOST_IOSTREAMS_FILE) \
+                  -lz -lwinpthread
 endif
 
 #only include boost flags if needed
