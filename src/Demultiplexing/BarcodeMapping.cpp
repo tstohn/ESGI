@@ -372,7 +372,7 @@ BarcodePatternPtr Mapping<MappingPolicy, FilePolicy>::create_barcodeVector_from_
             size_t pos = 0;
             barcodeLength = std::stoi(patternElement, &pos);
             std::string seq = patternElement.substr(pos);
-            if(seq == "X")
+            if(seq == "X" || seq == "x")
             {
                 //For random sequences we MUST specific the length of this sequence
                 WildcardBarcode barcode(mismatchList.at(barcodeIdx), patternElement, barcodeLength);
@@ -391,7 +391,7 @@ BarcodePatternPtr Mapping<MappingPolicy, FilePolicy>::create_barcodeVector_from_
                 //we already checked above if it is an existing barcode file
                 std::cerr << "Encountered an error in barode pattern: " << patternElement << ".\n" <<
                 "If a pattern has a digit as a prefix it must ether be part of a barcode-file name " <<
-                "or it must be a random sequence like UMIs in the format <NUMBER><X> with a number followed by a sinlge capital X." << 
+                "or it must be a random sequence like UMIs in the format <NUMBER><X> with a number followed by a single capital X." << 
                 "For example [15X]\n";
                 exit(1);
             }
