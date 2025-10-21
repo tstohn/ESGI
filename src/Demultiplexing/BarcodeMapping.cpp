@@ -21,6 +21,23 @@ std::string trim(const std::string& str)
     return str.substr(start, end - start + 1);
 }
 
+std::string_view trim(std::string_view sv)
+{
+    const char* begin = sv.data();
+    const char* end   = sv.data() + sv.size();
+
+    // Trim from the start
+    while (begin < end && std::isspace(static_cast<unsigned char>(*begin))) {
+        ++begin;
+    }
+    // Trim from the end
+    while (end > begin && std::isspace(static_cast<unsigned char>(*(end - 1)))) {
+        --end;
+    }
+
+    return std::string_view(begin, static_cast<size_t>(end - begin));
+}
+
 //parse a new file with barcodes and writes all barcodes into a vector
 std::vector<std::string> parse_variable_barcode_file(const std::string& barcodeFile)
 {
@@ -44,15 +61,16 @@ std::vector<std::string> parse_variable_barcode_file(const std::string& barcodeF
         while ((end = barcodeListString.find(',', start)) != std::string::npos) 
         {
             std::string_view seq(&barcodeListString[start], end - start);
+            std::string_view trimmed = trim(seq);
             //validate string
-            for (char const &c: seq) {
+            for (char const &c: trimmed) {
                 if(!(c=='A' || c=='T' || c=='G' || c=='C' ||
                         c=='a' || c=='t' || c=='g' || c=='c'))
                         {   
                             if(c==' ' || c=='\t' || c=='\n')
                             {
                                 std::cerr << "PARAMETER ERROR: Detected a whitespace in following barcode file: " << barcodeFile << ", pls. remove it to continue!\n";
-                                std::cerr << "the whitespace occured within this barcode: " << seq << "\n";
+                                std::cerr << "the whitespace occured within this barcode: " << trimmed << "\n";
                                 std::cerr << "(Barcodes have to be comma-seperated with no whitespace, newline, tab in between. Also there should be no newline at the end of the file)\n";
                                 if(c=='\n')
                                 {
@@ -66,13 +84,14 @@ std::vector<std::string> parse_variable_barcode_file(const std::string& barcodeF
                             exit(1);
                         }
             }
-            barcodes.emplace_back(seq);
+            barcodes.emplace_back(trimmed);
             start = end + 1;
         }
         // last token
         std::string_view seq(&barcodeListString[start], barcodeListString.size() - start);
+        std::string_view trimmed = trim(seq);
         // validate seq here
-        for (char const &c: seq) 
+        for (char const &c: trimmed) 
         {
                 if(!(c=='A' || c=='T' || c=='G' || c=='C' ||
                         c=='a' || c=='t' || c=='g' || c=='c'))
@@ -80,7 +99,7 @@ std::vector<std::string> parse_variable_barcode_file(const std::string& barcodeF
                             if(c==' ' || c=='\t' || c=='\n')
                             {
                                 std::cerr << "PARAMETER ERROR: Detected a whitespace in following barcode file: " << barcodeFile << ", pls. remove it to continue!\n";
-                                std::cerr << "the whitespace occured within this barcode: " << seq << "\n";
+                                std::cerr << "the whitespace occured within this barcode: " << trimmed << "\n";
                                 std::cerr << "(Barcodes have to be comma-seperated with no whitespace, newline, tab in between. Also there should be no newline at the end of the file)\n";
                                 if(c=='\n')
                                 {
@@ -94,7 +113,7 @@ std::vector<std::string> parse_variable_barcode_file(const std::string& barcodeF
                             exit(1);
                         }
         }
-        barcodes.emplace_back(seq);
+        barcodes.emplace_back(trimmed);
         //close barcode file
         barcodeFileStream.close();
     }
