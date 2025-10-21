@@ -76,7 +76,8 @@ bool parse_arguments(char** argv, int argc, input& input)
             ("independent,d", value<bool>(&(input.independentReverseMapping))->default_value(false),"independent mapping of forward and reverse read. In this case we do not \
             assume the whole pattern is one sequence from 5'->3'. We rather have two seperate reads for FW and RV and we map both reads individually and the reverse\
             read is not a reverse complement of the pattern itself. In this case we must additionally add a read seperator [-] to clarify where FW and RV reads end. \
-            Barcodes for the reverse read are then mapped as they are and are not reverse complements of the pattern.")
+            Barcodes for the reverse read are then mapped as they are and are not reverse complements of the pattern. \
+            Example: if the pattern is [DNA][-][AAA][barcode.txt] the second fastq file must start with AAA followed by a barcode in barcode.txt. We will not reverse barcode order and compute no complement.")
 
             ("output,o", value<std::string>(&(input.outPath))->required(), "output directory. All files including failed lines, statistics will be saved here.")
             ("namePrefix,n", value<std::string>(&(input.prefix))->default_value(""), "a prefix for file names. Default uses no prefix.")

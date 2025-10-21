@@ -668,7 +668,6 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const fastqLine& seq,
     unsigned int positionInFastqLine = 0;
     int position = -1;
 
-
     for(BarcodeVector::iterator patternItr = barcodePatterns->begin(type); 
         patternItr < barcodePatterns->end(type); 
         ++patternItr)
@@ -1050,6 +1049,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::split_line_into_barcode_patterns(
     //if both foward and reverse read are mapped from 5' - 3' and reverse read is no reverse complement
     if(input.independentReverseMapping)
     {
+
         unsigned int barcodePositionFw = 0;
         int tmpMMScore = 0;
         //for forward read we immediately add barcodes to demultiplexedLine.barcodeList, which is then extended in combine pattern, IF we find all patterns
@@ -1072,7 +1072,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::split_line_into_barcode_patterns(
         {
             mmScore = tmpMMScore;
             pairwiseMappingSuccess = true;
-            for (int i = static_cast<int>(demultiplexedLineRv.barcodeList.size()) - 1; i >= 0; --i)
+            for (int i =  0; i < static_cast<int>(demultiplexedLineRv.barcodeList.size()); ++i)
             {
                 demultiplexedLine.barcodeList.push_back({demultiplexedLineRv.barcodeList.at(i)});
                 if(stats != nullptr)
