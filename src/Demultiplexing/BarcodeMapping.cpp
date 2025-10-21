@@ -445,7 +445,7 @@ BarcodePatternPtr Mapping<MappingPolicy, FilePolicy>::create_barcodeVector_from_
         {
             std::cerr << "The pattern element [" << patternElement <<"] is not a valid barcode element." <<
             "Read the manual again to make sure it matches, e.g.: a constant barcode (only A,G,T,C), a file which contains all possible barcodes" <<
-            "at this position, a random barcode like UMIs with <number><X> like <15X>, or a simple string such as <DNA> for a DNA/ RNA sequence," <<
+            "at this position (did you supply an existing path?), a random barcode like UMIs with <number><X> like <15X>, or a simple string such as <DNA> for a DNA/ RNA sequence," <<
             "or <*> for a stop position (to seperate FW, RV reads, or simply exclude a sequence in the middle).";
             exit(1);
         }
