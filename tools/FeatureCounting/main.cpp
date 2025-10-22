@@ -53,15 +53,15 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             If this list is not given the features will simply be the nucleotide sequences of the feature column (-x) in the input file")
             ("featureIndex,x", value<int>(&featureIdx)->required(), "Index used for feature counting (e.g., index of the protein barcode). This is the index of the column that should be used for features (0 indexed)")
             
-            ("annotationFiles,g", value<std::vector<std::string>>(&(annotationFiles))->multitoken(), "list of paths to files: every file contains a list of all single-cell annotations (e.g.treatment groups in specific wells). This is just a file with annotations, comma seperated and should be in same order as the specific barcodes for the annotation barcode. \
+            ("annotationFiles,g", value<std::vector<std::string>>(&(annotationFiles))->multitoken(), "list of paths to files: every file contains a list of all single-cell annotations (e.g.treatment groups in specific wells). This is just a file with annotations, space seperated and should be in same order as the specific barcodes for the annotation barcode. \
             If this argument is given, you must also add the index of barcodes used for group annotation with <-y>. \
             E.g., imagine we have a barcode file like : ACGT,TACG,CCCG. And the barcodes also define different treatment conditions \
             then we can provide a grouping file -g groupingFile.txt with groupingFile.txt: untreated, treated_time1, treated_time2. The barcodes to map \
             barcodes to a group are taken form the header of the column. this can be used to assign treatment (e.g., certain treatments for barcodes in a certain round, or for spatial data\
             certain barcodes for x-y coordiantes like in 10X, or other protocols where one has two barcode, one for the x and one for the y coordinate, or many more possibilitiers.\
-            This list of files must be comma seperated). Example: file1.txt,file2.txt where every file contains a list of annotations for the barcode in the file state in the column header.")
+            This list of files must be space seperated). Example: -g file1.txt file2.txt where every file contains a list of annotations for the barcode in the file state in the column header.")
             ("annotationIdxs,y", value<std::vector<int>>(&annotationIdxs)->multitoken(), "List of Indices used to annotate cells (e.g. by treatment, spatial location). This is the barcode used to assign groups that have to be given in <-g>. This is the x-th barcode from the barcodeFile (0 indexed). \
-            This list of indices must be comma seperate. Example: 2,3 to annotate barcode in the third and fourth column with information in -g.")
+            This list of indices must be space seperated. Example: -y 2 3 to annotate barcode in the third and fourth column with information in -g.")
 
             ("singleCellIndices,c", value<std::string>(&(barcodeIndices))->default_value(""), "comma seperated list of indexes, that are used for \
             single-cell assignment (e.g., for combinatorial indexing 0,5,3. If cells have a single barcode it can be, e.g., only 0). \
