@@ -51,6 +51,17 @@ int isUMICol(const std::string& str)
     return 0;
 }
 
+std::string trim(const std::string& str) 
+{
+    const std::string whitespace = " \t\r\f\v\n";  // Added '\n' to include newlines
+    size_t start = str.find_first_not_of(whitespace);
+    if (start == std::string::npos) {
+        return "";
+    }
+    size_t end = str.find_last_not_of(whitespace);
+    return str.substr(start, end - start + 1);
+}
+
 void parseVariableBarcodeFile(const std::string& file, std::unordered_map<int, std::vector<std::string>>& barcodeList, int colIdx)
 {
     std::ifstream barcodeFileStream(file);
@@ -67,6 +78,7 @@ void parseVariableBarcodeFile(const std::string& file, std::unordered_map<int, s
     }
 
     std::string line;
+    std::vector<std::string> seqVector;
     while (std::getline(barcodeFileStream, line)) 
     {
         //check Windows-specific trailing newlines
@@ -78,10 +90,9 @@ void parseVariableBarcodeFile(const std::string& file, std::unordered_map<int, s
         std::string delimiter = ",";
         std::string seq;
         size_t pos = 0;
-        std::vector<std::string> seqVector;
         while ((pos = line.find(delimiter)) != std::string::npos) 
         {
-            seq = line.substr(0, pos);
+            seq = trim(line.substr(0, pos));
             line.erase(0, pos + 1);
             for (char const &c: seq) {
                 if(!( (c=='A') | (c=='T') | (c=='G') | (c=='C') |
@@ -97,7 +108,7 @@ void parseVariableBarcodeFile(const std::string& file, std::unordered_map<int, s
             }
             seqVector.push_back(seq);
         }
-        seq = line;
+        seq = trim(line);
         for (char const &c: seq) {
             if(!((c=='A') || (c=='T') || (c=='G') || (c=='C') ||
                     (c=='a') || (c=='t') || (c=='g') || (c=='c')))
@@ -110,10 +121,14 @@ void parseVariableBarcodeFile(const std::string& file, std::unordered_map<int, s
                     exit(1);
                     }
         }
-        seqVector.push_back(seq);
-        barcodeList.insert(std::make_pair(colIdx, seqVector));
-        seqVector.clear();
+        if(seq!="")
+        {
+            seqVector.push_back(seq);
+        }
     }
+
+    barcodeList.insert(std::make_pair(colIdx, seqVector));
+    seqVector.clear();
 }
 
 std::vector<std::string> parseFeatureNames(const std::string& featureFile) 
@@ -238,10 +253,27 @@ void generateBarcodeDicts(const std::string& headerLine, const std::string& barc
         for(size_t i = 0; i < barcodeIdData.scBarcodeIndices.size()-1; ++i)
         {
             std::cout << barcodeHeader.at(barcodeIdData.scBarcodeIndices.at(i)) << ",";
+
+            if(!endsWithTxt(barcodeHeader.at(barcodeIdData.scBarcodeIndices.at(i))))
+            {
+                std::cout << "\nError when parsing the potential barcodes for single-cell column <" << barcodeHeader.at(barcodeIdData.scBarcodeIndices.at(i)) << ">\n";
+                std::cout << "Unfortunatelly, the file with single-cell barcodes MUST end with .txt and should contain comma seperated barcodes.\n";
+                std::cout << "The supplied file seems to not end with .txt\n";
+
+                exit(EXIT_FAILURE);
+            }
         }
         std::cout << barcodeHeader.at(barcodeIdData.scBarcodeIndices.back());
         std::cout << "\n";
-        
+        if(!endsWithTxt(barcodeHeader.at(barcodeIdData.scBarcodeIndices.back())))
+        {
+            std::cout << "\nError when parsing the potential barcodes for single-cell column <" << barcodeHeader.at(barcodeIdData.scBarcodeIndices.back()) << ">\n";
+            std::cout << "Unfortunatelly, the file with single-cell barcodes MUST end with .txt and should contain comma seperated barcodes.\n";
+            std::cout << "The supplied file seems to not end with .txt\n";
+
+            exit(EXIT_FAILURE);
+        }
+
         //make map colIdx -> (map: barcode string -> number)
         //iterate over colIdx for scID
         for(unsigned int scIdx : barcodeIdData.scBarcodeIndices)

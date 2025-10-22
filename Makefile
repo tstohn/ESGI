@@ -457,6 +457,10 @@ test_count:
 	(head -n 1 ./bin/COUNTDATA_MultiAnnot.tsv && tail -n +2 ./bin/COUNTDATA_MultiAnnot.tsv | LC_ALL=c sort) > ./bin/sortedMultiAnnot_out.tsv
 	diff --strip-trailing-cr ./src/test/test_data/test_multiAnnotation/output.tsv ./bin/sortedMultiAnnot_out.tsv
 
+# test UMI collapsing to most abundant one: there r several UMIs that HAVE one mismatch from UMI to UMI
+#in this UMI chain some UMIs are more abudnant and other ones must be colapsed into this one in order, check this works
+	./bin/count -i ./src/test/test_data/test_count1/testSet_UMI_COLLAPSE_TEST.txt -o ./bin/TESTCOUNT_UMI.tsv -t 2 -d ./src/test/test_data/test_count1  -c 0,5 -a ./src/test/test_data/antibody_2.txt -x 3 -g ./src/test/test_data/treatment_2.txt -y 5 -u 2 -f 0.9 -H 1
+	diff --strip-trailing-cr bin/COUNTDATA_TESTCOUNT_UMI.tsv src/test/test_data/test_count1/COUNTDATA_TESTCOUNT_UMI.tsv
 
 #single AB pattern
 test_big:

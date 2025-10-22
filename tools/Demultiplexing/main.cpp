@@ -89,7 +89,9 @@ bool parse_arguments(char** argv, int argc, input& input)
             on both sides from FW and RV read): [AGCTATCACGTAGC][XXXXXXXXXX][NNNNNN][AGAGCATGCCTTCAG][NNNNNN]")*/
 
             ("barcodePatternsFile,p", value<std::string>(&(input.barcodePatternsFile))->required(), "patterns for the sequences to match, every substring that should be matched is enclosed with square brackets. \
-            Linker sequences of known barcodes can be 'hard-coded', e.g. [ACGTCAG], for variable barcodes one can add a file path, e.g.[data/barcodes.txt] with comma seperated possible barcodes that can be found at this position(the barcodes can be of variable lengths), [10X] is a wild card match with 10 random bases (e.g., for UMIs) and [DNA] is a transcriptome read (e.g. cDNA), [*] is a stop sign/random sequence part that will also not be mapped, and [-] seperates forward and reverse read. ALL signs (also [*] and [-] must be enclosed in brackets). \
+            Linker sequences of known barcodes can be 'hard-coded', e.g. [ACGTCAG], for variable barcodes one can add a file path, e.g.[data/barcodes.txt]. Importantly this file must end with .txt if we want to run count afterwards \
+            This file should contain comma seperated possible barcodes that can be found at this position(the barcodes can be of variable lengths) \
+            , [10X] is a wild card match with 10 random bases (e.g., for UMIs) and [DNA] is a transcriptome read (e.g. cDNA), [*] is a stop sign/random sequence part that will also not be mapped, and [-] seperates forward and reverse read. ALL signs (also [*] and [-] must be enclosed in brackets). \
             You can supply several rows with various patterns that might all exist in the input fastq.\
             \nSIGN DETAILS: \
             \n[*]: mapping stops at this position on both sides from FW and RV read, completely disregarding any sequence that follows from FW/ RV read. This sign can only be used ONCE in a pattern). E.g.: [AGCTATCACGTAGC][XXXXXXXXXX][BC1.txt][*][AGAGCATGCCTTCAG][BC1.txt]. in the FW read we map only [AGCTATCACGTAGC][XXXXXXXXXX][BC1.txt] and in the reverse read only [AGAGCATGCCTTCAG][BC1.txt].\
