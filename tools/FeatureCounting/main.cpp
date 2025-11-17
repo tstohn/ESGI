@@ -37,7 +37,7 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
                      std::string& abFile, int& featureIdx, std::vector<std::string>& annotationFiles, 
                      std::vector<int>& annotationIdxs,
                      double& umiThreshold, bool& umiRemoval,  bool& scIdString, std::string& fuseBarcodesFile,
-                     bool& hamming)
+                     bool& hamming, double& umiAbundanceThreshold)
 {
     try
     {
@@ -77,6 +77,10 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             
             ("umiThreshold,f", value<double>(&umiThreshold)->default_value(0.0), "threshold for filtering UMIs. E.g. if set to 0.9 we only retain reads of a UMI, if more \
             than 90percent of them have the same SC-AB combination. All other reads are deleted. Default is zero. (You can keep it at 0 if UMIs should not be collapsed).")
+            ("umiAbundanceThreshold,v", value<double>(&umiAbundanceThreshold)->default_value(0.0), "Threshold (in percent) of UMI abundance, above which UMIs are not collapsed. E.g., UMI A \
+            has 100 counts and UMI B has 10 counts. UMI B is 1 edit-distance away from UMI A, and if we collapse UMIs with 1 edit-distance and set this threshold to \
+            0.1 we would NOT collapse UMI B into A, however, if UMI B had 9 counts we would collapse it as 9 < 0.1 * 100.")
+
             ("umiRemoval,z", value<bool>(&umiRemoval)->default_value(true), "Set to false if UMIs should NOT be collapsed. By default UMIs are collapsed.")
             ("scIdAsString,s", value<bool>(&scIdString)->default_value(false), "Stores the single-cell ID not as an id for the barcode (e.g., 1.45.0), but as the actual string (e.g., ATCG.ACTGT.GCGC).")
             ("shareBarcodes,w", value<std::string>(&fuseBarcodesFile)->default_value(""), "A file that contains positions and barcode-pairs that should be fused. Tsv file with 3 columns: the 1st column \
@@ -238,11 +242,12 @@ int main(int argc, char** argv)
     std::vector<std::vector<std::string>> annotationBarcodesVector;
     std::string umiIdx;
     bool hamming = false;
+    double umiAbundanceThreshold;
 
     if(!parse_arguments(argv, argc, inFile, outFile, thread, 
                         barcodeDir, barcodeIndices, umiIdx, umiMismatches, 
                         abFile, featureIdx, annotationFiles, annotationIdxs,
-                        umiThreshold, umiRemoval, scIdAsString, fuseBarcodesFile, hamming))
+                        umiThreshold, umiRemoval, scIdAsString, fuseBarcodesFile, hamming, umiAbundanceThreshold))
     {
         exit(EXIT_FAILURE);
     }
@@ -250,6 +255,7 @@ int main(int argc, char** argv)
     //generate the dictionary of barcode alternatives to idx
     BarcodeInformation barcodeIdData;
     barcodeIdData.hamming = hamming;
+    barcodeIdData.umiAbundanceThreshold = umiAbundanceThreshold;
 
     //get the first line of headers from input file
     std::ifstream file;

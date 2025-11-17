@@ -730,7 +730,12 @@ void BarcodeProcessingHandler::count_umi_occurence(std::vector<int>& positionsOf
         const char* umib = allScAbCounts.at(j)->umiSeq;
         unsigned int dist = UINT_MAX;
         bool similar;
-        if(barcodeInformation.hamming)
+        //the lower abundance UMI MUST BE represented less than 20% of the high abundance (first) UMI
+        if( barcodeInformation.umiAbundanceThreshold > 0.0 && !(allScAbCounts.at(j)->umiCount < barcodeInformation.umiAbundanceThreshold * allScAbCounts.front()->umiCount))
+        {
+            similar = false;
+        }
+        else if(barcodeInformation.hamming)
         {
             similar = hamming_dist(umia, umib, barcodeInformation.umiMismatches, dist);
         }

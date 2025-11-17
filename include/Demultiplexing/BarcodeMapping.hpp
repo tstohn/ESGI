@@ -100,6 +100,17 @@ class ExtractLinesFromTxtFilesPolicy
     {       
         (void)rvFile; //we have only a forward fastq-read
 
+        // check if file exists
+        if (!std::filesystem::exists(fwFile))
+        {
+            throw std::runtime_error("File does not exist: " + fwFile);
+        }
+        // check it's a regular file, e.g., not a directory
+        if (!std::filesystem::is_regular_file(fwFile))
+        {
+            throw std::runtime_error("Path is not a regular file: " + fwFile + ". Did you by accident provide a directory?\n");
+        }
+
         //no error handling for txt file right now
         fileStream.open(fwFile, std::ios::in);
 
@@ -172,6 +183,17 @@ class ExtractLinesFromFastqFilePolicy
     void init_file(const std::string& fwFile, const std::string& rvFile)
     {
         (void)rvFile; //we have only a forward fastq-read
+
+        // check if file exists
+        if (!std::filesystem::exists(fwFile))
+        {
+            throw std::runtime_error("File does not exist: " + fwFile);
+        }
+        // check it's a regular file, e.g., not a directory
+        if (!std::filesystem::is_regular_file(fwFile))
+        {
+            throw std::runtime_error("Path is not a regular file: " + fwFile + ". Did you by accident provide a directory?\n");
+        }
 
         fp = gzopen(fwFile.c_str(),"r");
         if(fp == Z_NULL)

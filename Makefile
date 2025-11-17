@@ -444,7 +444,7 @@ test_count:
 
 #test EditDist for UMIs
 	#default with 1 MM
-	./bin/count -i ./src/test/test_data/test_count3/umiEditDistTest.txt -o ./bin/TESTCOUNT3.tsv -t 2 -d ./src/test/test_data/test_count2  -c 0,5 -a ./src/test/test_data/antibody_2.txt -x 3 -g ./src/test/test_data/treatment_2.txt -y 0 -u 2 -f 0.9 -m 1
+	./bin/count -i ./src/test/test_data/test_count3/umiEditDistTest.txt -o ./bin/TESTCOUNT3.tsv -t 2 -d ./src/test/test_data/test_count2  -c 0,5 -a ./src/test/test_data/antibody_2.txt -x 3 -g ./src/test/test_data/treatment_2.txt -y 0 -u 2 -f 0.9 -m 1 
 	(head -n 1 ./bin/UMIDATA_TESTCOUNT3.tsv && tail -n +2 ./bin/UMIDATA_TESTCOUNT3.tsv | LC_ALL=c sort) > ./bin/sortedUMITESTCOUNT3_a.tsv
 	diff --strip-trailing-cr ./bin/sortedUMITESTCOUNT3_a.tsv ./src/test/test_data/test_count3/UMIprocessed_out_editTest_a.tsv
 	#with 2MM

@@ -47,6 +47,7 @@ struct BarcodeInformation
     unsigned int umiMismatches;
     unsigned int umiLength = 0; //the sum of lengths for all UMIs
     bool hamming = false;
+    double umiAbundanceThreshold= 0.0;
 };
 
 //data type to represent final processed AB counts per single cell
