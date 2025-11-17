@@ -77,8 +77,9 @@ bool parse_arguments(char** argv, int argc, std::string& inFile,  std::string& o
             
             ("umiThreshold,f", value<double>(&umiThreshold)->default_value(0.0), "threshold for filtering UMIs. E.g. if set to 0.9 we only retain reads of a UMI, if more \
             than 90percent of them have the same SC-AB combination. All other reads are deleted. Default is zero. (You can keep it at 0 if UMIs should not be collapsed).")
-            ("umiAbundanceThreshold,v", value<double>(&umiAbundanceThreshold)->default_value(0.0), "Threshold (in percent) of UMI abundance, above which UMIs are not collapsed. E.g., UMI A \
-            has 100 counts and UMI B has 10 counts. UMI B is 1 edit-distance away from UMI A, and if we collapse UMIs with 1 edit-distance and set this threshold to \
+            ("umiAbundanceThreshold,v", value<double>(&umiAbundanceThreshold)->default_value(0.2), "Threshold (between zero and one) of UMI abundance, above which UMIs are not collapsed. \
+            Default value is 0.2: This means a UMI is collapsed into another one if their distance is below the threshold AND this UMI has les than 20% of the counts of the high abundant UMI.\
+            E.g., UMI A has 100 counts and UMI B has 10 counts. UMI B is 1 edit-distance away from UMI A, and if we collapse UMIs with 1 edit-distance and set this threshold to \
             0.1 we would NOT collapse UMI B into A, however, if UMI B had 9 counts we would collapse it as 9 < 0.1 * 100.")
 
             ("umiRemoval,z", value<bool>(&umiRemoval)->default_value(true), "Set to false if UMIs should NOT be collapsed. By default UMIs are collapsed.")

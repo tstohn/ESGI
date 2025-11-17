@@ -41,6 +41,7 @@ struct ESGIConfig
     bool SC_ID_string = false;
     int  threads = 5;
     double umiThreshold = 0.0;
+    double umiAbundance = 0.2;
     std::string starFeature = "GX";
 
     void write(std::ostream& os = std::cout) const
@@ -74,6 +75,7 @@ struct ESGIConfig
         os << "\tSC_ID_string="     << SC_ID_string     << "\n";
         os << "\tthreads="          << threads          << "\n";
         os << "\tumiThreshold="        << umiThreshold        << "\n";
+        os << "\tumiAbundance="        << umiAbundance        << "\n";
 
         //Star values
         if (reverse)             os << "\treverse="                << *reverse           << "\n";
@@ -226,6 +228,7 @@ inline ESGIConfig loadESGIConfigFromFile(const std::string& path)
             else if (KEY == "HAMMING")             cfg.hamming = parsing::parse_int(value);
             else if (KEY == "FASTQREADBUCKETSIZE") cfg.fastqReadBucketSize = parsing::parse_int(value);
             else if (KEY == "UMITHRESHOLD")        cfg.umiThreshold = parsing::parse_double(value);
+            else if (KEY == "UMIABUNDANCE")        cfg.umiAbundance = parsing::parse_double(value);
             else if (KEY == "UMICOLLAPSING")       cfg.umiCollapsing = parsing::parse_bool(value);
             else if (KEY == "SC_ID_STRING")        cfg.SC_ID_string = parsing::parse_bool(value);
             else if (KEY == "FEATURE")             cfg.starFeature = value;
