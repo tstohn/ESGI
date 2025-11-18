@@ -151,5 +151,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
+          overwrite_files: true   # default is true, but set it explicitly
           files: |
-            dist/*
+            dist/*.zip
+            dist/SHA256SUMS.txt
