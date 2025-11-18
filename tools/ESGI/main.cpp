@@ -42,7 +42,9 @@ bool parse_arguments(int argc, char** argv, std::string& input) {
             std::cout << desc << "\n";
 
             // 2.) PRINT AN INI EXAMPLE
-            std::filesystem::path iniPath = "src/test/test_data/test_esgi/esgi_example.ini";
+            std::filesystem::path exePath = std::filesystem::canonical(argv[0]).parent_path().parent_path(); //the path one above bin
+            std::filesystem::path iniPath = exePath / "src/test/test_data/test_esgi/esgi_example.ini";
+
             std::ifstream in;
             in.open(iniPath);
             if (in) 

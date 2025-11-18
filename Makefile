@@ -264,7 +264,17 @@ ifeq ($(OS),Windows_NT)
     # Windows (MinGW / MSVC)
     TOOLDEPENDENCIES := bin/demultiplex bin/count
 else
-    TOOLDEPENDENCIES := bin/demultiplex bin/count bin/annotate
+    TOOLDEPENDENCIES := bin/demultiplex bin/count
+
+	#compile ESGI even when htslib-dev is not available
+	HTSLIB_HEADER := $(shell \
+        echo '#include <htslib/hts.h>' | \
+        $(CC) -xc - -o /dev/null >/dev/null 2>&1 && echo yes || echo no)
+    ifeq ($(HTSLIB_HEADER),yes)
+        TOOLDEPENDENCIES += bin/annotate
+    else
+        $(warning HTSlib not found: skipping annotate - therefore scRNA-mapping is not possible without installing it manually.)
+    endif
 endif
 bin/esgi: $(OBJDIR)/tools/ESGI/main.o $(LIB)| $(BIN_DIR) $(TOOLDEPENDENCIES)
 	$(CXX) $(CXXFLAGS) -o $@ $< $(LIB) $(ESGI_FLAGS)
