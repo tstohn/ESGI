@@ -15,15 +15,15 @@ jobs:
       matrix:
         include:
           - os: ubuntu-24.04
-            ostag: linux-x86_64
+            ostag: LINUX-x86_64
           - os: macos-13
-            ostag: macos-x86_64
+            ostag: MACOS-Intel-chip
             mac_arch: x86_64
           - os: macos-14
-            ostag: macos-arm64
+            ostag: MACOS-Apple-Silicon-chips
             mac_arch: arm64
           - os: windows-2022
-            ostag: windows-x86_64
+            ostag: WINDOWS-x86_64
 
     steps:
       - uses: actions/checkout@v4
