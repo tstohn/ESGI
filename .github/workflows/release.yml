@@ -148,7 +148,7 @@ jobs:
           sha256sum *.zip > SHA256SUMS.txt
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v2.4.1
         with:
           tag_name: ${{ github.ref_name }}
           overwrite_files: true   # default is true, but set it explicitly
