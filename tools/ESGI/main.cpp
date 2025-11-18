@@ -174,14 +174,21 @@ int main(int argc, char** argv)
     // #########################
     if(dnaPatternPresent)
     {
-        std::cout <<
-        "╔═════════════════════════════════════════════════════════════════════════════════╗\n"
-        "║ 2a.) RUN RNA-MAPPING: run STAR and annotate reads from step 1 with mapped genes ║\n"
-        "╚═════════════════════════════════════════════════════════════════════════════════╝\n";
-        if(!run_rna_mapping(config, intermediateFiles))
-        {
-            std::cerr << "EXITING ESGI: running RNA mapping failed!\n";
-        }
+        #ifdef ENABLE_HTSLIB
+            std::cout <<
+            "╔═════════════════════════════════════════════════════════════════════════════════╗\n"
+            "║ 2a.) RUN RNA-MAPPING: run STAR and annotate reads from step 1 with mapped genes ║\n"
+            "╚═════════════════════════════════════════════════════════════════════════════════╝\n";
+            if(!run_rna_mapping(config, intermediateFiles))
+            {
+                std::cerr << "EXITING ESGI: running RNA mapping failed!\n";
+            }
+        #else
+            std::cout << "HTSLIB is not installed and needed for the annotation of the STAR output\n";
+            std::cout << "HTSLIB does not come with the downloadable binaries of ESGI and has to be installed manually\n";
+            std::cout << "Please install htslib or run without a DNA/RNA sequence.\n";
+            exit(EXIT_FAILURE);
+        #endif
     }
 
     // #########################
@@ -205,6 +212,7 @@ int main(int argc, char** argv)
     std::filesystem::path countingOutputPath = std::filesystem::path(config.output) / demultiplexOutputPatternFile;
     intermediateFiles.countingOutput = countingOutputPath.string();
 
+    //enable DNA/RNA mapping with STAR and subsequent annotation only if htslib is installed
     if (dnaPatternPresent) {
         std::cout <<
         "╔══════════════════════════════════════════════════════╗\n"
@@ -224,7 +232,7 @@ int main(int argc, char** argv)
         //there was no RNA-mapping before, the input to counting is just the output of demultiplexing
         intermediateFiles.countingInput = countingOutputPath.string();
     }
-
+    
     if(!run_count(config, intermediateFiles, dnaPatternPresent))
     {
         std::cerr << "EXITING ESGI: counting failed!\n";

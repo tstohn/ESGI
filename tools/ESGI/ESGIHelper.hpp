@@ -10,7 +10,10 @@
 #include "Barcode.hpp"
 #include "Demultiplexer.hpp"
 #include "BarcodeProcessingHandler.hpp"
-#include <BarcodeMapping.hpp>
+#include "BarcodeMapping.hpp"
+#ifdef ENABLE_HTSLIB
+#include "BarcodeBamAnnotator.hpp"
+#endif
 
 //check if we have patterns like -,*. These are not included in the demultiplexed output and therefore
 //indices for counting must be adjusted. Additioanly, these two patterns can ONLY BE at the end of a sequence, 
@@ -287,6 +290,8 @@ inline bool call_star(const ESGIConfig& config, ESGIIntermediateFiles& intermedi
     return true;
 }
 
+//obsolote function, now we run annotate within ESGI, but functionality might still be interesting for later
+// pipeline solutions, therefore kept here for now, similar to the call functions of demultiplex and count
 inline bool call_annotate(const ESGIConfig& config, ESGIIntermediateFiles& intermediateFiles)
 {
     std::string demultiplexingPatternOutput = intermediateFiles.demultiplexingOutput + ".tsv";
@@ -307,6 +312,32 @@ inline bool call_annotate(const ESGIConfig& config, ESGIIntermediateFiles& inter
     return true;
 }
 
+#ifdef ENABLE_HTSLIB
+inline bool run_annotate(const ESGIConfig& config, ESGIIntermediateFiles& intermediateFiles)
+{
+    std::string demultiplexingPatternOutput = intermediateFiles.demultiplexingOutput + ".tsv";
+    // we hard-coded and gave the STAR-output the prefix <STAR>
+    std::string starAlignmentOutput = config.output + "/" + "STAR_Aligned.out.bam";
+
+    std::string barcodeFile = demultiplexingPatternOutput;
+    std::string bamFile = starAlignmentOutput;
+    std::string featureTag = config.starFeature;
+
+    try
+    {
+        BarcodeBamAnnotator barcodeann = BarcodeBamAnnotator(barcodeFile, bamFile.c_str(), featureTag.c_str());
+        // run barcode annotation
+        barcodeann.annotate();
+    }
+    catch (const std::exception& e) 
+    {
+        std::cerr << "Annotation (linking demultiplexed reads to STAR output) failed: " << e.what() << "\n";
+        return false;
+    }
+
+    return true;
+}
+
 inline bool run_rna_mapping(const ESGIConfig& config, ESGIIntermediateFiles& intermediateFiles)
 {
     //call STAR
@@ -316,13 +347,14 @@ inline bool run_rna_mapping(const ESGIConfig& config, ESGIIntermediateFiles& int
     }
 
     //call annotate
-    if(!call_annotate(config, intermediateFiles))
+    if(!run_annotate(config, intermediateFiles))
     {
         std::cerr << "Error: Annotation of demultiplexed reads with STAR-mapping failed\n";
     }
 
     return true;
 }
+#endif
 
 std::string adjust_position_due_to_special_patterns(const std::string& indexList, const ESGIIntermediateFiles& intermediateFiles)
 {

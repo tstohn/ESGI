@@ -175,6 +175,20 @@ OBJDIR := build
 LIB_DIR := lib
 BIN_DIR := bin
 
+# remove annotate from ESGI/ lib when htslib is not available
+# always set it to no for windows
+HTSLIB_AVAILABLE := no
+# Only check pkg-config on Unix-like systems
+ifneq ($(OS),Windows_NT)
+HTSLIB_AVAILABLE := $(shell \
+	if command -v pkg-config >/dev/null 2>&1 && \
+	pkg-config --exists htslib; then \
+		echo yes; \
+	else \
+		echo no; \
+	fi)
+endif
+
 #######################################
 # BUILD LIBRARY into lib/libesgi.a
 # this library is then used for individual tools (demultiplex, annotate, count), the wrapping and all-in-one tool esgi and also the GUI
@@ -186,8 +200,8 @@ LIB := $(LIB_DIR)/libesgi.a
 # Sources & objects
 LIBSRC := $(shell find $(SRC_DIR) -name '*.cpp')
 
-# remove htslib dependent files for Windows
-ifneq ($(IS_WIN),)
+# remove htslib dependent files if no htslib was installed
+ifeq ($(HTSLIB_AVAILABLE),no)
 	LIBSRC := $(filter-out %BarcodeBamAnnotator.cpp,$(LIBSRC))
 endif
 
@@ -237,6 +251,9 @@ else ifneq ($(IS_LINUX),)
 	COUNT_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
 	DEMULTIPLEX_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
 	ESGI_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
+	ifeq ($(HTSLIB_AVAILABLE),yes)
+		ESGI_FLAGS += -Wl,-Bdynamic -lhts
+    endif
 else ifneq ($(IS_DARWIN),)
 	#macOS has torubles finding htslib, include path explicitely
     HTS_PREFIX ?= $(shell brew --prefix htslib 2>/dev/null || echo /opt/homebrew/opt/htslib)
@@ -245,6 +262,10 @@ else ifneq ($(IS_DARWIN),)
 	COUNT_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
 	DEMULTIPLEX_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
 	ESGI_FLAGS := $(LDFLAGS) $(BOOST_FLAGS)
+	ifeq ($(HTSLIB_AVAILABLE),yes)
+		ESGI_FLAGS += -L$(HTS_PREFIX)/lib -lhts
+    endif
+
 endif
 
 # 3.) DECLARE RULES FOR TOOLS
@@ -266,17 +287,9 @@ ifeq ($(OS),Windows_NT)
 else
     TOOLDEPENDENCIES := bin/demultiplex bin/count
 
-	#compile ESGI even when htslib-dev is not available
-    HTSLIB_AVAILABLE := $(shell \
-        if command -v pkg-config >/dev/null 2>&1 && \
-           pkg-config --exists htslib; then \
-            echo yes; \
-        else \
-            echo no; \
-        fi)
-
     ifeq ($(HTSLIB_AVAILABLE),yes)
         TOOLDEPENDENCIES += bin/annotate
+		CXXFLAGS += -DENABLE_HTSLIB
     else
         $(warning HTSlib not found: skipping annotate - therefore scRNA-mapping is not possible without installing it manually.)
     endif
