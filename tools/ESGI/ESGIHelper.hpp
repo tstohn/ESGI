@@ -46,6 +46,8 @@ inline int get_DNA_pattern_pos(const std::vector<std::string>& patterns)
     return( (it == patterns.end() ? -1 : static_cast<int>(it - patterns.begin())) );
 }
 
+//obsolete function, still present for potential future usage, but ESGI DOES NOT call demultiplex but 
+//has it integrated and now does run_demultiplex
 inline bool call_demultiplex(const ESGIConfig& config)
 {
     std::filesystem::path toolPath = std::filesystem::path("bin") / "demultiplex";
@@ -76,6 +78,11 @@ inline bool call_demultiplex(const ESGIConfig& config)
     }
 
     return true;
+}
+
+inline bool run_demultiplex(const ESGIConfig& config)
+{
+    
 }
 
 // --- capture helper (kept minimal) ---
@@ -154,7 +161,7 @@ static int check_star_version(const std::string& minimumVersion, std::string& cu
     return (cmp >= 0) ? 1 : 0;
 }
 
-inline bool run_star(const ESGIConfig& config, ESGIIntermediateFiles& intermediateFiles)
+inline bool call_star(const ESGIConfig& config, ESGIIntermediateFiles& intermediateFiles)
 {
     std::string starExecutable = "STAR";
     if(config.STAR.has_value()){starExecutable = config.STAR.value();}
@@ -200,7 +207,7 @@ inline bool run_star(const ESGIConfig& config, ESGIIntermediateFiles& intermedia
     return true;
 }
 
-inline bool run_annotate(const ESGIConfig& config, ESGIIntermediateFiles& intermediateFiles)
+inline bool call_annotate(const ESGIConfig& config, ESGIIntermediateFiles& intermediateFiles)
 {
     std::string demultiplexingPatternOutput = intermediateFiles.demultiplexingOutput + ".tsv";
     // we hard-coded and gave the STAR-output the prefix <STAR>
@@ -223,13 +230,13 @@ inline bool run_annotate(const ESGIConfig& config, ESGIIntermediateFiles& interm
 inline bool run_rna_mapping(const ESGIConfig& config, ESGIIntermediateFiles& intermediateFiles)
 {
     //call STAR
-    if(!run_star(config, intermediateFiles))
+    if(!call_star(config, intermediateFiles))
     {
         std::cerr << "Error: STAR failed\n";
     }
 
     //call annotate
-    if(!run_annotate(config, intermediateFiles))
+    if(!call_annotate(config, intermediateFiles))
     {
         std::cerr << "Error: Annotation of demultiplexed reads with STAR-mapping failed\n";
     }

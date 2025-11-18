@@ -267,9 +267,15 @@ else
     TOOLDEPENDENCIES := bin/demultiplex bin/count
 
 	#compile ESGI even when htslib-dev is not available
-    HTSLIB_HEADER := $(shell echo '#include <htslib/hts.h>' | $(CC) -xc - -o /dev/null >/dev/null 2>&1 && echo yes || echo no)
+    HTSLIB_AVAILABLE := $(shell \
+        if command -v pkg-config >/dev/null 2>&1 && \
+           pkg-config --exists htslib; then \
+            echo yes; \
+        else \
+            echo no; \
+        fi)
 
-    ifeq ($(HTSLIB_HEADER),yes)
+    ifeq ($(HTSLIB_AVAILABLE),yes)
         TOOLDEPENDENCIES += bin/annotate
     else
         $(warning HTSlib not found: skipping annotate - therefore scRNA-mapping is not possible without installing it manually.)
