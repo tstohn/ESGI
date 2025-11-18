@@ -612,3 +612,14 @@ inline void strip_crlf(std::string& s)
 {
     while (!s.empty() && (s.back() == '\r' || s.back() == '\n')) s.pop_back();
 }
+
+inline std::string trim(const std::string& str) 
+{
+    const std::string whitespace = " \t\r\f\v\n";  // Added '\n' to include newlines
+    size_t start = str.find_first_not_of(whitespace);
+    if (start == std::string::npos) {
+        return "";
+    }
+    size_t end = str.find_last_not_of(whitespace);
+    return str.substr(start, end - start + 1);
+}

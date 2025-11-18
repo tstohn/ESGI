@@ -6,7 +6,6 @@
 
 #include <ESGIConfig.hpp>
 #include <ESGIHelper.hpp>
-#include <BarcodeMapping.hpp>
 
 /**
  * @brief ESGI combines the individual tools in this library, namely demultiplex/ (run STAR with annotate)/ and count
@@ -149,7 +148,7 @@ int main(int argc, char** argv)
     "╔══════════════════════════════════════════════════════╗\n"
     "║ 1.) RUN DEMULTIPLEXING: split FASTQ reads into chunks║\n"
     "╚══════════════════════════════════════════════════════╝\n";
-    if(!call_demultiplex(config))
+    if(!run_demultiplex(config))
     {
         std::cerr << "EXITING ESGI: demultiplexing failed!\n";
     }
@@ -226,7 +225,7 @@ int main(int argc, char** argv)
         intermediateFiles.countingInput = countingOutputPath.string();
     }
 
-    if(!call_count(config, intermediateFiles, dnaPatternPresent))
+    if(!run_count(config, intermediateFiles, dnaPatternPresent))
     {
         std::cerr << "EXITING ESGI: counting failed!\n";
     }

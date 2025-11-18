@@ -10,17 +10,6 @@ bool check_if_seq_too_short(const size_t& offset, const std::string& seq)
     return false;
 }
 
-std::string trim(const std::string& str) 
-{
-    const std::string whitespace = " \t\r\f\v\n";  // Added '\n' to include newlines
-    size_t start = str.find_first_not_of(whitespace);
-    if (start == std::string::npos) {
-        return "";
-    }
-    size_t end = str.find_last_not_of(whitespace);
-    return str.substr(start, end - start + 1);
-}
-
 std::string_view trim(std::string_view sv)
 {
     const char* begin = sv.data();

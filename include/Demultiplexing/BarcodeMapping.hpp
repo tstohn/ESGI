@@ -23,6 +23,7 @@
 #include "dataTypes.hpp"
 #include "DemultiplexedLine.hpp"
 #include "DemultiplexedStatistics.hpp"
+#include "helper.hpp"
 
 KSEQ_INIT(gzFile, gzread)
 

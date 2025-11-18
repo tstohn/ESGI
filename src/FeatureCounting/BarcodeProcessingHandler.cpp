@@ -51,17 +51,6 @@ int isUMICol(const std::string& str)
     return 0;
 }
 
-std::string trim(const std::string& str) 
-{
-    const std::string whitespace = " \t\r\f\v\n";  // Added '\n' to include newlines
-    size_t start = str.find_first_not_of(whitespace);
-    if (start == std::string::npos) {
-        return "";
-    }
-    size_t end = str.find_last_not_of(whitespace);
-    return str.substr(start, end - start + 1);
-}
-
 void parseVariableBarcodeFile(const std::string& file, std::unordered_map<int, std::vector<std::string>>& barcodeList, int colIdx)
 {
     std::ifstream barcodeFileStream(file);
@@ -649,7 +638,7 @@ void BarcodeProcessingHandler::markReadsWithNoUniqueUmi(const std::vector<umiDat
     for(auto singleCellCountPair : umiCountMap)
     {
         double singleCellPerc = (double)singleCellCountPair.second/totalReadCount;
-        if( singleCellPerc >= umiFilterThreshold) //default = 0.9
+        if( singleCellPerc >= umiFilterThreshold) //default = 0.0
         {
             realSingleCellIDVec.push_back(singleCellCountPair.first);
             realSingleCellExists = true;
