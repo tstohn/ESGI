@@ -16,7 +16,7 @@ jobs:
         include:
           - os: ubuntu-24.04
             ostag: LINUX-x86_64
-          - os: macos-13
+          - os: macos-15-intel
             ostag: MACOS-Intel-chip
             mac_arch: x86_64
           - os: macos-14
