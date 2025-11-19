@@ -37,7 +37,7 @@ __Output__   is a tsv file, with a column for the *feature ID*, the *single-cell
 Check out the [ESGI website](https://tstohn.github.io/ESGI.documentation/) for more detailed information with examples and use-cases how to run ESGI and its tools demultiplex/count.
 You can also run:
 ```bash
-  ESGI --help
+  esgi --help
 ```
 or for any of the other tools:
 ```bash
@@ -57,7 +57,7 @@ Otherwise, you can also build ESGI on your own if you prefer (or if integrating 
 Therefore, you can install necessary dependencies and then build ESGI (and its tools):
 ```bash
   make install
-  make ESGI
+  make esgi
 ```
 
 The individual tools can also be build separately:
