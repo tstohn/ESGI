@@ -82,9 +82,9 @@ The myExperiment.ini could look like this:
   # FOR MORE DETAILS RUN: ESGI --help
 
   # INPUT FILES: can be fastq or txt and raw or gzipped
-  forward=forward_reads.fastq.gz
+  forward=/USER/DATA/MYEXPERIMENT/INPUT/forward_reads.fastq.gz
   #reverse file is optionally in case we have fw and rv reads
-  reverse=reverse_reads.fastq.gz
+  reverse=/USER/DATA/MYEXPERIMENT/INPUT/reverse_reads.fastq.gz
 
   #output directory
   output=/USER/DATA/MYEXPERIMENT/OUTPUT
