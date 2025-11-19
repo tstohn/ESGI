@@ -60,7 +60,7 @@ Therefore, you can install necessary dependencies and then build ESGI (and its t
   make ESGI
 ```
 
-The individual tools can also be build and tested separately:
+The individual tools can also be build separately:
 ```bash
   make demultiplex
   make count
