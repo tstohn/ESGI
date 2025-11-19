@@ -144,7 +144,7 @@ pEGFR,pRAS,pMEK,pERK
 ```
 TREATMENTS.txt
 ```txt
-CONTROL,EGFRi,ERKi,MEKi
+CONTROL,EGFRi,CONTROL,EGFRi
 ```
 
 # Points to consider
