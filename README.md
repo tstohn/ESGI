@@ -21,7 +21,7 @@ The barcoding pattern is handed to the tool by a regex-like input parameter whic
 The Pipeline allows to set different mismatches for every barcode in the pattern: imagine BC2 has many more mismatches for some reason, or has a longer sequence and we can allow for more errors. We can then set the mismatches for BC2 higher than for other barcodes.
 
 A short overview of ESGI:
-![Pipeline](https://github.com/tstohn/CombinatorialIndexingPipeline/blob/master/docs/media/ScDemultiplex.png)
+![Pipeline](https://github.com/tstohn/CombinatorialIndexingPipeline/blob/master/docs/media/Figure_1.png)
 
 
 # Overview ESGI:
