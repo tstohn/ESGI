@@ -59,10 +59,20 @@ Therefore, you can install necessary dependencies and then build ESGI (and its t
   make install
   make ESGI
 ```
-and then test if everything works:
+
+The individual tools can also be build and tested separately:
 ```bash
-  make test
+  make demultiplex
+  make count
 ```
+
+# Example usage:
+
+You can run ESGI with an ini-file that contains all the information about the experiment like:
+```bash
+  ./bin/ESGI myExperiment.ini
+```
+
 # Points to consider
 
 - at the moment we do not compile ESGI with htslib under Windows, you need to build it yourself if you want to run ESGI with STAR (and annotate) on Windows. You can run ESGI without problem on Windows without RNA-mapping - or even run only demultiplex with an RNA-seqeunce if you just want to split the barcode-sequences. If you install htslib on Windows and want to compile it with htslib, set the variable HTSlib_AVAILABLE:=yes in the Makefile.
