@@ -10,7 +10,7 @@
 
 Pipeline for demultiplexing and counting generic barcoded sequencing data. Examples of technologies that can be demultiplexed are SPLiT-seq, Phospho-seq, SIGNAL-seq, scID-seq, spatial sequencing data and many,many more single-cell sequencing technologies. After demultiplexing ESGI runs UMI collapsing and creates a single-cell * feature matrix and can count any barcoded modality like RNA, antibody-tagged sequences, etc. 
 Any arbitrary barcode pattern can be mapped to the reads, where the pattern can include: 
-  - **Variable Barcodes**, e.g., for combinatorial-indexing like in split-and-pool approaches like SPLiT-seq where a combination of variable barcodes define a single cell. This barcode can also be a feature like in antibody-tagged sequences like in CITE-seq
+  - **Variable Barcodes**, e.g., for combinatorial-indexing like in split-and-pool approaches like SPLiT-seq, where a combination of variable barcodes define a single cell. This barcode can also be a feature like in antibody-tagged sequences like in CITE-seq
   - **Constant Barcodes**, e.g. linker sequences between barcodes of a non-variable known nucleotide-sequence
   - **UMI Barcodes**, or also several UMI barcodes within one read
 
@@ -113,6 +113,7 @@ The myExperiment.ini could look like this:
 with additional files looking like this:
 
 pattern.txt
+(variable-barcodes are defined in .txt files, UMIs are defined by [<base-number>X] - for more detail look into the documentation)
 ```txt
 PATTERN_NAME:[GCATTACG][/USER/DATA/MYEXPERIMENT/BC1.txt][CAGTACCG][/USER/DATA/MYEXPERIMENT/ANTIBODY_BC.txt][10X][/USER/DATA/MYEXPERIMENT/BC2.txt]
 ```
