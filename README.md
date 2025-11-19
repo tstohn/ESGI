@@ -70,7 +70,7 @@ The individual tools can also be build separately:
 
 You can run ESGI with an initialization-file (file-ending=.ini) that contains all the information about the experiment like:
 ```bash
-  ./bin/ESGI myExperiment.ini
+  ./bin/esgi myExperiment.ini
 ```
 
 The myExperiment.ini could look like this:
