@@ -66,6 +66,8 @@ The individual tools can also be build separately:
   make count
 ```
 
+If you prefer to not run ESGI inside the terminal you can download the ESGI-APP with a graphical user interface here: [APP](https://github.com/tstohn/ESGI-GUI). It contains an interface to run demultiplex and count on your data. The app is only tested on MacOS, is intended to run on any standard laptop and does not provide STAR-mapping of RNA-sequencing.
+
 # Example usage:
 
 You can run ESGI with an initialization-file (file-ending=.ini) that contains all the information about the experiment like:
