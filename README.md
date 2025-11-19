@@ -75,79 +75,73 @@ You can run ESGI with an initialization-file (file-ending=.ini) that contains al
 
 The myExperiment.ini could look like this:
 ```ini
-  # THIS IS AN EXAMPLE FILE FOR THE INPUT.INI FILE FOR ESGI.
-# THE FILE IS NOT WHITESPACE SENSITIVE
-# SOME PARAMETERS ARE REQUIRED, OTHERS ARE NOT AND MARKED AS OPTIONAL
+  # THIS IS A MINIMAL EXAMPLE FOR THE .INI FILE
+  # THE FILE IS NOT WHITESPACE SENSITIVE
+  # FOR MORE DETAILS RUN: ESGI --help
 
-##############################
-# MINIMAL ARGUMENTS
-##############################
+  # INPUT FILES: can be fastq or txt and raw or gzipped
+  forward=forward_reads.fastq.gz
+  #reverse file is optionally in case we have fw and rv reads
+  reverse=reverse_reads.fastq.gz
 
-# INPUT FILES: can be fastq or txt and raw or gzipped
-forward=src/test/test_data/test_esgi_RNA/SIGNALseq_with_toyRNA_1.fastq
-#reverse file is optionally in case we have fw and rv reads
-reverse=src/test/test_data/test_esgi_RNA/SIGNALseq_with_toyRNA_2.fastq
+  #output directory
+  output=/USER/DATA/MYEXPERIMENT/OUTPUT
 
-#output directory
-output=bin
+  pattern=/USER/DATA/MYEXPERIMENT/pattern.txt
+  mismatches=/USER/DATA/MYEXPERIMENT/mismatches.txt
 
-# a file containing all possible patterns that can exist, please make sure all files are in the same directory 
-#(for compatability with the count tool which has only file names in the header of the inoput file and expects all barcodes in the same dir)
-pattern=src/test/test_data/test_esgi_RNA/pattern_RNA.txt
-# file containing all mismatches per pattern
-mismatches=src/test/test_data/test_esgi_RNA/mismatches_RNA.txt
+  # Barcodes that are used to define individual-cells (can be one barcode or a combination for,e.g. split-and-pool experiments)
+  # the indices for single cells are the barcode-positions in the pattern.txt file
+  # indexing starts at 0 and counts EVERY pattern element that is defined by '[]', even [-] or [*]
+  SC_ID=1,5
+  FEATURE_ID=3
+  # feature name is optionally if we have, e.g. antibody-barcodes that should be assinged names like AGCAGCAT-> antibody of EGFR
+  FEATURE_NAMES=/USER/DATA/MYEXPERIMENT/FEATURES.txt
+  # barcode-file that is also used for additional annotations, e.g. if cells that were in certain wells during indexing in barcode-round 1 (BC1.txt) were treated differently
+  # (this can also be a list (comma or whitespace separated) if we have several annotations - like another barcode encoding something else)
+  ANNOTATION_IDs=/USER/DATA/MYEXPERIMENT/BC1.txt
+  # file containing names for the annotation-barcodes above like treatment-condition names
+  # (this can also be a list (comma or whitespace separated) if we have several annotations - like another barcode encoding something else)
+  ANNOTATION_NAMES=/USER/DATA/MYEXPERIMENT/TREATMENTS.txt
+  UMI_ID=4
+  
+  threads=10
+  prefix=MYEXPERIMENT
 
-# PARAMETERS DEFINING SC_ID=Columns for single cells, FEATURE_ID for feature column, etc.
-# indexing starts at 0 and taking EVERY pattern element in '[]' into consideration, even [-] or [*]
-# at least SC_ID (barcode to distinguish individual cells) and FEATURE_ID must be given to count barcodes that
-# encode a feature
-SC_ID=2,4,6
-FEATURE_ID=0
-# feature name is optionally if we have, e.g. RNA or want simple barcodes as features without mapping a barcode to a name like AGCAGCAT->EGFR_ANITBODY
-FEATURE_NAMES=
-#ANNOTATION parameters are optionally if we have no additional annotations like treament conditions, batches, etc. encoded in a barcode
-ANNOTATION_IDs=
-#list of files, every file contains a list of annotations names in the same order as the barcodes for the specific annotation ID
-ANNOTATION_NAMES=
-#UMI_ID is optionally if we DO NOT want to collapse UMIs
-UMI_ID=7
+```
 
-##############################
-# ADDITIONAL ARGUMENTS
-# boolean variables like 'independent' can be set with TRUE/FALSE or 0/1 or YES/NO
-##############################
+with additional files looking like this:
 
-threads=1
-# default 0, means the reverse read is a 'true' reverse and we sequentially map the pattern from 5' to 3' of forward read and then continue
-# with reverse complement of reverse, set independent=1 if you want to continue mapping the reverse read independenlty from its own start (no reverse complement)
-# in this case there has to be a [-] element in the pattern, everything before is mapped sequentially to forward, after sequentially to reverse
-independent=0
-#custom file prefix, e.g., date of run, name, etc.
-#this prefix is added to the demultiplexed result, the tool count then add another prefix=COUNTDATA in front
-prefix=SIGNALseq
-writeFailedLines=1
-writeStats=1
-hamming=0
-#default is input.threads * 100000
-fastqReadBucketSize=500000
-#filter to remove 'false' reads. It is a percentage x given as a value from [0-1[ 
-#reads are only retained if >x percent of reads with the SAME UMI have the SAME FEATURE-BARCODE and SINGLE-CELL ID
-umiThreshold=0.0
-umiAbundance=0.0
-umiCollapsing=1
-SC_ID_string=0
-# a file of barcodes that should be mapped to other barcodes, for more details look into the tool count
-barcodeSharing=
+pattern.txt
+```txt
+PATTERN_NAME:[GCATTACG][/USER/DATA/MYEXPERIMENT/BC1.txt][CAGTACCG][/USER/DATA/MYEXPERIMENT/ANTIBODY_BC.txt][10X][/USER/DATA/MYEXPERIMENT/BC2.txt]
+```
+mismatches.txt
+(2 MM in constant-barcodes, 1MM in variable-barcodes and aligning UMIs with 1MM)
+```txt
+2,1,2,1,1,1
+```
 
-##############################
-# STAR ARGUMENTS
-##############################
-#optional path to the STAR executable to run
-STAR=
-#folder that holds the STAR genome index files, must be prebuild
-genomeDir=src/test/test_data/test_esgi_RNA/star_index/toy
-#the annotation of STAR that should be counted: GX=gene id, GN=gene name
-feature=GX
+BC1.txt
+```txt
+AC,CACA,GACTGA,GAACTGAA
+```
+BC2.txt
+```txt
+ATAT,CGAT,TAAG,CCGG
+```
+ANTIBODY_BC.txt
+```txt
+AAAA,CCCC,TTTT,GGGG
+```
+
+FEATURES.txt
+```txt
+pEGFR,pRAS,pMEK,pERK
+```
+TREATMENTS.txt
+```txt
+CONTROL,EGFRi,ERKi,MEKi
 ```
 
 # Points to consider
