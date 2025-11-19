@@ -26,10 +26,10 @@ A short overview of ESGI:
 
 # Overview ESGI:
 
-__ESGI__ essentially performs two tasks: demultiplexing and counting. If barcode-sequences contain a DNA/RNA sequence ESGI can call STAR to align this part to a reference genome and then annotates the output of the demultiplexing with the STAR-result before running counting. Next to ESGI this repo provides all three tools: *demultiplex*, *count* and *annotate*. ESGI can process the raw fastq(.gz) files, supports single or paired-end reads or also simple txt files with nucleotide-sequences in every line.
+__ESGI__ essentially performs two tasks: demultiplexing and counting. The tool *demultiplex* demultiplexes the input fastq-reads, essentially 'cutting' them into the dedicated barcode-sequences and the tool *count* creates a single-cell * feature matrix by counting the features like antibody-barcodes/RNA-sequences with UMI-collapsing. If barcode-sequences contain a RNA sequence ESGI can call STAR to align this part to a reference genome and then annotates the output of *demultiplex* with the STAR-result before running *count*. Next to *ESGI* this repo provides all three tools: *demultiplex*, *count* and *annotate* (although annotate is only used to annotate the output of demultiplex with the mapped STAR reads and probably of little interest to users). *ESGI* can process fastq(.gz) files, supports single or paired-end reads or also simple txt files with nucleotide-sequences in every line.
 
-__Input__ is an ini-file ([example.ini](https://github.com/tstohn/ESGI/blob/master/src/test/test_data/test_esgi/esgi_example.ini) which contains all the necessary information about the input-fastqs, the barcode-patterns, which barcodes define a single-cell, allowed mismatches, etc.
-__Output__ is a tsv file, with a column for the *feature ID*, the *single-cell ID*, and the UMI-collpased *count*. Additionally ESGI provides UMI-information (amplification of different UMIs), information on errors (insertions, deletions, substitutions) for the different barcode positions, the simply demultiplexed fastq-line output (the fastq-sequences *cut* into its barcode-pattern) and other useful information.
+__Input__ is an ini-file ([example.ini](https://github.com/tstohn/ESGI/blob/master/src/test/test_data/test_esgi/esgi_example.ini) which contains all the necessary information about the input-fastqs, the barcode-patterns, which barcodes define a single-cell, allowed mismatches, etc. See below section 'Example usage', run the tools with the --help flag or visit our website for more information.
+__Output__ is a tsv file, with a column for the *feature ID*, the *single-cell ID*, and the UMI-collpased *count*. If additional annotation information was given (like barcodes that encode batches, treatment-conditions, spatial-coordinates, etc. this information is present in additional columns). Additionally, ESGI provides UMI-information (amplification of different UMIs), information on errors (insertions, deletions, substitutions) for the different barcode positions, the simple demultiplexed fastq-line output (the fastq-sequences 'cut' into its barcode-pattern) and other useful information.
 
 # Documentation
 
@@ -42,7 +42,6 @@ or for any of the other tools:
 ```bash
   demultiplex --help
   count --help
-  annotate --help
 ```
 
 It might also help to look into the Makefile, browse through some tests there or look at the analyses that were run for the paper in [ESGI paper analyses]([https://github.com/username/repository)(https://github.com/tstohn/Analysis-EZGI))
@@ -51,7 +50,7 @@ It might also help to look into the Makefile, browse through some tests there or
 
 The easiest way to get started right away is to simply download the binaries of ESGI for your system (Windows, Linux or Mac) here [RELEASE](https://github.com/tstohn/ESGI/releases).
 They contain the whole repository. __ESGI__, __demultiplex__, __annotate__ and __count__ are in bin and you can find the library for ESGI in lib if you want to develop with it yourself. 
-The releases do not contain htslib - which is needed for *annotate* if you want to map dna/RNA-sequences - and STAR. Therefore, both have to be downloaded manually. If your sequences contain no DNA/RNA sequences you can work with the release right away.
+The releases do not contain htslib - which is needed for *annotate* if you want to map RNA-sequences - and STAR. Therefore, both have to be downloaded manually. If your sequences contain no RNA sequences you can work with the release right away.
 
 Otherwise, you can also build ESGI on your own if you prefer (or if integrating htslib into the release for RNA-mapping does not work).
 Therefore, you can install necessary dependencies and then build ESGI (and its tools):
@@ -146,7 +145,7 @@ CONTROL,EGFRi,ERKi,MEKi
 
 # Points to consider
 
-- at the moment we do not compile ESGI with htslib under Windows, you need to build it yourself if you want to run ESGI with STAR (and annotate) on Windows. You can run ESGI without problem on Windows without RNA-mapping - or even run only demultiplex with an RNA-seqeunce if you just want to split the barcode-sequences. If you install htslib on Windows and want to compile it with htslib, set the variable HTSlib_AVAILABLE:=yes in the Makefile.
+- at the moment we do not compile ESGI with htslib under Windows, you need to build it yourself if you want to run ESGI with STAR (and annotate) on Windows. You can run ESGI without problem on Windows without RNA-mapping - or even run only demultiplex with an RNA-sequence if you just want to split the barcode-sequences. If you install htslib on Windows and want to compile it with htslib, set the variable HTSlib_AVAILABLE:=yes in the Makefile.
 - If you download the binaries you can run ESGI right-away without RNA-mapping. If you want to run RNA-mapping (with STAR and annotate) you need to manually install STAR and htslib. To check if it works you can run
 ```bash
   make test_esgi_RNA
