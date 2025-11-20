@@ -5,50 +5,39 @@ OSTAG="${2:?linux-x86_64|macos-arm64|windows-x86_64}"
 
 mkdir -p dist
 
-# Helper: package one binary if it exists
-package_one() {
-  local app="$1"
-  local path="bin/${app}"
-  if [[ -f "$path" ]]; then
-    tar czf "dist/${app}-${VER}-${OSTAG}.tar.gz" -C bin "${app}"
-    echo "Packaged $app -> dist/${app}-${VER}-${OSTAG}.tar.gz"
+# Create one archive per OSTAG:
+# esgi-<VER>-<OSTAG>.tar.gz
+package_all() {
+  local stage="pkg_esgi"
+  rm -rf "$stage"
+  mkdir -p "$stage/bin" "$stage/lib"
+
+  # Copy tools into bin/ (both Unix and Windows names)
+  for app in demultiplex count esgi annotate; do
+    for suffix in "" ".exe"; do
+      local src="bin/${app}${suffix}"
+      if [[ -f "$src" ]]; then
+        cp "$src" "$stage/bin/"
+      fi
+    done
+  done
+
+  # Copy library into lib/
+  if compgen -G "lib/libesgi*" > /dev/null; then
+    cp lib/libesgi* "$stage/lib/"
   else
-    echo "Skip $app (not built)"
+    echo "No libesgi* found in lib/ (ok if this build doesn't produce it)"
   fi
+
+  # Create single tarball for this OSTAG
+  local out="dist/esgi-${VER}-${OSTAG}.tar.gz"
+  tar czf "$out" -C "$stage" .
+  rm -rf "$stage"
+
+  echo "Packaged $out"
 }
 
-# Helper: package library files if they exist
-package_lib() {
-  local name="$1"      # e.g. "libesgi"
-  local pattern="$2"   # e.g. "lib/libesgi*"
+# We now package for all OS types; OSTAG is only used in the name
+package_all
 
-  # compgen checks if any file matches the pattern
-  if compgen -G "$pattern" > /dev/null; then
-    tar czf "dist/${name}-${VER}-${OSTAG}.tar.gz" $pattern
-    echo "Packaged $name -> dist/${name}-${VER}-${OSTAG}.tar.gz"
-  else
-    echo "Skip $name (no matching libs for pattern: $pattern)"
-  fi
-}
-
-case "$OSTAG" in
-  windows-*)
-    # We don't package here on Windows; CI zips .exe via PowerShell.
-    # (And we never ship annotate on Windows.)
-    ;;
-  *)
-    # Always package these if present
-    package_one demultiplex
-    package_one count
-    package_one esgi
-    package_lib libesgi "lib/libesgi*"
-
-
-    # not present in windows for now
-    package_one annotate
-    ;;
-esac
-
-# Checksums (Linux/mac). No-op on Windows because we don't run the script there.
-( cd dist && { shasum -a 256 * > SHA256SUMS 2>/dev/null || sha256sum * > SHA256SUMS; } ) || true
-echo "Binaries in ./dist"
+echo "Packages created in ./dist"
