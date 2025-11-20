@@ -15,16 +15,16 @@ jobs:
       matrix:
         include:
           - os: ubuntu-24.04
-            ostag: linux-x86_64
+            ostag: LINUX-x86_64
             mac_arch: x86_64
           - os: macos-15-intel
-            ostag: macos-x86_64
+            ostag: MACOS-Intel-chip
             mac_arch: x86_64
           - os: macos-14
-            ostag: macos-arm64
+            ostag: MACOS-Apple-Silicon-chips
             mac_arch: arm64
           - os: windows-2022
-            ostag: windows-x86_64
+            ostag: WINDOWS-x86_64
             mac_arch: x86_64
 
     steps:
@@ -32,6 +32,7 @@ jobs:
         with:
           submodules: recursive
 
+      # -------- Windows: vcpkg for make install --------
       - name: Install vcpkg (Windows)
         if: matrix.os == 'windows-2022'
         shell: powershell
@@ -41,8 +42,7 @@ jobs:
             C:\vcpkg\bootstrap-vcpkg.bat
           }
 
-      # ----------------- BUILD -----------------
-
+      # -------- Linux/macOS build --------
       - name: Build (Linux/macOS)
         if: matrix.os != 'windows-2022'
         run: |
@@ -56,6 +56,7 @@ jobs:
           make install
           make demultiplex count esgi annotate
 
+      # -------- Windows build via MSYS2 --------
       - name: MSYS2 setup (Windows)
         if: matrix.os == 'windows-2022'
         uses: msys2/setup-msys2@v2
@@ -67,6 +68,8 @@ jobs:
             make
             mingw-w64-x86_64-gcc
             zip
+            tar
+            coreutils
 
       - name: Build (Windows)
         if: matrix.os == 'windows-2022'
@@ -77,33 +80,25 @@ jobs:
           set -e
           make clean
           make install
+          # annotate not built on Windows, that's fine
           make demultiplex count esgi
 
-      # ----------------- PACKAGE -----------------
-
-      - name: Package (Linux/macOS)
+      # -------- PACKAGE (all OS: use package.sh) --------
+      - name: Package (all OS) — esgi-<VER>-<OSTAG>.tar.gz
         if: matrix.os != 'windows-2022'
         run: |
           set -e
           VER="${GITHUB_REF_NAME#v}"
           chmod +x ./scripts/package.sh
           ./scripts/package.sh "$VER" "${{ matrix.ostag }}"
-
-      - name: Package (Windows) — bin only
+      - name: Package (Windows) — esgi-<VER>-<OSTAG>.tar.gz
         if: matrix.os == 'windows-2022'
-        shell: powershell
+        shell: msys2 {0}
         run: |
-          $ErrorActionPreference = "Stop"
-
-          $ver  = $env:GITHUB_REF_NAME.TrimStart('v')
-          $name = "esgi-$ver"
-          New-Item -ItemType Directory -Path dist -Force | Out-Null
-
-          if (Test-Path bin) {
-            Compress-Archive -Path bin\* -DestinationPath ("dist\$name.zip") -Force
-          } else {
-            Write-Host "bin directory not found!"
-          }
+          set -e
+          VER="${GITHUB_REF_NAME#v}"
+          chmod +x ./scripts/package.sh
+          ./scripts/package.sh "$VER" "${{ matrix.ostag }}"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -114,7 +109,6 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-24.04
-
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -124,7 +118,8 @@ jobs:
       - name: Generate checksums
         run: |
           cd dist
-          sha256sum * > SHA256SUMS.txt
+          # Only hash the tarballs; ignore any stray files
+          sha256sum esgi-*.tar.gz > SHA256SUMS.txt
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2.4.1
@@ -132,4 +127,5 @@ jobs:
           tag_name: ${{ github.ref_name }}
           overwrite_files: true
           files: |
-            dist/*
+            dist/esgi-*.tar.gz
+            dist/SHA256SUMS.txt
