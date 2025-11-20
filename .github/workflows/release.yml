@@ -15,22 +15,23 @@ jobs:
       matrix:
         include:
           - os: ubuntu-24.04
-            ostag: LINUX-x86_64
+            ostag: linux-x86_64
+            mac_arch: x86_64
           - os: macos-15-intel
-            ostag: MACOS-Intel-chip
+            ostag: macos-x86_64
             mac_arch: x86_64
           - os: macos-14
-            ostag: MACOS-Apple-Silicon-chips
+            ostag: macos-arm64
             mac_arch: arm64
           - os: windows-2022
-            ostag: WINDOWS-x86_64
+            ostag: windows-x86_64
+            mac_arch: x86_64
 
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      # Provide vcpkg for your Makefile's 'make install' on Windows
       - name: Install vcpkg (Windows)
         if: matrix.os == 'windows-2022'
         shell: powershell
@@ -40,12 +41,13 @@ jobs:
             C:\vcpkg\bootstrap-vcpkg.bat
           }
 
-      # Linux/macOS build (keeps 'make install' exactly as in your Makefile)
+      # ----------------- BUILD -----------------
+
       - name: Build (Linux/macOS)
         if: matrix.os != 'windows-2022'
         run: |
+          set -e
           make clean
-          # Add arch flags for mac builds
           if [[ "$RUNNER_OS" == "macOS" ]]; then
             export CFLAGS="-arch ${{ matrix.mac_arch }} -mmacosx-version-min=11.0"
             export CXXFLAGS="$CFLAGS"
@@ -54,7 +56,6 @@ jobs:
           make install
           make demultiplex count esgi annotate
 
-      # Windows build via MSYS2 so your Makefile runs unchanged
       - name: MSYS2 setup (Windows)
         if: matrix.os == 'windows-2022'
         uses: msys2/setup-msys2@v2
@@ -73,69 +74,47 @@ jobs:
         env:
           VCPKG_ROOT: /c/vcpkg
         run: |
+          set -e
           make clean
           make install
-          # No annotate on Windows
           make demultiplex count esgi
 
-      # ---------- NEW PACKAGING: one zip per OS with whole repo + bin ----------
-      - name: Package (Linux/macOS) — repo + bin
+      # ----------------- PACKAGE -----------------
+
+      - name: Package (Linux/macOS)
         if: matrix.os != 'windows-2022'
         run: |
           set -e
           VER="${GITHUB_REF_NAME#v}"
-          NAME="esgi-${VER}-${{ matrix.ostag }}"
-          mkdir -p dist pkg
-          # Export clean tree of current commit (no .git, no previous build junk)
-          git archive --format=tar HEAD | tar -x -C pkg
-          # Ensure bin exists and copy built binaries (if any)
-          mkdir -p pkg/bin
-          if ls bin/* >/dev/null 2>&1; then
-            cp -a bin/* pkg/bin/ || true
-          fi
-          # Zip the whole exported repo tree (with bin/)
-          ( cd pkg && zip -r ../dist/${NAME}.zip . )
-          # Clean staging dir
-          rm -rf pkg
+          chmod +x ./scripts/package.sh
+          ./scripts/package.sh "$VER" "${{ matrix.ostag }}"
 
-      - name: Package (Windows) — repo + bin
+      - name: Package (Windows) — bin only
         if: matrix.os == 'windows-2022'
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
-          $ProgressPreference = "SilentlyContinue"
-      
+
           $ver  = $env:GITHUB_REF_NAME.TrimStart('v')
-          $name = "esgi-$ver-${{ matrix.ostag }}"
-      
-          New-Item -ItemType Directory -Path dist,pkg -Force | Out-Null
-      
-          # Export clean repo tree (no .git) as ZIP, then expand it -> pkg\
-          git archive --format=zip -o repo.zip HEAD
-          Expand-Archive repo.zip -DestinationPath pkg -Force
-          Remove-Item repo.zip -Force
-      
-          # Ensure bin exists and copy built binaries (if any)
-          New-Item -ItemType Directory -Path pkg\bin -Force | Out-Null
+          $name = "esgi-$ver"
+          New-Item -ItemType Directory -Path dist -Force | Out-Null
+
           if (Test-Path bin) {
-            Copy-Item -Path bin\* -Destination pkg\bin -Recurse -Force
+            Compress-Archive -Path bin\* -DestinationPath ("dist\$name.zip") -Force
+          } else {
+            Write-Host "bin directory not found!"
           }
-      
-          # Create final per-OS zip containing whole repo + bin/
-          Compress-Archive -Path pkg\* -DestinationPath ("dist\$name.zip") -Force
-      
-          # Cleanup
-          Remove-Item -Recurse -Force pkg
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.ostag }}
-          path: dist/*.zip
+          path: dist/*
 
   release:
     needs: build
     runs-on: ubuntu-24.04
+
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -145,13 +124,12 @@ jobs:
       - name: Generate checksums
         run: |
           cd dist
-          sha256sum *.zip > SHA256SUMS.txt
+          sha256sum * > SHA256SUMS.txt
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2.4.1
         with:
           tag_name: ${{ github.ref_name }}
-          overwrite_files: true   # default is true, but set it explicitly
+          overwrite_files: true
           files: |
-            dist/*.zip
-            dist/SHA256SUMS.txt
+            dist/*
