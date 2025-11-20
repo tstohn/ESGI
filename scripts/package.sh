@@ -17,6 +17,20 @@ package_one() {
   fi
 }
 
+# Helper: package library files if they exist
+package_lib() {
+  local name="$1"      # e.g. "libesgi"
+  local pattern="$2"   # e.g. "lib/libesgi*"
+
+  # compgen checks if any file matches the pattern
+  if compgen -G "$pattern" > /dev/null; then
+    tar czf "dist/${name}-${VER}-${OSTAG}.tar.gz" $pattern
+    echo "Packaged $name -> dist/${name}-${VER}-${OSTAG}.tar.gz"
+  else
+    echo "Skip $name (no matching libs for pattern: $pattern)"
+  fi
+}
+
 case "$OSTAG" in
   windows-*)
     # We don't package here on Windows; CI zips .exe via PowerShell.
@@ -27,6 +41,8 @@ case "$OSTAG" in
     package_one demultiplex
     package_one count
     package_one esgi
+    package_lib libesgi "lib/libesgi*"
+
 
     # not present in windows for now
     package_one annotate
