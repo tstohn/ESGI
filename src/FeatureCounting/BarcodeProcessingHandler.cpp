@@ -344,6 +344,10 @@ void generateBarcodeDicts(const std::string& headerLine, const std::string& barc
         }
         std::cout << "\n";
         std::cout << "Aligning all UMI-sequences with " << std::to_string(barcodeIdData.umiMismatches) << " mismatches.\n";
+        if(barcodeIdData.hamming==1)
+        {
+            std::cout << "  Aligning UMIs by hamming distance (substitutions only).\n";
+        }
     }
 
     //assign the final dictionaries of variable barcodes
