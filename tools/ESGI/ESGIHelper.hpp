@@ -268,6 +268,8 @@ inline bool call_star(const ESGIConfig& config, ESGIIntermediateFiles& intermedi
     {
         std::cerr << "No parameter <genomeDir> provided, please provide this parameter in the.ini file to enable STAR\n";
     }
+
+    // we do not process transcripts for now " --quantMode TranscriptomeSAM "
     const std::string starCmd = starExecutable +
         " --runThreadN " + std::to_string(config.threads) +
         " --genomeDir " + config.genomeDir.value() +
@@ -275,7 +277,6 @@ inline bool call_star(const ESGIConfig& config, ESGIIntermediateFiles& intermedi
         " --outFileNamePrefix " + outfilePrefix +
         " --outSAMtype BAM Unsorted " +
         " --outSAMattributes NH HI AS nM GX GN " +
-        " --quantMode TranscriptomeSAM " +
         " --outFilterMultimapNmax 50 " +
         " --outSAMmultNmax 1 --outSAMunmapped Within " +
         " --limitOutSJcollapsed 2000000 " +
