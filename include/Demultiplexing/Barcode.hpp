@@ -300,6 +300,37 @@ class VariableBarcode final : public Barcode
                     }
                 }
             }
+
+        /* CODE TO ALSO INCLUDE 2MM hamming distances - this could be useful in certain cases where
+        for example with levenshtein distance we have to discard a pattern bcs several pattern fit equally well with Indels
+        but with hamming there might be only ONE match. However, for weakly designed barcode patterns with 2MM we could 
+        transform one barcode into another one with 1MM and we need to check these cases what we do not do at the moment
+        for (std::size_t i = 0; i < fwPattern->size(); ++i)
+        {
+            for (std::size_t j = i + 1; j < fwPattern->size(); ++j)   // j > i avoids duplicates
+            {
+                for (char b1 : bases)
+                {
+                    if (b1 == fwPattern->at(i)) continue;
+
+                    for (char b2 : bases)
+                    {
+                        if (b2 == fwPattern->at(j)) continue;
+
+                        std::string mutated = *fwPattern;
+                        mutated[i] = b1;
+                        mutated[j] = b2;
+
+                        auto [it, inserted] = hamming_map.emplace(mutated, fwPattern);
+                        if (!inserted)
+                        {
+                            // reachable from more than one original barcode
+                            it->second = nullptr;
+                        }
+                    }
+                }
+            }
+        }*/
         }
     }
 
