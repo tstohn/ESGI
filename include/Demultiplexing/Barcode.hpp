@@ -539,8 +539,15 @@ class VariableBarcode final : public Barcode
         for(std::shared_ptr<std::string> barcodePtr : patternsToMap)
         {
             KmerArray barcodeKmer;
-            if(reverse){barcodeKmer = rvKmerMap[barcodePtr];}
-            else{barcodeKmer = fwKmerMap[barcodePtr];}
+            const auto& map = reverse ? rvKmerMap : fwKmerMap;
+            auto it = map.find(barcodePtr);
+            if (it == map.end()) 
+            {
+                std::cerr << " Wrong KMER assignment to barcode -> please open an issue on github\n";
+                exit(EXIT_FAILURE);
+            }
+            barcodeKmer = it->second;
+
             if(kmers_within_distance(targetKmer,barcodeKmer,mismatches))
             {
                 resultbarcodes.push_back(barcodePtr);
@@ -675,11 +682,23 @@ class VariableBarcode final : public Barcode
             std::vector<std::shared_ptr<std::string>> possiblePatterns;
             if(reverse)
             {
-                possiblePatterns =  rvEditBaseNumMap[baseCountTmp];
+                auto it = rvEditBaseNumMap.find(baseCountTmp);
+                if (it != rvEditBaseNumMap.end()) 
+                {
+                    possiblePatterns = it->second;
+                } else {
+                    possiblePatterns.clear(); //no possible patterns found
+                }
             }
             else
             {
-                possiblePatterns =  fwEditBaseNumMap[baseCountTmp];
+                auto it = fwEditBaseNumMap.find(baseCountTmp);
+                if (it != fwEditBaseNumMap.end()) 
+                {
+                    possiblePatterns = it->second;
+                } else {
+                    possiblePatterns.clear(); //no possible patterns found
+                }
             }
             //if there is an N in the fastq-line substringt or if this substring is shorter than
             //possible barccodes (e.g., at the end of the fastq) DO NOT use possible patterns
