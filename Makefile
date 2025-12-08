@@ -443,8 +443,8 @@ test_demultiplex:
 	diff -w expected.out got.out
 
 	#test the mapping of barcodes in reverse read
-	./bin/demultiplex -i /DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_reverseBarcode/barcoveInReverseRead_1.fastq \
-	-r /DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_reverseBarcode/barcoveInReverseRead_2.fastq \
+	./bin/demultiplex -i ./src/test/test_data/test_reverseBarcode/barcoveInReverseRead_1.fastq \
+	-r ./src/test/test_data/test_reverseBarcode/barcoveInReverseRead_2.fastq \
 	-o ./bin -n ReverseBarcodeTest -p ./src/test/test_data/test_2/pattern.txt -m ./src/test/test_data/test_2/mismatches.txt -t 1 -q 1
 	cut -f2-  ./bin/ReverseBarcodeTest_PATTERN_0.tsv >  ./bin/ReverseBarcodeTest_PATTERN_0_removedReadName.tsv
 	diff --strip-trailing-cr ./bin/ReverseBarcodeTest_PATTERN_0_removedReadName.tsv src/test/test_data/test_reverseBarcode//ReverseBarcodeTest_PATTERN_0.tsv
