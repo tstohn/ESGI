@@ -1,6 +1,7 @@
 #DEPENDENCIES: 
 #	+ zlib /(input is a ONE READ fastq file, therefore convert forward/ reverse fastqs into one e.g. with fastq-join/)
 #	+ boost
+#	+ ESGI uses the ankerl::unordered_dense::map (v4.8.1) from https://github.com/martinus/unordered_dense (header donwloaded into external/ankerl)
 #	+ edlib: public github repo to calculate edit distance, we compile it along the esgi library
 #	+ seqtk: library to support fastq-reading, headers are included in esgis own files and need 
 #			 to compile them (we still do run a full <make seqtk>, which is however not necessary as we only include kseq.h)
@@ -428,6 +429,26 @@ test_demultiplex:
 	./bin/demultiplex -i ./src/test/test_data/smallTestPair_R1.fastq.gz -r ./src/test/test_data/smallTestPair_R2.fastq.gz -o ./bin -n PairedEndTest -p ./src/test/test_data/test_2/pattern.txt -m ./src/test/test_data/test_2/mismatches.txt -t 1 -q 1
 	cut -f2-  ./bin/PairedEndTest_PATTERN_0.tsv >  ./bin/PairedEndTest_PATTERN_0_cut.tsv
 	diff --strip-trailing-cr ./bin/PairedEndTest_PATTERN_0_cut.tsv ./src/test/test_data/test_2/result_pairedEnd.tsv
+
+	#test an Indel in a barcode that is not detected by basenum filtering and requires downstream processing
+	# (make sure we do not skip barcodes due to wrong baseNum/ KMER filtering)
+	# all examples are lines with MM that should however be found, therefore 100% moderate matches
+	@EXPECTED="=>    PERFECT MATCHES: 0% | MODERATE MATCHES: 100% | MISMATCHES: 0%"; \
+	LAST_LINE=$$(	./bin/demultiplex -i ./src/test/test_data/test_indel/smallTestPair_R1.fastq \
+	-r ./src/test/test_data/test_indel/smallTestPair_R2.fastq -o ./bin -n INDEL_TEST \
+	-p ./src/test/test_data/test_indel/pattern.txt -m ./src/test/test_data/test_indel/mismatches.txt -t 2 -q 1 \
+    | tail -n 1); \
+	printf '%s\n' "$$EXPECTED" > expected.out; \
+	printf '%s\n' "$$LAST_LINE" > got.out; \
+	diff -w expected.out got.out
+
+	#test the mapping of barcodes in reverse read
+	./bin/demultiplex -i /DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_reverseBarcode/barcoveInReverseRead_1.fastq \
+	-r /DATA/t.stohn/SCDemultiplexing/src/test/test_data/test_reverseBarcode/barcoveInReverseRead_2.fastq \
+	-o ./bin -n ReverseBarcodeTest -p ./src/test/test_data/test_2/pattern.txt -m ./src/test/test_data/test_2/mismatches.txt -t 1 -q 1
+	cut -f2-  ./bin/ReverseBarcodeTest_PATTERN_0.tsv >  ./bin/ReverseBarcodeTest_PATTERN_0_removedReadName.tsv
+	diff --strip-trailing-cr ./bin/ReverseBarcodeTest_PATTERN_0_removedReadName.tsv src/test/test_data/test_reverseBarcode//ReverseBarcodeTest_PATTERN_0.tsv
+
 	
 test_umiCollapse:
 	#test for UMI collapsing: needs demultiplex & count
@@ -490,10 +511,19 @@ test_count:
 	./bin/count -i ./src/test/test_data/test_count1/testSet_UMI_COLLAPSE_TEST.txt -o ./bin/TESTCOUNT_UMI.tsv -t 2 -d ./src/test/test_data/test_count1  -c 0,5 -a ./src/test/test_data/antibody_2.txt -x 3 -g ./src/test/test_data/treatment_2.txt -y 5 -u 2 -f 0.9 -H 1 -v 0
 	diff --strip-trailing-cr bin/COUNTDATA_TESTCOUNT_UMI.tsv src/test/test_data/test_count1/COUNTDATA_TESTCOUNT_UMI.tsv
 
-#single AB pattern
+#single AB pattern: we ran it once with the full alignment function to create the best possible result and use it as expected line
+# that we should also get now: when using the BaseNum/KMER pruning
 test_big:
-	#test that pipeline runs through a slightly bigger fastq
-	./bin/demultiplex -i ./src/test/test_data/test_input/testBig.fastq.gz -o ./bin/ -p ./src/test/test_data/test_input/barcodePatternsBig.txt -m ./src/test/test_data/test_input/barcodeMismatchesBig.txt -t 1 -f 1 -q 1
+	@EXPECTED="=>    PERFECT MATCHES: 50% | MODERATE MATCHES: 29% | MISMATCHES: 20%"; \
+	LAST_LINE=$$(./bin/demultiplex \
+	  -i ./src/test/test_data/test_input/testBig.fastq.gz \
+	  -o ./bin/ \
+	  -p ./src/test/test_data/test_input/barcodePatternsBig.txt \
+	  -m ./src/test/test_data/test_input/barcodeMismatchesBig.txt \
+	  -t 1 -f 1 -q 1 | tail -n 1); \
+	printf '%s\n' "$$EXPECTED" > expected.out; \
+	printf '%s\n' "$$LAST_LINE" > got.out; \
+	diff -w expected.out got.out
 
 test_esgi:
 	./bin/esgi src/test/test_data/test_esgi/esgi_example.ini

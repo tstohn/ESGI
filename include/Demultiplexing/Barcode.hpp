@@ -13,6 +13,8 @@
 #include <cmath>
 
 #include "helper.hpp"
+#include "ankerl/unordered_dense.h"
+#include "QGramMap.hpp"
 
 class Barcode;
 typedef std::shared_ptr<Barcode> BarcodePtr;
@@ -53,12 +55,25 @@ struct baseNum
     }
 };
 
-namespace std 
-{
+namespace std {
 template <>
 struct hash<baseNum> {
-    inline std::size_t operator()(const baseNum& b) const noexcept {
-        return (b.A << 12) | (b.T << 8) | (b.C << 4) | b.G;
+    std::size_t operator()(baseNum const& b) const noexcept {
+        // Pack the four counts into a 64-bit integer.
+        uint64_t x = 0;
+        x |= (uint64_t)(uint16_t)b.A;
+        x |= (uint64_t)(uint16_t)b.T << 16;
+        x |= (uint64_t)(uint16_t)b.C << 32;
+        x |= (uint64_t)(uint16_t)b.G << 48;
+
+        // Mix function (similar to splitmix64 / Murmur-style finalizer).
+        x ^= x >> 33;
+        x *= 0xff51afd7ed558ccdULL;
+        x ^= x >> 33;
+        x *= 0xc4ceb9fe1a85ec53ULL;
+        x ^= x >> 33;
+
+        return static_cast<std::size_t>(x);
     }
 };
 }
@@ -209,8 +224,6 @@ class VariableBarcode final : public Barcode
         for(std::string pattern : inPatterns)
         {
             patterns.push_back(std::make_shared<std::string>(pattern));
-            std::shared_ptr<std::string> revCompPattern = std::make_shared<std::string>(generate_reverse_complement(pattern));
-            revCompPatterns.push_back(revCompPattern);
         }
 
         config = edlibNewAlignConfig(
@@ -223,13 +236,18 @@ class VariableBarcode final : public Barcode
 
         //instant look-up table for perfect barcodes
         equalLengthBarcodes = true;
-        size_t lengthOne = patterns.at(0)->size();
+        length = 0; //set length to 0, then set it for the first found abrcode and compare to others
         for (const std::shared_ptr<std::string>& pattern : patterns) 
         {
-            if (pattern->size() != lengthOne) 
+            if(length == 0){length = pattern->size();}
+            else
             {
-                equalLengthBarcodes = false;
-                break;
+                if (pattern->size() != length) 
+                {
+                    equalLengthBarcodes = false;
+                    length = 0; //re-set to zero (length is unknown)
+                    break;
+                }
             }
         }
         if(equalLengthBarcodes)
@@ -247,8 +265,25 @@ class VariableBarcode final : public Barcode
         calculate_hamming_map();
         if(!hamming)
         {
-            calculate_baseNum_hash();
-            calculate_kmer_hash();
+            //calculate_baseNum_hash();
+            //calculate_kmer_hash();
+
+            //barcodes need to be same length: otherwise different minimum qgram overlaps are required
+            //additionally call use_qgram_map to check if qgram map could be build and makes sense 
+            // //(e.g., for many mismatches we might expect few qgrams to overlap and make it useless)
+            if(equalLengthBarcodes)
+            {
+                std::cout << "\t\tCreate qgram-index for fast barcode filtering\n";
+                qgramMap.init(mismatches, patterns);
+            }
+            if(!qgramMap.useQgramMap)
+            {
+                std::cout << "\t\tSkipping barcode-space reduction by qgram-mapping for barcode " << name <<  "\n";
+            }
+
+            //if we do not have too many patterns calculate the conversion rates
+            //we can then stop mapping early if we find a barcode that is closer to the sequence than the conversion of this barcode
+            //to its closest barcode-neighbor
             if(patterns.size() < 100000)
             {
                 calculateConversionRate = true;
@@ -260,22 +295,6 @@ class VariableBarcode final : public Barcode
     {
         return std::make_shared<VariableBarcode>(*this);
     }
-/*
-    void calculate_prefix_hash(const int prefixLen)
-    {
-        for (const std::shared_ptr<std::string> seq : patterns) 
-        {
-            //make forward prefix
-            std::string fwPrefix = seq->substr(0, prefixLen);
-            fwPrefixMap[fwPrefix].push_back(*seq);
-
-            //make reverse prefix
-            std::string rvSeq = generate_reverse_complement(*seq);
-            std::string rvPrefix = rvSeq.substr(0, prefixLen);
-            rvPrefixMap[rvPrefix].push_back(rvSeq);
-        }
-    }
-*/
 
     inline void calculate_hamming_map()
     {
@@ -300,261 +319,7 @@ class VariableBarcode final : public Barcode
                     }
                 }
             }
-
-        /* CODE TO ALSO INCLUDE 2MM hamming distances - this could be useful in certain cases where
-        for example with levenshtein distance we have to discard a pattern bcs several pattern fit equally well with Indels
-        but with hamming there might be only ONE match. However, for weakly designed barcode patterns with 2MM we could 
-        transform one barcode into another one with 1MM and we need to check these cases what we do not do at the moment
-        for (std::size_t i = 0; i < fwPattern->size(); ++i)
-        {
-            for (std::size_t j = i + 1; j < fwPattern->size(); ++j)   // j > i avoids duplicates
-            {
-                for (char b1 : bases)
-                {
-                    if (b1 == fwPattern->at(i)) continue;
-
-                    for (char b2 : bases)
-                    {
-                        if (b2 == fwPattern->at(j)) continue;
-
-                        std::string mutated = *fwPattern;
-                        mutated[i] = b1;
-                        mutated[j] = b2;
-
-                        auto [it, inserted] = hamming_map.emplace(mutated, fwPattern);
-                        if (!inserted)
-                        {
-                            // reachable from more than one original barcode
-                            it->second = nullptr;
-                        }
-                    }
-                }
-            }
-        }*/
         }
-    }
-
-    inline unsigned long long binomial_coefficient(int n, int k) {
-        if (k < 0 || k > n) return 0;
-        if (k == 0 || k == n) return 1;
-        if (k > n - k) k = n - k; // Take advantage of symmetry
-
-        unsigned long long result = 1;
-        for (int i = 1; i <= k; ++i) {
-            result *= n - (k - i);
-            result /= i;
-        }
-        return result;
-    }
-
-    inline void count_bases(const std::string& seq, baseNum& baseCount) 
-    {
-        for (char base : seq) 
-        {
-            switch (base) 
-            {
-                case 'A': case 'a': baseCount.A++; break;
-                case 'C': case 'c': baseCount.C++; break;
-                case 'G': case 'g': baseCount.G++; break;
-                case 'T': case 't': baseCount.T++; break;
-                default: /* ignore other bases */ break;
-            }
-        }
-    }
-
-    inline void generateAllBaseNums(int length, std::vector<baseNum>& possibleBaseNumVector)
-    {
-        for (int a = 0; a <= length; ++a) {
-            for (int t = 0; t <= length - a; ++t) {
-                for (int c = 0; c <= length - a - t; ++c) {
-                    int g = length - a - t - c;
-                    possibleBaseNumVector.push_back(baseNum{a, t, c, g});
-                }
-            }
-        }
-    }
-
-    inline bool compare_baseNums(const baseNum& a, const baseNum& b, int dist)
-    {
-        int a_dist = std::abs(a.A - b.A);
-        int g_dist = std::abs(a.G - b.G);
-        int c_dist = std::abs(a.C - b.C);
-        int t_dist = std::abs(a.T - b.T);
-        if( a_dist <= dist && g_dist <= dist &&
-            c_dist <= dist && t_dist<= dist &&
-            (a_dist + g_dist + c_dist + t_dist) <= 2*dist
-        )
-        {
-            return true;
-        }
-
-        return(false);
-    }
-
-    //creates a map that assigns for a certain number of bases all possible barcodes that could have that base number
-    //given a certain number of MM
-    inline void calculate_baseNum_hash()
-    {
-        std::cout << "    * Calculating base numbers in barcodes\n";
-        //create all possible baseNum combinations: this is the lookup hash that gets filled below
-        //same for fw and rv since it contains all possibilities
-        std::vector<baseNum> possibleBaseNumVector;
-        generateAllBaseNums(patterns.at(0)->size(), possibleBaseNumVector);
-
-        //calcualte needed bins to get fast lookup;
-        int possibleOneMers = binomial_coefficient(patterns.front()->length(), 4);
-
-        //1.) FORWARD BARCODES
-        //for all patterns counts their base number
-        std::unordered_map<baseNum, std::vector<std::shared_ptr<std::string>>> fwBaseNumMap;
-        fwBaseNumMap.reserve(possibleOneMers);
-        for(std::shared_ptr<std::string> fwPattern : patterns)
-        {
-            baseNum baseCount;
-            count_bases(*fwPattern, baseCount);
-            fwBaseNumMap[baseCount].push_back(fwPattern);
-        }
-        //for all possible basenum-combinations above, check which one can be converted into each other given MM
-        //and create a final map of possible barcodes given a baseNum
-        fwEditBaseNumMap = fwBaseNumMap;
-        for(size_t i = 0; i < (possibleBaseNumVector.size()-1); ++i)
-        {
-            for(size_t j = i+1; j < possibleBaseNumVector.size(); ++j)
-            {
-                if(compare_baseNums(possibleBaseNumVector.at(i), possibleBaseNumVector.at(j), mismatches))
-                {
-                    fwEditBaseNumMap[possibleBaseNumVector.at(i)].insert(fwEditBaseNumMap[possibleBaseNumVector.at(i)].end(), fwBaseNumMap[possibleBaseNumVector.at(j)].begin(), fwBaseNumMap[possibleBaseNumVector.at(j)].end());
-                    fwEditBaseNumMap[possibleBaseNumVector.at(j)].insert(fwEditBaseNumMap[possibleBaseNumVector.at(j)].end(), fwBaseNumMap[possibleBaseNumVector.at(i)].begin(), fwBaseNumMap[possibleBaseNumVector.at(i)].end());
-                }
-            }
-        }
-
-        //2.) REVERSE BARCODES
-        //for all patterns counts their base number
-        std::unordered_map<baseNum, std::vector<std::shared_ptr<std::string>>> rvBaseNumMap;
-        rvBaseNumMap.reserve(possibleOneMers);
-        for(std::shared_ptr<std::string> rvPattern : revCompPatterns)
-        {
-            baseNum baseCount;
-            count_bases(*rvPattern, baseCount);
-            rvBaseNumMap[baseCount].push_back(rvPattern);
-        }
-        //for all possible basenum-combinations above, check which one can be converted into each other given MM
-        //and create a final map of possible barcodes given a baseNum
-        rvEditBaseNumMap = rvBaseNumMap;
-        for(size_t i = 0; i < (possibleBaseNumVector.size()-1); ++i)
-        {
-            for(size_t j = i+1; j < possibleBaseNumVector.size(); ++j)
-            {
-                if(compare_baseNums(possibleBaseNumVector.at(i), possibleBaseNumVector.at(j), mismatches))
-                {
-                    rvEditBaseNumMap[possibleBaseNumVector.at(i)].insert(rvEditBaseNumMap[possibleBaseNumVector.at(i)].end(), rvBaseNumMap[possibleBaseNumVector.at(j)].begin(), rvBaseNumMap[possibleBaseNumVector.at(j)].end());
-                    rvEditBaseNumMap[possibleBaseNumVector.at(j)].insert(rvEditBaseNumMap[possibleBaseNumVector.at(j)].end(), rvBaseNumMap[possibleBaseNumVector.at(i)].begin(), rvBaseNumMap[possibleBaseNumVector.at(i)].end());
-                }
-            }
-        }
-    }
-
-
-    // Encode a 2-mer as integer using 2-bit encoding per base (A=00, C=01, G=10, T=11)
-    inline int encode_kmer(const std::string& kmer)
-    {
-        if (kmer.length() != KMER) return -1;
-        int code = 0;
-        for (char base : kmer) {
-            code <<= 2;
-            switch (base) {
-                case 'A': case 'a': code |= 0b00; break;
-                case 'C': case 'c': code |= 0b01; break;
-                case 'G': case 'g': code |= 0b10; break;
-                case 'T': case 't': code |= 0b11; break;
-                default: return -1; // invalid character
-            }
-        }
-        return code;
-    }
-
-    // Count 2-mers in a sequence into a 16-element array
-    inline KmerArray count_kmers_fast(const std::string& seq) 
-    {
-        KmerArray counts = {0};
-        if (seq.size() < KMER) return counts;
-
-        for (size_t i = 0; i <= seq.size() - KMER; ++i) 
-        {
-            int idx = encode_kmer(seq.substr(i, KMER));
-            if (idx >= 0)
-                counts[idx]++;
-        }
-        return counts;
-    }
-
-    // Check if two k-mer profiles are within mismatch threshold
-    //threshold is MM * 2(2kmers are removed) * 2(2new kmers appear)
-    //for a 16bp long barcode there are 15 kmers, this makes a max dist of 30 for 2 barcodes
-    //and for 3MM a maximum distance of 3*2*2==12 
-    inline bool kmers_within_distance(const KmerArray& a,
-                               const KmerArray& b,
-                               int mismatches) 
-    {   
-        int max_diff = mismatches * KMER * 2; //difference is mismtaches * number of kmers that r effected=KMER * 2(for the kmers that are removed, and the ones that r created)
-        int total_diff = 0;
-
-        for (int i = 0; i < 16; ++i) {
-            total_diff += (unsigned)(a[i] > b[i] ? a[i] - b[i] : b[i] - a[i]);
-            if (total_diff > max_diff) return false;
-        }
-        return true;
-    }
-
-    inline void calculate_kmer_hash()
-    {
-        std::cout << "    * Calculating kmers(2) in barcodes\n";
-
-        //1.) FORWARD BARCODES
-        //the temporary kmer map contains exact kmers, the strings that contain those excat kmers
-        //later we fill the kmerMap also with strings that could be reached given mismatches
-        for(std::shared_ptr<std::string> fwPattern : patterns)
-        {
-            KmerArray kmerList = count_kmers_fast(*fwPattern);
-            fwKmerMap[fwPattern] = kmerList;
-        }
-
-        //2.) REVERSE BARCODES
-        //for all patterns counts their base number
-        for(std::shared_ptr<std::string> rvPattern : revCompPatterns)
-        {
-            KmerArray kmerList = count_kmers_fast(*rvPattern);
-            rvKmerMap[rvPattern] = kmerList;
-        }
-    }
-
-    //returns a pruned list of potential barcodes, that map in at least the expected number of kmers
-    inline std::vector<std::shared_ptr<std::string>> kmer_align_patterns(const std::vector<std::shared_ptr<std::string>>& patternsToMap, 
-                                                                  const std::string& target,
-                                                                  const bool reverse)
-    {
-        std::vector<std::shared_ptr<std::string>> resultbarcodes;
-        KmerArray targetKmer = count_kmers_fast(target);
-        for(std::shared_ptr<std::string> barcodePtr : patternsToMap)
-        {
-            KmerArray barcodeKmer;
-            const auto& map = reverse ? rvKmerMap : fwKmerMap;
-            auto it = map.find(barcodePtr);
-            if (it == map.end()) 
-            {
-                std::cerr << " Wrong KMER assignment to barcode -> please open an issue on github\n";
-                exit(EXIT_FAILURE);
-            }
-            barcodeKmer = it->second;
-
-            if(kmers_within_distance(targetKmer,barcodeKmer,mismatches))
-            {
-                resultbarcodes.push_back(barcodePtr);
-            }
-        }
-
-        return(resultbarcodes);
     }
 
     inline void calculate_barcode_conversionRates()
@@ -567,17 +332,18 @@ class VariableBarcode final : public Barcode
             EDLIB_TASK_PATH,    // Request full alignment path (M, I, D, S)
             NULL, 0);             // No custom alphabet
 
-        for (size_t i = 0; i < patterns.size(); ++i) 
+        for (const std::shared_ptr<std::string>& patternPtrA : patterns) 
         {
-            const std::string a = *(patterns.at(i));
+            const std::string a = *(patternPtrA);
             int min_rate = std::numeric_limits<int>::max();
-            int minElement = std::numeric_limits<int>::max();
+            std::string minElement = "";
 
-            for (size_t j = 0; j < patterns.size(); ++j) 
+            for (const std::shared_ptr<std::string>& patternPtrB : patterns) 
             {
-                if(i == j){continue;}
+                const std::string b = *(patternPtrB);
 
-                const std::string b = *(patterns.at(j));
+                if(a == b){continue;}
+
                 int del = 0;
                 int ins = 0;
                 int subst = 0;
@@ -598,14 +364,14 @@ class VariableBarcode final : public Barcode
                 if (rate < min_rate) 
                 {
                     min_rate = rate;
-                    minElement = j;
+                    minElement = b;
                 }
             }
 
             //warning if barcodes are the same/ or one is suffix of the other
             if(min_rate == 0)
             {
-                std::cout << "WARNING: The data contains barcodes with a mismatch distance of 0!!! Barcodes: " << *(patterns.at(i)) << ", "<< *(patterns.at(minElement)) << "\n" <<
+                std::cout << "WARNING: The data contains barcodes with a mismatch distance of 0!!! Barcodes: " << a << ", "<< minElement << "\n" <<
                 "In case these are barcodes of variable length, we map the longest barcode mapping with no errors!!\n";
             }
 
@@ -613,7 +379,7 @@ class VariableBarcode final : public Barcode
             if(min_rate <= mismatches)
             {
                 std::cout << "WARNING: \nFor barcodes in " << name << ": " << mismatches << " mismatches are allowed, but with " << min_rate <<
-                " mismatches we can already convert " << *(patterns.at(i))  << " into "<< *(patterns.at(minElement))  <<  " (semi-global alignment with un-punished deletions in target)!!! We can still find a best-fitting barcode, but you might reconsider the choice of allowed mistmaches!\n";
+                " mismatches we can already convert " << a  << " into "<< minElement  <<  " (semi-global alignment with un-punished deletions in target)!!! We can still find a best-fitting barcode, but you might reconsider the choice of allowed mistmaches!\n";
             }
 
             pattern_conversionrates[a] = min_rate;
@@ -627,14 +393,16 @@ class VariableBarcode final : public Barcode
     {
 
         //check if we can instantly match pattern
-        if(equalLengthBarcodes && (fastqLine.size() >= (targetOffset + patterns.at(0)->size())))
+        if(equalLengthBarcodes && (fastqLine.size() >= (targetOffset + length)))
         {
 
-            std::string exactTarget = fastqLine.substr(targetOffset, patterns.at(0)->size());
+            //1.) check for simple perfect matches of a barcode
+            std::string exactTarget = fastqLine.substr(targetOffset, length);
+
             if(reverse){exactTarget = generate_reverse_complement(exactTarget);}
             if (barcodeSet.find(exactTarget) != barcodeSet.end()) 
             {
-                targetEnd = patterns.at(0)->size();
+                targetEnd = length;
                 matchedBarcode = exactTarget;
 
                 return true;
@@ -644,11 +412,11 @@ class VariableBarcode final : public Barcode
                 return false;
             }
 
-            //2.) check match with 1hamming distance
+            //2.) check match with 1hamming distance (precomputed hash-map of 1 MM barcodes)
             if(hamming_map.find(exactTarget) != hamming_map.end())
             {
                 if(hamming_map.at(exactTarget) == nullptr){return false;} //if this observed barcode with MM can be reached by several barcodes
-                targetEnd = patterns.at(0)->size();
+                targetEnd = length;
                 matchedBarcode = *(hamming_map.at(exactTarget));
                 substNum = 1;
 
@@ -659,9 +427,6 @@ class VariableBarcode final : public Barcode
 
         std::vector<std::shared_ptr<std::string>> patternsToMap = patterns;
 
-        //get the reverse pattern list if we have reverse string
-        if(reverse){patternsToMap = revCompPatterns;}
-
         std::string bestFoundPattern;
         bool bestFoundAlignment = false;
         int bestTargetEnd = -1;
@@ -669,16 +434,22 @@ class VariableBarcode final : public Barcode
         bool severalMatches = false; //if there are several best-fitting solutions (only the case when the number of allowed mismatches
         //is bigger than possible barcode-conversion numbers) we discard the solution
 
+//REPLACCE THIS WITH Q-GRAMS
         //3.) reduce possible patterns but comparing base number/ kmers
         //get the basenum hashes: based on counts of bases (considering allowed MM) - how many barcodes could fit
+        
+        /*
         if(equalLengthBarcodes)
         {
 
-            std::string targetSequence = fastqLine.substr(targetOffset, patterns.front()->length());
+            std::string targetSequence = fastqLine.substr(targetOffset, length);
 
+            //we count bases in target
             baseNum baseCountTmp;
             count_bases(targetSequence, baseCountTmp);
 
+            //the baseNum maps map all possible baseNum keys (number for {A,C,G,T}) to the barcodes that could be described by this
+            //including barcodes with MM
             std::vector<std::shared_ptr<std::string>> possiblePatterns;
             if(reverse)
             {
@@ -686,7 +457,8 @@ class VariableBarcode final : public Barcode
                 if (it != rvEditBaseNumMap.end()) 
                 {
                     possiblePatterns = it->second;
-                } else {
+                } else 
+                {
                     possiblePatterns.clear(); //no possible patterns found
                 }
             }
@@ -696,13 +468,14 @@ class VariableBarcode final : public Barcode
                 if (it != fwEditBaseNumMap.end()) 
                 {
                     possiblePatterns = it->second;
-                } else {
+                } else 
+                {
                     possiblePatterns.clear(); //no possible patterns found
                 }
             }
-            //if there is an N in the fastq-line substringt or if this substring is shorter than
-            //possible barccodes (e.g., at the end of the fastq) DO NOT use possible patterns
-            if(targetSequence.find('N') == std::string::npos && !(targetSequence.size()< patterns.front()->length()) )
+            //us epossible pattern only if there is NO N in the seqeunce and the lenght of the target is equal to the ones of barcodes
+            //(e.g., at the end of the fastq this could not be the case) 
+            if(targetSequence.find('N') == std::string::npos && !(targetSequence.size()< length) )
             {
                 patternsToMap = possiblePatterns;
             }
@@ -711,13 +484,30 @@ class VariableBarcode final : public Barcode
             // every string is encoded in a kmer-array (e.g. [1001001110110201]), then calcualte similariy of these arrays 
             // looking for kmer-array within a minimum distance, e.g., for 2MM SET_KMERS- 2(every EDIT changes 2 kmers max)*2MM kmers must be same at least
             std::vector<std::shared_ptr<std::string>> prunedPatternsToMap; 
+
             prunedPatternsToMap = kmer_align_patterns(patternsToMap, targetSequence, reverse);
             patternsToMap = prunedPatternsToMap;
 
+        }*/
+
+        //NEW Q-GRAM APPROACH
+        if(equalLengthBarcodes && qgramMap.useQgramMap)
+        {
+            std::string targetSequence = fastqLine.substr(targetOffset, length);
+            if(reverse){targetSequence = generate_reverse_complement(targetSequence);}
+
+            patternsToMap = qgramMap.query(targetSequence);
+
         }
 
-        //align those barcodes
-        for(size_t patternIdx = 0; patternIdx!= patternsToMap.size(); ++patternIdx)
+        //do not compute super heavy alignments: 10x data showed that most barcodes have at max 1000 possibilities
+        if(patternsToMap.size() > 2000)
+        {
+            clear_progress_bar();
+            std::cerr << "Skipping fastq-line with more than 500 possibilities after qgram-mapping: " << patternsToMap.size() << std::endl;
+            return false;
+        }
+        for(const std::shared_ptr<std::string>& patternPtr : patternsToMap)
         {
 
             bool foundAlignment = false;
@@ -727,7 +517,8 @@ class VariableBarcode final : public Barcode
             int substNumTmp;
             delNumTmp=insNumTmp=substNumTmp=targetEnd=0;
             //get pattern, its length can vary
-            std::string usedPattern = *(patternsToMap.at(patternIdx));
+            std::string usedPattern = *(patternPtr);
+            if(reverse){usedPattern = generate_reverse_complement(usedPattern);}
 
             //define target sequence (can differ for every barcode due to its length)
             std::string target;
@@ -776,6 +567,7 @@ class VariableBarcode final : public Barcode
                 if(calculateConversionRate)
                 {
                     int minConversion = pattern_conversionrates.at(bestFoundPattern); //patternsToStore.at(patternIdx)
+
                     //we can do this since levenshtein distance fullfills the triangle inequality is a distance metric
                     //imagine there is a second barcode that could fit better: this second barcode must have a shorter distance to target sequence
                     //than our pattern. Now there r two options 1.) while converting pattern to target we would 'go through' the second barcode. In this
@@ -815,24 +607,18 @@ class VariableBarcode final : public Barcode
 
     private:
         std::vector<std::shared_ptr<std::string>> patterns;
-        std::vector<std::shared_ptr<std::string>> revCompPatterns;
         std::unordered_set<std::string> barcodeSet;
         bool equalLengthBarcodes;
         bool hamming;
 
         //map that maps a nucleotide sequence with haming distances of 1 to its real barcodePtr
         //if only hamming of 1 is set this runs super fast, otherwise after this barcodes are aligned
-        std::unordered_map<std::string, std::shared_ptr<std::string>> hamming_map;
+        ankerl::unordered_dense::map<std::string, std::shared_ptr<std::string>> hamming_map;
 
-        //map storing all possible barcodes that contain certain base-number combination
-        std::unordered_map<baseNum, std::vector<std::shared_ptr<std::string>>> fwEditBaseNumMap;
-        std::unordered_map<baseNum, std::vector<std::shared_ptr<std::string>>> rvEditBaseNumMap;
+        //inverse map, that maps qgrams to its barcode containing it, e.g., AGAG -> AGAGTA,TAGAGC
+        QGramMap qgramMap;
 
-        //these maps store the kmers of all barcodes. For quicker comparison we first comapre kmers, then barcodes
-        std::unordered_map< std::shared_ptr<std::string>, KmerArray > fwKmerMap;
-        std::unordered_map< std::shared_ptr<std::string>, KmerArray > rvKmerMap;
-
-        std::unordered_map<std::string, int> pattern_conversionrates;
+        ankerl::unordered_dense::map<std::string, int> pattern_conversionrates;
         bool calculateConversionRate = false;
 
         EdlibAlignConfig config;
@@ -1014,7 +800,6 @@ class BarcodePattern
             patternName(other.patternName),
             barcodePattern(copy_barcode_vector(other.barcodePattern)),
             independentReversePattern(copy_barcode_vector(other.independentReversePattern)) {}
-
 
         //class variables
         bool containsDNA;

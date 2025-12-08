@@ -196,30 +196,32 @@ class ExtractLinesFromFastqFilePolicy
             throw std::runtime_error("Path is not a regular file: " + fwFile + ". Did you by accident provide a directory?\n");
         }
 
-        fp = gzopen(fwFile.c_str(),"r");
-        if(fp == Z_NULL)
+        gzFile fpCount = gzopen(fwFile.c_str(), "r");
+        if (fpCount == Z_NULL)
         {
-            std::string errMess = "Invalid file: " + fwFile;
-            throw std::domain_error(errMess);
-            exit(EXIT_FAILURE);
+            throw std::runtime_error("Invalid gz file: " + fwFile);
         }
-        ks = kseq_init(fp);
-        totalReads = 0;
-        std::pair<fastqLine, fastqLine> line;
-        while(get_next_line(line))
+        kseq_t* ksCount = kseq_init(fpCount);
+
+        unsigned long long count = 0;
+        while (kseq_read(ksCount) >= 0)
         {
-            if(totalReads == ULLONG_MAX)
+            ++count;
+            if (count == ULLONG_MAX)
             {
-                std::cout << "WARNING: Analysing more than " << std::to_string(ULLONG_MAX) << " reads. There will be no status update\n";
-                kseq_destroy(ks); //chatty suggest
-                gzrewind(fp);
-                ks = kseq_init(fp);
-                return;
+                std::cerr << "WARNING: too many reads to count accurately; disabling progress bar.\n";
+                break;
             }
-            ++totalReads;
         }
-        kseq_destroy(ks); //chatty suggest
-        gzrewind(fp);
+        kseq_destroy(ksCount);
+        gzclose(fpCount);
+        totalReads = count;
+
+        // re-open file for real processing
+        fp = gzopen(fwFile.c_str(), "r");
+        if (fp == Z_NULL)
+            throw std::runtime_error("Unable to reopen gz file: " + fwFile);
+
         ks = kseq_init(fp);
     }
 

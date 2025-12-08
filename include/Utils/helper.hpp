@@ -94,6 +94,14 @@ inline unsigned long long numberOfReads(std::string fileName)
     return totalReads;
 }
 
+inline void clear_progress_bar() 
+{
+    std::cout << '\r';
+    for (int i = 0; i < (PBWIDTH+6); i++) 
+        std::cout << ' ';              
+    std::cout << '\r' << std::flush;
+}
+
 inline void printProgress(double percentage) 
 {
     int val = (int) (percentage*100);
@@ -125,7 +133,7 @@ struct input{
     bool writeFilesOnTheFly = false;
     bool hamming = false;
     
-    long long int fastqReadBucketSize = 10000000;
+    unsigned int fastqReadBucketSize = 10000000;
     int threads = 5;
 };
 

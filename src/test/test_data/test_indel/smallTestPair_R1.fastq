@@ -1,0 +1,8 @@
+@READ1:DELETION_IN_FIRST_BARCODE
+ACGATCGCTTGTGGAAAGGACGAAACACCGAAAAAAAAAAAAAAATTCCGGAA
++
+#####################################################
+@READ2:the last two barcode in BC1 have the same kmers and require alignment to find the right barcode, MM in constant
+ATCGATCACTTGTGGAAAGGACGAAACACCAAAAAAAAAAAAAAATTCCGGAA
++
+#####################################################

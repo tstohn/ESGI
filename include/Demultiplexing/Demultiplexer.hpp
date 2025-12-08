@@ -24,8 +24,7 @@ class Demultiplexer : private Mapping<MappingPolicy, FilePolicy>
         void demultiplex_wrapper_batch(const std::vector<std::pair<fastqLine, fastqLine>>& line_vector,
                                                 const input& input,
                                                 std::atomic<unsigned long long>& lineCount,
-                                                const unsigned long long& totalReadCount,
-                                                std::atomic<long long int>& elementsInQueue);
+                                                const unsigned long long& totalReadCount);
         void run_mapping(const input& input);
 
         //map to store the temporary output files (e.g., for RAM efficient laptop usage)
@@ -95,5 +94,10 @@ class Demultiplexer : private Mapping<MappingPolicy, FilePolicy>
 
     public:
         void run(const input& input);
+
+    private:
+        std::atomic<long> elementsInQueue{0};   // number of lines currently processed
+        std::mutex queueMutex;
+        std::condition_variable queueCV;
 
 };

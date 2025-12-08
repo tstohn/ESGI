@@ -48,7 +48,7 @@ void DemultiplexingStats::initializeStats(const MultipleBarcodePatternVectorPtr&
                     validPositions[patternPtr->patternName].push_back(actualPatternPos);
 
                     //for variable barcodes // (or single constant one)
-                    for(std::shared_ptr<std::string> barcodeString : variableBarcodesVec)
+                    for(const std::shared_ptr<std::string>& barcodeString : variableBarcodesVec)
                     {
                         //create key for dictionaries: <pattern=name>_<barcodePosition>_<actual Barcode>
                         std::string pattern_position_barcode = patternPtr->patternName + "_" + std::to_string(actualPatternPos) + "_" + *barcodeString;

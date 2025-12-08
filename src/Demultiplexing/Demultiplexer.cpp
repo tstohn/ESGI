@@ -102,8 +102,7 @@ template <typename MappingPolicy, typename FilePolicy>
 void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper_batch(const std::vector<std::pair<fastqLine, fastqLine>>& line_vector,
                                                                     const input& input,
                                                                     std::atomic<unsigned long long>& lineCount,
-                                                                    const unsigned long long& totalReadCount,
-                                                                    std::atomic<long long int>& elementsInQueue)
+                                                                    const unsigned long long& totalReadCount)
 {
     //FOR EVERY BARCODE-PATTERN (GET PATTERNID)
     //try to map read to this pattern until it matches and exit
@@ -120,7 +119,7 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper_batch(const s
     }
     std::vector<std::pair<fastqLine, fastqLine>> failedLinesBatch;
 
-    for(std::pair<fastqLine, fastqLine> line : line_vector)
+    for(const std::pair<fastqLine, fastqLine>& line : line_vector)
     {
         ++lineCount;
         bool result = false;
@@ -163,7 +162,7 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper_batch(const s
             }
 
             //in case we have only ONE PATTERN we can get statistics for the failed line, otherwise not
-            if(this->get_barcode_pattern()->size() == 1)
+            if(patternVectorPtr->size() == 1)
             {
                 finalLineStatsPtr = lineStatsPtr;
             }
@@ -213,7 +212,7 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper_batch(const s
        // }
 
         //count down elements to process
-        --elementsInQueue;
+        //--elementsInQueue;
     }   
 
     //NEW BATCH WRITING FUNCTIONS
@@ -232,12 +231,20 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper_batch(const s
         fileWriter->write_failed_lines(failedFileStream, failedLinesBatch);
     }
 
+    //substract elements from queue
+    const long processed = static_cast<long>(line_vector.size());
+    elementsInQueue.fetch_sub(processed, std::memory_order_relaxed);
+    // Wake the waiting line reader
+    queueCV.notify_one();
+
 }
 
 /// overwritten run_mapping function to allow processing of only a subset of fastq lines at a time
 template <typename MappingPolicy, typename FilePolicy>
 void Demultiplexer<MappingPolicy, FilePolicy>::run_mapping(const input& input)
 {
+    std::cout << "Initializing data structures for mapping \n";
+
     //generate a pool of threads
     boost::asio::thread_pool pool(input.threads); //create thread pool
     //initialize thread-dependent tmp files
@@ -256,7 +263,6 @@ void Demultiplexer<MappingPolicy, FilePolicy>::run_mapping(const input& input)
     this->FilePolicy::init_file(input.inFile, input.reverseFile);
     std::pair<fastqLine, fastqLine> line;
     std::atomic<unsigned long long> lineCount = 0; //using atomic<int> as thread safe read count
-    std::atomic<long long int> elementsInQueue(0);
     unsigned long long totalReadCount = FilePolicy::get_read_number();
 
     /*while(FilePolicy::get_next_line(line))
@@ -276,30 +282,44 @@ void Demultiplexer<MappingPolicy, FilePolicy>::run_mapping(const input& input)
     //btch processing of lines (better for thread scheduling)
     // by default we parse 100K lines, making a batch size of 100 lines for 10 threads
     // benchmarked for a factor of 1, 10, 100. 100 gave best performance
-    unsigned long batchSize = input.fastqReadBucketSize/ (input.threads * 100);
+    unsigned int batchSize;
+    if(input.fastqReadBucketSize > 0)
+    {
+        batchSize = input.fastqReadBucketSize/ input.threads;            // input.fastqReadBucketSize/ (input.threads * 100);
+    }
+    else
+    {
+        batchSize = 10000; //if we have no fastqReadBucketSize and read everything into memory set batchSize to 10K
+    }
+
     std::vector<std::pair<fastqLine, fastqLine>> lineBatch;
     lineBatch.reserve(batchSize); // e.g., batchSize = 100
+
     while (FilePolicy::get_next_line(line)) 
     {
         lineBatch.push_back(std::move(line));
-        ++elementsInQueue;
 
         if (lineBatch.size() == batchSize) 
         {
             // wait if we exceed the queue size limit
-            if (input.fastqReadBucketSize > 0) 
+            if (input.fastqReadBucketSize > 0)
             {
-                while (input.fastqReadBucketSize <= elementsInQueue.load()) {}
+                std::unique_lock<std::mutex> lock(queueMutex);
+                queueCV.wait(lock, [&]{
+                    // We will add 'batchSize' more lines and only proceed enqueuing if it fits in the queue
+                    return elementsInQueue.load(std::memory_order_relaxed) + batchSize <= input.fastqReadBucketSize;
+                });
             }
+            // Reserve our slot in the "bucket": we just enqueued batchSize lines
+            elementsInQueue.fetch_add(batchSize, std::memory_order_relaxed);
 
             boost::asio::post(pool, std::bind(
                 &Demultiplexer::demultiplex_wrapper_batch,
                 this,
                 std::move(lineBatch),
-                input,
+                std::cref(input),
                 std::ref(lineCount), // starting line number
-                totalReadCount,
-                std::ref(elementsInQueue)
+                std::cref(totalReadCount)
             ));
 
             lineBatch.clear();
@@ -308,15 +328,24 @@ void Demultiplexer<MappingPolicy, FilePolicy>::run_mapping(const input& input)
     }
     // Handle any remaining lines
     if (!lineBatch.empty()) {
-        ++elementsInQueue;
+        //add element sto queue, not really needed anymore but we substract elements in demultiplex_wrapper_batch - so adding count keeps logic
+        if (input.fastqReadBucketSize > 0)
+        {
+            std::unique_lock<std::mutex> lock(queueMutex);
+            queueCV.wait(lock, [&]{
+                return elementsInQueue.load(std::memory_order_relaxed) + batchSize
+                    <= input.fastqReadBucketSize;
+            });
+        }
+        elementsInQueue.fetch_add(batchSize, std::memory_order_relaxed);
+
         boost::asio::post(pool, std::bind(
             &Demultiplexer::demultiplex_wrapper_batch,
             this,
             std::move(lineBatch),
-            input,
+            std::cref(input),
             std::ref(lineCount),
-            totalReadCount,
-            std::ref(elementsInQueue)
+            std::cref(totalReadCount)
         ));
     }
 

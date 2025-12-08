@@ -1,33 +1,45 @@
 #include "DemultiplexedResult.hpp"
 
-void DemultiplexedResult::concatenateFiles(const std::vector<std::string>& tmpFileList, const std::string& outputFile) 
+void DemultiplexedResult::concatenateFiles(const std::vector<std::string>& tmpFileList,
+                                           const std::string& outputFile) 
 {
+    std::ofstream out(outputFile, std::ios::out | std::ios::app | std::ios::binary);
+    if (!out) 
+    {
+        std::cerr << "Error opening final output file for concatenation: " << outputFile << "\n";
+        return;
+    }
+
+    const size_t bufSize = 1 * ONE_MB;
+    std::vector<char> buffer(bufSize);
+
     for (const std::string& file : tmpFileList) 
     {
-        std::ifstream in(file, std::ios::in| std::ios::binary);  // Read written files
-        if (!in) 
-        {
+        std::ifstream in(file, std::ios::in | std::ios::binary);
+        if (!in) {
             std::cerr << "Error opening input file: " << file << "\n";
             continue;
         }
 
-        //get content as string
-        std::ostringstream buffer;
-        buffer << in.rdbuf();  
-        std::string content = buffer.str();
+        while (in) 
+        {
+            in.read(buffer.data(), buffer.size());
+            std::streamsize got = in.gcount();
+            if (got > 0) 
+            {
+                out.write(buffer.data(), got);
+            }
+        }
+
         in.close();
 
-        //write temporary file into final file
-        std::ofstream out(outputFile, std::ios::app | std::ios::binary);  // Final output file
-        out.write(content.c_str(), content.size());
-        out.close();
-
-        // Delete the temporary file
         if (std::remove(file.c_str()) != 0) 
         {
             std::cerr << "Error: Could not delete " << file << std::endl;
         }
     }
+
+    out.flush();
 }
 
 void DemultiplexedResult::update_stats(std::shared_ptr<DemultiplexingStats> threadTmpStats, OneLineDemultiplexingStatsPtr lineStatsPtr, 
@@ -66,6 +78,7 @@ void DemultiplexedResult::write_barcode_line(TmpPatternStream& barcodeLineStream
 
 void DemultiplexedResult::write_demultiplexed_batch(TmpPatternStream& lineStream, const DemultiplexedReads& demultiplexedBatch, const boost::thread::id& threadID, const bool containsDNA)
 {
+
     const std::vector<DemultiplexedLine>& lines = demultiplexedBatch.get_all_reads();
 
     //write barcodes to temporary files

@@ -5,6 +5,7 @@
 #include <zlib.h>
 #include <regex>
 #include <thread>
+#include <climits>
 
 #include "Barcode.hpp"
 #include "Demultiplexer.hpp"
@@ -108,8 +109,9 @@ bool parse_arguments(char** argv, int argc, input& input)
             this number is not used however, UMIs are aligned in BarcodeProcessing.) We need one line for every line in the barcodePatternsFile.")
 
             ("threads,t", value<int>(&(input.threads))->default_value(5), "number of threads")
-            ("fastqReadBucketSize,s", value<long long int>(&(input.fastqReadBucketSize))->default_value(-1), "number of lines of the fastQ file that should be read into RAM \
-            and be processed, before the next fastq read is processed. By default it equal to 100K lines a time.")
+            ("fastqReadBucketSize,s", value<unsigned int>(&(input.fastqReadBucketSize))->default_value(UINT_MAX), "number of lines of the fastq-file that should be read into memory \
+            and be processed, before the next fastq read is processed. By default it equal to 10K lines per thread. Set to a lower value to save RAM and read less lines into \
+            memory or set to 0 to enqueue all lines at once and not mind RAM.")
             ("writeStats,q", value<bool>(&(input.writeStats))->default_value(false), "writing Statistics about the barcode mapping. This creates three files: \
             ..._Quality_lastPositionMapped.txt stores how often mapping failed at which position for reads that could not be mapped (THIS IS ONLY WRITTEN IF WE HAVE ONLY ONE PATTERN) \
             ..._Quality_typeMM.txt stores for every barcode how often we observed a Subst, Ins, Del \
@@ -219,9 +221,9 @@ int main(int argc, char** argv)
         write_parameter_file(input);
 
         //set the number of reads in the processing queue by default to 10X number of threads
-        if(input.fastqReadBucketSize == -1)
+        if(input.fastqReadBucketSize == UINT_MAX)
         {
-            input.fastqReadBucketSize = input.threads * 100000;
+            input.fastqReadBucketSize = (input.threads) * 10000;  //10K lines per thread seems a good default value
         }
 
         // run demultiplexing

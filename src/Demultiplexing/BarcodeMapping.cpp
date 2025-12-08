@@ -865,6 +865,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const fastqLine& seq,
         //std::cout << "ALIGN RV: found " << barcode << " at start " << positionInFastqLine << " with new end " << targetEnd << "\n";
 
         totalEdits = totalEdits + del + ins + subst;
+
         positionInFastqLine += targetEnd; //targetEnd is zero indexed alst position in target-sequence that maps to pattern
         //positionInFastqLine is the first position to INCLUDE in next alignment
 
@@ -939,6 +940,8 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(const BarcodePatt
         size_t j = demultiplexedLineRv.barcodeList.size() - 1;
         for(size_t i = start; i <= end; ++i)
         {
+            //UMIs do not have to overlap since they r reverse complements
+            if(barcodePatterns->barcodePattern->at(i)->is_wildcard()){--j;continue;}
             if(demultiplexedLineFw.barcodeList.at(i) != demultiplexedLineRv.barcodeList.at(j))
             {
                 //++stats->noMatches;
@@ -977,7 +980,8 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(const BarcodePatt
                 //++stats->noMatches;
                 return false;
             }
-            demultiplexedLineFw.barcodeList.push_back(*(barcodePatterns->barcodePattern->at(i)->get_patterns().at(0)));
+            //constant barcodes have ONLY ONE pattern (barcode), we can extrac them with begin and need to dereference
+            demultiplexedLineFw.barcodeList.push_back(*(barcodePatterns->barcodePattern->at(i)->get_patterns().front()));
 
             //in the statistics save this as zero MM, since we can not accurately count the number of MM
             if(stats != nullptr)
