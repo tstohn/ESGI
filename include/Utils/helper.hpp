@@ -132,7 +132,9 @@ struct input{
     bool writeFailedLines = false;
     bool writeFilesOnTheFly = false;
     bool hamming = false;
-    
+
+    bool precalculateIndels = true;
+
     unsigned int fastqReadBucketSize = 10000000;
     int threads = 5;
 };

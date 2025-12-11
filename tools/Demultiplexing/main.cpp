@@ -120,6 +120,10 @@ bool parse_arguments(char** argv, int argc, input& input)
             ("hamming,H", value<bool>(&(input.hamming))->default_value(false), "Use hamming distance of 1 for all variable barcodes. \
             This way only 1 substitution per barcode is allowed. It is useful for, e.g. 10X data where barcodes can be easily converted and reducing errors \
             to substitutions reduces runtime. \n")
+            ("precalculateIndels,l", value<bool>(&(input.precalculateIndels))->default_value(true),
+            "More memory-efficient mode: set to 0 to NOT precalculate indel maps. \
+            Indels are computed on the fly during mapping, reducing RAM usage at the cost of runtime. \
+            For single-cell protocols with many barcodes (like 10X), we recommend to precompute indels\n")
 
             ("help,h", "help message");
 

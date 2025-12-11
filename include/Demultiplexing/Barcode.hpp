@@ -219,7 +219,8 @@ class VariableBarcode final : public Barcode
 {
 
     public:
-    VariableBarcode(std::vector<std::string>& inPatterns, std::string& name, int inMismatches, bool hammingIn = false) : Barcode(name, inMismatches)
+    VariableBarcode(std::vector<std::string>& inPatterns, std::string& name, int inMismatches, bool hammingIn = false,
+                    bool indelsArePrecalculatedIn = true) : Barcode(name, inMismatches),indelsArePrecalculated(indelsArePrecalculatedIn)
     {
         for(std::string pattern : inPatterns)
         {
@@ -268,26 +269,36 @@ class VariableBarcode final : public Barcode
             //calculate_baseNum_hash();
             //calculate_kmer_hash();
 
-            //barcodes need to be same length: otherwise different minimum qgram overlaps are required
-            //additionally call use_qgram_map to check if qgram map could be build and makes sense 
-            // //(e.g., for many mismatches we might expect few qgrams to overlap and make it useless)
-            if(equalLengthBarcodes)
+            //calclate the indel map in case we allow for insertions/ deletions
+            if(indelsArePrecalculated)
             {
-                std::cout << "\t\tCreate qgram-index for fast barcode filtering\n";
-                qgramMap.init(mismatches, patterns);
-            }
-            if(!qgramMap.useQgramMap)
-            {
-                std::cout << "\t\tSkipping barcode-space reduction by qgram-mapping for barcode " << name <<  "\n";
+                calculate_indel_map();
             }
 
-            //if we do not have too many patterns calculate the conversion rates
-            //we can then stop mapping early if we find a barcode that is closer to the sequence than the conversion of this barcode
-            //to its closest barcode-neighbor
-            if(patterns.size() < 100000)
+            //this map already covers all possible sequences, if we allow for more mismatches we need to properly align
+            if(mismatches > 1 || indelsArePrecalculated == false)
             {
-                calculateConversionRate = true;
-                calculate_barcode_conversionRates();
+                //barcodes need to be same length: otherwise different minimum qgram overlaps are required
+                //additionally call use_qgram_map to check if qgram map could be build and makes sense 
+                // //(e.g., for many mismatches we might expect few qgrams to overlap and make it useless)
+                if(equalLengthBarcodes)
+                {
+                    std::cout << "\t\tCreate qgram-index for fast barcode filtering\n";
+                    qgramMap.init(mismatches, patterns);
+                }
+                if(!qgramMap.useQgramMap)
+                {
+                    std::cout << "\t\tSkipping barcode-space reduction by qgram-mapping for barcode " << name <<  "\n";
+                }
+
+                //if we do not have too many patterns calculate the conversion rates
+                //we can then stop mapping early if we find a barcode that is closer to the sequence than the conversion of this barcode
+                //to its closest barcode-neighbor
+                if(patterns.size() < 500)
+                {
+                    calculateConversionRate = true;
+                    calculate_barcode_conversionRates();
+                }
             }
         }
     }
@@ -316,6 +327,65 @@ class VariableBarcode final : public Barcode
                         {
                             it->second = nullptr;
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    inline void calculate_indel_map()
+    {
+        std::cout << "    pre-calculate 1-indel-distance barcodes\n";
+        const std::string bases = "ATGC";
+
+        // Go through all forward patterns
+        for (const std::shared_ptr<std::string>& fwPattern : patterns)
+        {
+            const std::string& seq = *fwPattern;
+            const std::size_t L = seq.size();
+
+            // --- 1) All 1-deletion neighbors (length L-1) ---
+            for (std::size_t i = 0; i < L; ++i)
+            {
+                // deletion: remove position i
+                std::string deleted;
+                deleted.reserve(L-1);
+
+                // part before deleted base
+                deleted.append(seq, 0, i);
+                // part after deleted base
+                deleted.append(seq, i + 1, L - (i + 1));
+
+                auto [it_indel, inserted] = indel_map.emplace(deleted, fwPattern);
+
+                if (!inserted && it_indel->second!=nullptr && (*(it_indel->second) != *fwPattern) )
+                {
+                    // ambiguous: reachable from more than one barcode
+                    it_indel->second = nullptr;
+                }                
+            }
+
+            // --- 2) All 1-insertion neighbors (length L+1) ---
+            for (std::size_t i = 0; i <= L; ++i)
+            {
+
+                for (char b : bases)
+                {
+                    std::string mutated;
+                    mutated.reserve(L+1);
+
+                    // part before insertion point
+                    mutated.append(seq, 0, i);
+                    // inserted base
+                    mutated.push_back(b);
+                    // part after insertion point
+                    if (i < L){mutated.append(seq, i, L - i );}
+
+                    auto [it_indel, inserted] = indel_map.emplace(mutated, fwPattern);
+                    if (!inserted && it_indel->second!=nullptr && (*(it_indel->second) != *fwPattern) )
+                    {
+                        // ambiguous: reachable from more than one barcode
+                        it_indel->second = nullptr;
                     }
                 }
             }
@@ -392,37 +462,93 @@ class VariableBarcode final : public Barcode
         bool reverse = false)
     {
 
-        //check if we can instantly match pattern
-        if(equalLengthBarcodes && (fastqLine.size() >= (targetOffset + length)))
+        //check if we can instantly match pattern (directly or with mismatches from pre-calcualted hash-maps)
+        if(equalLengthBarcodes)
         {
 
-            //1.) check for simple perfect matches of a barcode
-            std::string exactTarget = fastqLine.substr(targetOffset, length);
-
-            if(reverse){exactTarget = generate_reverse_complement(exactTarget);}
-            if (barcodeSet.find(exactTarget) != barcodeSet.end()) 
+            //for perfect matches or hamming distance matches the fastqline must still be of length of the barcodes
+            if(fastqLine.size() >= (targetOffset + length))
             {
-                targetEnd = length;
-                matchedBarcode = exactTarget;
+                //1.) check for simple perfect matches of a barcode
+                std::string exactTarget = fastqLine.substr(targetOffset, length);
 
-                return true;
-            } 
-            else if(mismatches == 0)
-            {
-                return false;
+                if(reverse){exactTarget = generate_reverse_complement(exactTarget);}
+                if (barcodeSet.find(exactTarget) != barcodeSet.end()) 
+                {
+                    targetEnd = length;
+                    matchedBarcode = exactTarget;
+
+                    return true;
+                } 
+                else if(mismatches == 0)
+                {
+                    return false;
+                }
+
+                //2.) check match with 1hamming distance (precomputed hash-map of 1 MM barcodes)
+                if(hamming_map.find(exactTarget) != hamming_map.end())
+                {
+                    if(hamming_map.at(exactTarget) == nullptr){return false;} //if this observed barcode with MM can be reached by several barcodes
+                    targetEnd = length;
+                    matchedBarcode = *(hamming_map.at(exactTarget));
+                    substNum = 1;
+
+                    return true;
+                }
+                else if(hamming){return false;} //if we only do hamming distance mapping, stop here if we found nothing
+                
             }
 
-            //2.) check match with 1hamming distance (precomputed hash-map of 1 MM barcodes)
-            if(hamming_map.find(exactTarget) != hamming_map.end())
+            if(indelsArePrecalculated)
             {
-                if(hamming_map.at(exactTarget) == nullptr){return false;} //if this observed barcode with MM can be reached by several barcodes
-                targetEnd = length;
-                matchedBarcode = *(hamming_map.at(exactTarget));
-                substNum = 1;
+                //3.) get potential barcode from insertion
+                std::string exactTarget_I;
+                std::shared_ptr<std::string> foundIndelBarcode = nullptr;
+                if(fastqLine.size() >= (targetOffset + length + 1))
+                {
+                    exactTarget_I = fastqLine.substr(targetOffset, length+1);
+                    if(reverse){exactTarget_I = generate_reverse_complement(exactTarget_I);}
+                    if(indel_map.find(exactTarget_I) != indel_map.end())
+                    {
+                        foundIndelBarcode = indel_map.at(exactTarget_I);
+                    }
+                }
 
-                return true;
+                std::string exactTarget_D;
+                std::shared_ptr<std::string> foundDeletionBarcode = nullptr;
+                if(fastqLine.size() >= (targetOffset + length - 1))
+                {
+                    // 3.) get potential barcode for deletion
+                    exactTarget_D = fastqLine.substr(targetOffset, length - 1);
+                    if(reverse){exactTarget_D = generate_reverse_complement(exactTarget_D);}
+                    if(indel_map.find(exactTarget_D) != indel_map.end())
+                    {
+                        foundDeletionBarcode = indel_map.at(exactTarget_D);
+                    }
+                }
+
+                // 3.) check if we found an insertion/ deletion
+                //look the barcodes up: if an insertion/ deletion results in the same barcode: discard the read
+                //in case both map to the same barcode, we keep the insertion 
+                //(e.g., we have barcode AAA,CCC and we observe AACA - it can be an insertion of C or deletion of an A - we would only truely know but looking at the next sequence)
+                if(foundIndelBarcode != nullptr && foundIndelBarcode != foundDeletionBarcode) //make sure there
+                {
+                    if(indel_map.at(exactTarget_I) == nullptr){return false;} //if this observed barcode with MM can be reached by several barcodes
+                    targetEnd = length+1;
+                    matchedBarcode = *foundIndelBarcode;
+                    insNum = 1;
+                    return true;
+                }
+                else if(foundDeletionBarcode != nullptr && foundIndelBarcode != foundDeletionBarcode)
+                {
+                    if(indel_map.at(exactTarget_D) == nullptr){return false;} //if this observed barcode with MM can be reached by several barcodes
+                    targetEnd = length-1;
+                    matchedBarcode = *foundDeletionBarcode;
+                    delNum = 1;
+                    return true;
+                }
+                else if(mismatches == 1){return false;}
             }
-            else if(hamming){return false;} //if we only do hamming distance mapping, stop here if we found nothing
         }
 
         std::vector<std::shared_ptr<std::string>> patternsToMap = patterns;
@@ -610,10 +736,14 @@ class VariableBarcode final : public Barcode
         std::unordered_set<std::string> barcodeSet;
         bool equalLengthBarcodes;
         bool hamming;
+        bool indelsArePrecalculated = false;
 
         //map that maps a nucleotide sequence with haming distances of 1 to its real barcodePtr
         //if only hamming of 1 is set this runs super fast, otherwise after this barcodes are aligned
         ankerl::unordered_dense::map<std::string, std::shared_ptr<std::string>> hamming_map;
+        // indel map: stores all possible barcode+indel sequences and maps them to barcodes
+        // if a barcode+error map to several barcodes or is already present in hamming_map, the vlaue is set to nullptr
+        ankerl::unordered_dense::map<std::string, std::shared_ptr<std::string>> indel_map;
 
         //inverse map, that maps qgrams to its barcode containing it, e.g., AGAG -> AGAGTA,TAGAGC
         QGramMap qgramMap;

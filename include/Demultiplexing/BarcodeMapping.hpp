@@ -181,6 +181,62 @@ class ExtractLinesFromFastqFilePolicy
 {
     public:
 
+    bool is_gzipped(const std::string& path) 
+    {
+        std::ifstream f(path, std::ios::binary);
+        if (!f) return false;
+
+        unsigned char b1 = f.get();
+        unsigned char b2 = f.get();
+        return f && b1 == 0x1F && b2 == 0x8B;
+    }
+
+    uint64_t count_fastq_records(const std::string& filename)
+    {
+        if (is_gzipped(filename)) {
+            // compressed: use gzread
+            const size_t BUF = 1 << 20;
+            char buf[BUF];
+
+            gzFile fp = gzopen(filename.c_str(), "rb");
+            if (!fp) throw std::runtime_error("Cannot open gz file");
+
+            uint64_t lines = 0;
+            int n;
+            while ((n = gzread(fp, buf, BUF)) > 0) {
+                for (int i = 0; i < n; ++i)
+                    if (buf[i] == '\n')
+                        ++lines;
+            }
+
+            gzclose(fp);
+            return (lines+1) / 4;
+        }
+        else {
+            // uncompressed FASTQ
+            const size_t BUF = 1 << 20;
+            char buf[BUF];
+
+            std::ifstream in(filename);
+            if (!in) throw std::runtime_error("Cannot open file");
+
+            uint64_t lines = 0;
+            while (in.read(buf, BUF)) {
+                size_t n = in.gcount();
+                for (size_t i = 0; i < n; ++i)
+                    if (buf[i] == '\n')
+                        ++lines;
+            }
+            // read the last partial chunk
+            size_t n = in.gcount();
+            for (size_t i = 0; i < n; ++i)
+                if (buf[i] == '\n')
+                    ++lines;
+
+            return (lines+1) / 4;
+        }
+    }
+
     void init_file(const std::string& fwFile, const std::string& rvFile)
     {
         (void)rvFile; //we have only a forward fastq-read
@@ -196,26 +252,7 @@ class ExtractLinesFromFastqFilePolicy
             throw std::runtime_error("Path is not a regular file: " + fwFile + ". Did you by accident provide a directory?\n");
         }
 
-        gzFile fpCount = gzopen(fwFile.c_str(), "r");
-        if (fpCount == Z_NULL)
-        {
-            throw std::runtime_error("Invalid gz file: " + fwFile);
-        }
-        kseq_t* ksCount = kseq_init(fpCount);
-
-        unsigned long long count = 0;
-        while (kseq_read(ksCount) >= 0)
-        {
-            ++count;
-            if (count == ULLONG_MAX)
-            {
-                std::cerr << "WARNING: too many reads to count accurately; disabling progress bar.\n";
-                break;
-            }
-        }
-        kseq_destroy(ksCount);
-        gzclose(fpCount);
-        totalReads = count;
+        totalReads = count_fastq_records(fwFile);
 
         // re-open file for real processing
         fp = gzopen(fwFile.c_str(), "r");
