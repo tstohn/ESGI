@@ -541,7 +541,7 @@ test_big:
 	  -m ./src/test/test_data/test_input/barcodeMismatchesBig.txt \
 	  -t 1 -f 1 -q 1 -l 1 2>&1 \
 	  | tr -d '\r' \
-	  | awk '/^=>/ { last=$$0 } END { print last }'); \
+	  | awk '/^[[:space:]]*=>/ { last=$$0 } END { print last }'); \
 	printf '%s\n' "$$EXPECTED" > expected.out; \
 	printf '%s\n' "$$LAST_LINE" > got.out; \
 	diff -w expected.out got.out
