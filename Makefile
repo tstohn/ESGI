@@ -539,9 +539,7 @@ test_big:
 	  -o ./bin/ \
 	  -p ./src/test/test_data/test_input/barcodePatternsBig.txt \
 	  -m ./src/test/test_data/test_input/barcodeMismatchesBig.txt \
-	  -t 1 -f 1 -q 1 -l 1 2>&1 \
-	  | tr -d '\r' \
-	  | awk 'index($$0, "=>") { last=$$0 } END { print last }'); \
+	  -t 1 -f 1 -q 1 -l 1 | awk 'index($$0, "=>") { last=$$0 } END { print last }'); \
 	printf '%s\n' "$$EXPECTED" > expected.out; \
 	printf '%s\n' "$$LAST_LINE" > got.out; \
 	diff -w expected.out got.out
