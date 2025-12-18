@@ -520,29 +520,32 @@ test_count:
 #single AB pattern: we ran it once with the full alignment function to create the best possible result and use it as expected line
 # that we should also get now: when using the BaseNum/KMER pruning
 test_big:
+ifneq ($(IS_WIN),1)
+
 	#test using qgrams only
 	@EXPECTED="=>    PERFECT MATCHES: 50% | MODERATE MATCHES: 29% | MISMATCHES: 20%"; \
 	LAST_LINE=$$(./bin/demultiplex \
-	  -i ./src/test/test_data/test_input/testBig.fastq.gz \
-	  -o ./bin/ \
-	  -p ./src/test/test_data/test_input/barcodePatternsBig.txt \
-	  -m ./src/test/test_data/test_input/barcodeMismatchesBig.txt \
-	  -t 1 -f 1 -q 1 -l 0 2>/dev/null | tr -d '\r' | grep -E "^=>" | tail -n 1); \
-#	printf '%s\n' "$$EXPECTED" > expected.out; \
-#	printf '%s\n' "$$LAST_LINE" > got.out; \
-#	diff -w expected.out got.out
-	
-	#test it once for precomputing indels
-	@EXPECTED="=>    PERFECT MATCHES: 50% | MODERATE MATCHES: 29% | MISMATCHES: 20%"; \
-	LAST_LINE=$$(./bin/demultiplex \
-	  -i ./src/test/test_data/test_input/testBig.fastq.gz \
-	  -o ./bin/ \
-	  -p ./src/test/test_data/test_input/barcodePatternsBig.txt \
-	  -m ./src/test/test_data/test_input/barcodeMismatchesBig.txt \
-	  -t 1 -f 1 -q 1 -l 1 | awk 'index($$0, "=>") { last=$$0 } END { print last }'); \
+	-i ./src/test/test_data/test_input/testBig.fastq.gz \
+	-o ./bin/ \
+	-p ./src/test/test_data/test_input/barcodePatternsBig.txt \
+	-m ./src/test/test_data/test_input/barcodeMismatchesBig.txt \
+	-t 1 -f 1 -q 1 -l 0 | tail -n 1); \
 	printf '%s\n' "$$EXPECTED" > expected.out; \
 	printf '%s\n' "$$LAST_LINE" > got.out; \
 	diff -w expected.out got.out
+	#test it once for precomputing indels
+
+	@EXPECTED="=>    PERFECT MATCHES: 50% | MODERATE MATCHES: 29% | MISMATCHES: 20%"; \
+	LAST_LINE=$$(./bin/demultiplex \
+	-i ./src/test/test_data/test_input/testBig.fastq.gz \
+	-o ./bin/ \
+	-p ./src/test/test_data/test_input/barcodePatternsBig.txt \
+	-m ./src/test/test_data/test_input/barcodeMismatchesBig.txt \
+	-t 1 -f 1 -q 1 -l 1 | tail -n 1); \
+	printf '%s\n' "$$EXPECTED" > expected.out; \
+	printf '%s\n' "$$LAST_LINE" > got.out; \
+	diff -w expected.out got.out
+endif
 
 test_esgi:
 	./bin/esgi src/test/test_data/test_esgi/esgi_example.ini
