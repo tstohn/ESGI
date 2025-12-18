@@ -1,0 +1,24 @@
+@ normal read with no mismatches
+CGCGAGCTGAGATGCCTTTTAGCTGAGATGCCTCTAGCTAGCTTTT
++
+##############################################
+@ deletion of 2bases in constant region
+CGCGAGCTGATGCCTTTT
++
+##################
+@ deletion of 2bases in constant region
+CGCGAGCTGATGCCTTTT
++
+##################
+@normal read with no mismatches but going only into constatn seq
+CGCGAGCTGAGATGCCTTTTAGCT
++
+########################
+@ covering full first constant (second in reverse direction) but with 1MM
+CGCGAGCTGAGATGCCTTTTAGTTGAGATGCCT
++
+#################################
+@ fail alread in first reverse barcode: BC2
+CTTGAGCTGAGATGCCTTTTAGTTGAGATGCCT
++
+#################################

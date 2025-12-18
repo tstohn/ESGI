@@ -1,0 +1,1 @@
+LastMatchedBarcodeTest:[src/test/test_data/test_lastMatchedBarcode/BC1.txt][10X][AGGCATCTCAGCT][src/test/test_data/test_lastMatchedBarcode/BC1.txt][AGGCATCTCAGCT][src/test/test_data/test_lastMatchedBarcode/BC2.txt]

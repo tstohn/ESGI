@@ -449,6 +449,12 @@ test_demultiplex:
 	cut -f2-  ./bin/ReverseBarcodeTest_PATTERN_0.tsv >  ./bin/ReverseBarcodeTest_PATTERN_0_removedReadName.tsv
 	diff --strip-trailing-cr ./bin/ReverseBarcodeTest_PATTERN_0_removedReadName.tsv src/test/test_data/test_reverseBarcode//ReverseBarcodeTest_PATTERN_0.tsv
 
+	#test the quality metric that stores the last mapped barcode in a sequence
+	./bin/demultiplex -i src/test/test_data/test_lastMatchedBarcode/file1.fastq \
+	-r src/test/test_data/test_lastMatchedBarcode/file2.fastq \
+	-o ./bin -n lastMappedBarcodeTest -p src/test/test_data/test_lastMatchedBarcode/pattern.txt \
+	-m src/test/test_data/test_lastMatchedBarcode/mismatches.txt -t 2 -q 1
+	diff bin/lastMappedBarcodeTest_Quality_failingBarcodePosition.txt src/test/test_data/test_lastMatchedBarcode/lastMappedBarcodeTest_Quality_failingBarcodePosition.txt
 	
 test_umiCollapse:
 	#test for UMI collapsing: needs demultiplex & count
@@ -514,13 +520,26 @@ test_count:
 #single AB pattern: we ran it once with the full alignment function to create the best possible result and use it as expected line
 # that we should also get now: when using the BaseNum/KMER pruning
 test_big:
+	#test using qgrams only
 	@EXPECTED="=>    PERFECT MATCHES: 50% | MODERATE MATCHES: 29% | MISMATCHES: 20%"; \
 	LAST_LINE=$$(./bin/demultiplex \
 	  -i ./src/test/test_data/test_input/testBig.fastq.gz \
 	  -o ./bin/ \
 	  -p ./src/test/test_data/test_input/barcodePatternsBig.txt \
 	  -m ./src/test/test_data/test_input/barcodeMismatchesBig.txt \
-	  -t 1 -f 1 -q 1 | tail -n 1); \
+	  -t 1 -f 1 -q 1 -l 0 | tail -n 1); \
+	printf '%s\n' "$$EXPECTED" > expected.out; \
+	printf '%s\n' "$$LAST_LINE" > got.out; \
+	diff -w expected.out got.out
+	
+	#test it once for precomputing indels
+	@EXPECTED="=>    PERFECT MATCHES: 50% | MODERATE MATCHES: 29% | MISMATCHES: 20%"; \
+	LAST_LINE=$$(./bin/demultiplex \
+	  -i ./src/test/test_data/test_input/testBig.fastq.gz \
+	  -o ./bin/ \
+	  -p ./src/test/test_data/test_input/barcodePatternsBig.txt \
+	  -m ./src/test/test_data/test_input/barcodeMismatchesBig.txt \
+	  -t 1 -f 1 -q 1 -l 1 | tail -n 1); \
 	printf '%s\n' "$$EXPECTED" > expected.out; \
 	printf '%s\n' "$$LAST_LINE" > got.out; \
 	diff -w expected.out got.out

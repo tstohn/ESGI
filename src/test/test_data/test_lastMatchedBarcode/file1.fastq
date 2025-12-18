@@ -1,0 +1,24 @@
+@ normal read with no mismatches: AAA AGCTAGCTAG AGGCATCTCAGCT AAA AGGCATCTCAGCT CGCG
+AAAAGCTAGCTAGAGGCATCTCAGCTAAAAGGCATCTCAGCTCGCG
++
+##############################################
+@ deletion of 2G in FW constant
+AAAAGCTAGCTAGACATCTCAGCTAAAAGGCATCTCAGCTCGCG
++
+############################################
+@ FW read perfect
+AAAAGCTAGCTAGAGGCATCTCAGCT
++
+##########################
+@ normal read with no mismatches but going only into constatn seq
+AAAAGCTAGCTAGAGGCA
++
+##################
+@ covering full first constatnt but with 1MM
+AAAAGCTAGCTAGAGGCTTCTCAGCT
++
+##########################
+@ fail alread in BC1
+ATCAGCTAGCTAGAGGCTTCTCAGCT
++
+##########################

@@ -907,6 +907,13 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(const BarcodePatt
         demultiplexedLineFw.dna = demultiplexedLineRv.dna; //extract DNA fragment
         demultiplexedLineFw.dnaQuality = demultiplexedLineRv.dnaQuality; //extract DNA fragment
     }
+    //debug adding the reverse read infomraiton
+    if(stats != nullptr)
+    {
+        //add the last found reverse position (temporary structure) to stats
+       stats->failedLinesMappingRv.first = statsRv->failedLinesMappingRv.first;
+       stats->failedLinesMappingRv.second = statsRv->failedLinesMappingRv.second;
+    }
 
     //if positions are next to each other just return
     //in case of a stop pattern [*], we added +1 to the barcodePositionFw, so that barcodePositionFw+barcodePositionRv should be euqual to patternNum
@@ -1109,13 +1116,6 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::split_line_into_barcode_patterns(
         DemultiplexedLine demultiplexedLineRv;
         unsigned int barcodePositionRv = 0;
 
-    //  std::cout << "FOUND FOWARD: ";
-    //  for(auto el : demultiplexedLine.barcodeList)
-    //  {
-    //      std::cout << el << "\t";
-    //  }
-    //  std::cout << "\n";
-
         //statistics result for the reverse line
         //the forward line is saved in the final result stat object, this object is then later
         //updated with the reverse read information
@@ -1125,13 +1125,6 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::split_line_into_barcode_patterns(
         else{statsRvPtr = nullptr;}
         
         map_reverse(seq.second, barcodePatterns, statsRvPtr, demultiplexedLineRv,barcodePositionRv, tmpMMScore);
-
-    // std::cout << "FOUND REVERSE: ";
-    // for(auto el : demultiplexedLineRv.barcodeList)
-    // {
-    //     std::cout << el << "\t";
-    // }
-    // std::cout << "\n";
 
         //todo: better check if fw and rv mapped: at the moment they returna  fail if e.g. a half-constant barcode does not map
         pairwiseMappingSuccess = combine_mapping(barcodePatterns, demultiplexedLine, barcodePositionFw, demultiplexedLineRv, barcodePositionRv, stats, statsRvPtr, tmpMMScore);

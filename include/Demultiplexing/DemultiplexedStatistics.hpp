@@ -24,6 +24,8 @@ struct OneLineDemultiplexingStats
         //between fw and rv reads, we might still map perfectly if the overlap is a constant barcode)
         //if the last few bases in a read are also shorter than the next barcode that has to be mapped we assign this read to be
         //perfectly mapped (the seqToShort check does therefore not lead to failed reads)
+        //a simple integer would also be enough at the moment since we only allow this quality feature when a single pattern is provided
+        //but for potential extension later on we keep it a pair that aslso store the actuakl barcode it comes from
         std::pair<std::string, int> failedLinesMappingFw;
         std::pair<std::string, int> failedLinesMappingRv;
 
@@ -56,7 +58,7 @@ class DemultiplexingStats{
         void update(OneLineDemultiplexingStatsPtr lineStatsPtr, bool result, std::string& foundPatternName, std::vector<std::string>& barcodeList);
         
         void write_mm_number(const std::string& outputFile);
-        void write_last_mapped_position(const std::string& outputFile);
+        void write_failing_position(const std::string& outputFile);
         void write_mm_types(const std::string& outputFile);
         void write(const std::string& directory, const std::string& prefix, const int patternNumber);
 

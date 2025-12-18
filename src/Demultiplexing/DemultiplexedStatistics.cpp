@@ -352,7 +352,7 @@ void DemultiplexingStats::write_mm_number(const std::string& outputFile)
 }
 
 
-void DemultiplexingStats::write_last_mapped_position(const std::string& outputFile) 
+void DemultiplexingStats::write_failing_position(const std::string& outputFile) 
 {
     std::ofstream out(outputFile);
     if (!out) {
@@ -414,7 +414,7 @@ void DemultiplexingStats::write_last_mapped_position(const std::string& outputFi
         }
         else
         {
-            std::cerr << "Invalid key: " << key << " in statistics for last mapped barcode position\n";
+            std::cerr << "Invalid key: " << key << " in statistics for failing barcode position\n";
         }
 
     }
@@ -470,7 +470,7 @@ void DemultiplexingStats::write_last_mapped_position(const std::string& outputFi
         }
         else
         {
-            std::cerr << "Invalid key: " << key << " in statistics for last mapped barcode position\n";
+            std::cerr << "Invalid key: " << key << " in statistics for failing barcode position\n";
         }
 
     }
@@ -483,7 +483,8 @@ void DemultiplexingStats::write(const std::string& directory, const std::string&
     //create file names (potentially with prefix)
     std::string barcodeMismatchNumberFile = "Quality_numberMM.txt";
     std::string barcodeMismatchTypeFile = "Quality_typeMM.txt";
-    std::string barcodeLastPosMappedFile = "Quality_lastPositionMapped.txt";
+    //this file store the actual barcode position where a barcode could not be mapped
+    std::string barcodeLastPosMappedFile = "Quality_failingBarcodePosition.txt";
 
     if(prefix != "")
     {
@@ -511,7 +512,7 @@ void DemultiplexingStats::write(const std::string& directory, const std::string&
     //fill last mapped positions
     if(patternNumber == 1)
     {
-        write_last_mapped_position(barcodeLastPosMapped);
+        write_failing_position(barcodeLastPosMapped);
     }
 }
 

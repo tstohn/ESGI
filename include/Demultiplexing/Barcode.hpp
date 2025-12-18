@@ -310,7 +310,7 @@ class VariableBarcode final : public Barcode
     inline void calculate_hamming_map()
     {
         std::cout << "    pre-calculate 1-hamming-distace barcodes\n";
-        const std::string bases = "ATGC";
+        const std::string bases = "ATGCN";
         //go through all forward patterns
         for(std::shared_ptr<std::string> fwPattern : patterns)
         {
@@ -336,7 +336,7 @@ class VariableBarcode final : public Barcode
     inline void calculate_indel_map()
     {
         std::cout << "    pre-calculate 1-indel-distance barcodes\n";
-        const std::string bases = "ATGC";
+        const std::string bases = "ATGCN";
 
         // Go through all forward patterns
         for (const std::shared_ptr<std::string>& fwPattern : patterns)
@@ -402,6 +402,7 @@ class VariableBarcode final : public Barcode
             EDLIB_TASK_PATH,    // Request full alignment path (M, I, D, S)
             NULL, 0);             // No custom alphabet
 
+        bool warningWasPrinted = false;
         for (const std::shared_ptr<std::string>& patternPtrA : patterns) 
         {
             const std::string a = *(patternPtrA);
@@ -441,15 +442,25 @@ class VariableBarcode final : public Barcode
             //warning if barcodes are the same/ or one is suffix of the other
             if(min_rate == 0)
             {
-                std::cout << "WARNING: The data contains barcodes with a mismatch distance of 0!!! Barcodes: " << a << ", "<< minElement << "\n" <<
-                "In case these are barcodes of variable length, we map the longest barcode mapping with no errors!!\n";
+                std::cout << "\tWARNING: The data contains barcodes with a mismatch distance of 0!!! Barcodes: " << a << ", "<< minElement << "\n" <<
+                "\tIn case these two barcodes are of variable length, we map the longest barcode mapping with no errors!!\n";
             }
 
             //warning if minimum conversion is lower than allowed mismatches
             if(min_rate <= mismatches)
             {
-                std::cout << "WARNING: \nFor barcodes in " << name << ": " << mismatches << " mismatches are allowed, but with " << min_rate <<
-                " mismatches we can already convert " << a  << " into "<< minElement  <<  " (semi-global alignment with un-punished deletions in target)!!! We can still find a best-fitting barcode, but you might reconsider the choice of allowed mistmaches!\n";
+                if(!warningWasPrinted)
+                {
+                    std::cout << "WARNING: \nFor barcodes in " << name << ": " << mismatches << " mismatches are allowed, but with " << min_rate <<
+                    " mismatches we can already convert barcodes into each other (semi-global alignment with un-punished deletions )!!! \n" << 
+                    "We compute edit-distances allowing unpenalized trailing edits, to account for indels only once and not punishing indels additionally.\n" <<
+                    "(e.g., barcode: ACGT and seqeunce:AGTA has a score of 1 instead of 2.\n" <<
+                    "We can still find a best-fitting barcode, but you might reconsider the choice of allowed mistmaches!\n" <<
+                    "Below listed barcodes can easily be converted: \n";
+                }
+
+                std::cout << a  << " -> "<< minElement << "\n";
+                warningWasPrinted = true;
             }
 
             pattern_conversionrates[a] = min_rate;
