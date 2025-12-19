@@ -520,7 +520,7 @@ test_count:
 #single AB pattern: we ran it once with the full alignment function to create the best possible result and use it as expected line
 # that we should also get now: when using the BaseNum/KMER pruning
 test_big:
-ifneq ($(IS_WIN),)
+ifeq ($(IS_WIN),)
 
 	#test using qgrams only
 	@EXPECTED="=>    PERFECT MATCHES: 50% | MODERATE MATCHES: 29% | MISMATCHES: 20%"; \
