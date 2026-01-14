@@ -154,6 +154,6 @@ CONTROL,EGFRi,CONTROL,EGFRi
 ```bash
   make test_esgi_RNA
 ```
-- at the moment ESGI does not support the multi-pattern option. If you have a fastq with many different modalities we recommend to run ESGIs tools individually: 1.) run *demultiplex* in multi-pattern mode (see demultiplex --help) and for the different outputs of demultiplex (one for every pattern) run *count*
+- at the moment the multi-pattern option is supported only by the tool *demultiplex* (not for ESGI as a wrapper of demultiplex and count), since count would have to be called for every pattern individually. If you have a FASTQ with several modalities/ a hierachical pattern we recommend to run ESGIs tools individually: 1.) run *demultiplex* in multi-pattern mode (see demultiplex --help) and for the individual outputs of demultiplex (one for every pattern) run *count*
 
 
