@@ -10,13 +10,13 @@
 
 Pipeline for demultiplexing and counting generic barcoded sequencing data. Examples of technologies that can be demultiplexed are SPLiT-seq, Phospho-seq, SIGNAL-seq, scID-seq, spatial sequencing data and many,many more single-cell sequencing technologies. After demultiplexing ESGI runs UMI collapsing and creates a single-cell * feature matrix and can count any barcoded modality like RNA, antibody-tagged sequences, etc. 
 Any arbitrary barcode pattern can be mapped to the reads, where the pattern can include: 
-  - **Variable Barcodes**, e.g., for combinatorial-indexing like in split-and-pool approaches like SPLiT-seq, where a combination of variable barcodes define a single cell. This barcode can also be a feature like in antibody-tagged sequences like in CITE-seq
-  - **Constant Barcodes**, e.g. linker sequences between barcodes of a non-variable known nucleotide-sequence
-  - **UMI Barcodes**, or also several UMI barcodes within one read
+  - **Barcode elements**, e.g., for combinatorial-indexing like in split-and-pool approaches like SPLiT-seq, where a combination of different barcodes define a single cell. This barcode can also be a feature like in antibody-tagged sequences like in CITE-seq
+  - **Constant linker elements**, e.g. linker sequences between barcodes of a constant known nucleotide-sequence
+  - **UMIs**, or also several UMI barcodes within one read
 
 ESGI can demultiplex also sequences where barcodes are of variable length (like staggers, where for a barcode at a specific position barcodes of different length are possible). ESGI can handle insertions,deletions and substitutions making it possible to demultiplex also erroneous data and *demultiplex* can handle several possible barcode-sequences in the same experiment: if one fastq-file contains different modalities with different barcode patterns. *demultiplex* then compares every fastq-line against all possible patterns and retains the best one, if it is uniquely the best and within the allowed mismatches.
 
-The barcoding pattern is handed to the tool by a regex-like input parameter which summarizes the pattern sequence. E.g. [BC1.txt][10X][AGCTCATCGAC][BC2.txt] is a barcoding pattern that contains three sequences: a variable-barcode where all possible sequences are listed in the file BC1.txt (comma separated barcodes, they can be of different length), an UMI sequence of 10 random barcodes, a constant barcode with the sequence AGCTCATCGAC and finally a last variable barcode from the list in BC2.txt.
+The barcoding pattern is handed to the tool by a regex-like input parameter which summarizes the pattern sequence. E.g. [BC1.txt][10X][AGCTCATCGAC][BC2.txt] is a barcoding pattern that contains three sequences: a barcode element where all possible sequences are listed in the file BC1.txt (comma separated barcodes, they can be of different length), an UMI sequence of 10 random barcodes, a constant barcode with the sequence AGCTCATCGAC and finally a last barcode element with barcodes from the list in BC2.txt.
 
 The Pipeline allows to set different mismatches for every barcode in the pattern: imagine BC2 has many more mismatches for some reason, or has a longer sequence and we can allow for more errors. We can then set the mismatches for BC2 higher than for other barcodes.
 
@@ -118,12 +118,12 @@ The myExperiment.ini could look like this:
 with additional files looking like this:
 
 pattern.txt
-(variable-barcodes are defined in .txt files, UMIs are defined by [<base-number>X] - for more detail look into the documentation)
+(barcodes are defined in .txt files, UMIs are defined by [<base-number>X] - for more detail look into the documentation)
 ```txt
 PATTERN_NAME:[GCATTACG][/USER/DATA/MYEXPERIMENT/BC1.txt][CAGTACCG][/USER/DATA/MYEXPERIMENT/ANTIBODY_BC.txt][10X][/USER/DATA/MYEXPERIMENT/BC2.txt]
 ```
 mismatches.txt
-(2 MM in constant-barcodes, 1MM in variable-barcodes and aligning UMIs with 1MM)
+(2 MM in constant elements, 1MM in barcode elements and aligning UMIs with 1MM)
 ```txt
 2,1,2,1,1,1
 ```
@@ -157,6 +157,6 @@ CONTROL,EGFRi,CONTROL,EGFRi
 ```bash
   make test_esgi_RNA
 ```
-- at the moment the multi-pattern option is supported only by the tool *demultiplex* (not for ESGI as a wrapper of *demultiplex* and *count*), since *count* would have to be called for every pattern individually. If you have a FASTQ with several modalities/ a hierachical pattern we recommend to run ESGIs tools individually: 1.) run *demultiplex* in multi-pattern mode (see demultiplex --help) and for the individual outputs of *demultiplex* (one for every pattern) run *count*
+- at the moment the multi-pattern option is supported by ESGI only if all patterns belong to the same modality (this is because *count* is called only once in ESGI for all patterns together) and the number of columns, positions of single-cell barcodes, etc. is the same in all patterns. An example for this could be if the data contains reads with different barcodes at the barcode elements positions, different barcodes have different constant linkers attached, or certain barcodes at one positions were only combined with certain other barcodes at a later position etc. and the user wants to explicitely state these different patterns (for more details see website). Still all barcodes are at the same position and can all be counted together. If you have a FASTQ with several modalities/ a hierachical pattern we recommend to run ESGIs tools individually: 1.) run *demultiplex* in multi-pattern mode (see demultiplex --help) and for the individual outputs of *demultiplex* (one for every pattern) run *count*.
 
 
