@@ -141,6 +141,16 @@ int main(int argc, char** argv)
     //this structure keeps track of those
     ESGIIntermediateFiles intermediateFiles;
 
+    //check validity of pattern file: the number of patterns must be the same, UMIs and barcode files must be at same positions
+    std::vector<std::pair<std::string, std::vector<std::string>>> patterns = parse_pattern_file(config.patternFile);
+    check_pattern_validity(patterns);
+    if(patterns.size() > 1){config.combinePatterns = 1;}
+    //if the barcode files in patterns are not in the same path as pattern copy them there
+    //because count will later use the path of pattern as the directory where to expect all barcode files
+    std::filesystem::path patternPath = config.patternFile;
+    std::filesystem::path directory = patternPath.parent_path();
+    copy_barcode_files_into_pattern_dir(patterns,directory);
+
     // #########################
     // call demultiplex
     // #########################
@@ -151,12 +161,11 @@ int main(int argc, char** argv)
     if(!run_demultiplex(config))
     {
         std::cerr << "EXITING ESGI: demultiplexing failed!\n";
+        exit(EXIT_FAILURE);
     }
     //output file of demultipelxed reads is DIR/PREFIX_(PATTERN_0 | PROTEIN).tsv
-    std::vector<std::pair<std::string, std::vector<std::string>>> patterns = parse_pattern_file(config.patternFile);
     std::vector<std::vector<int>> mismatches = parse_mismatch_file(config.mismatchesFile);
-    if(patterns.size() > 1 || mismatches.size() > 1){std::cerr << "For now ESGI can handle only a single pattern. If you want to demultiplex several patterns at once\n"\
-    "we recommend to use the tools demultiplex and count individually since every pattern might have different positions for different features.";}
+
     if(patterns.size() != mismatches.size() ){std::cerr << "The number of patterns in pattern file is not equal to the number of mismatches in mismatch file. Even the \
     [-],[*] patterns need an arbitrary mismatch number like 0\n";}
     // if we have no RNA data the extension is tsv, if we do have a RNA pattern we have a tsv and a fastq file

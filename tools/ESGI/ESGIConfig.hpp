@@ -43,6 +43,7 @@ struct ESGIConfig
     double umiThreshold = 0.0;
     double umiAbundance = 0.2;
     std::string starFeature = "GX";
+    bool combinePatterns = false; //if several patterns are present, ESGI checks that they ahve the same structure and combines them
 
     void write(std::ostream& os = std::cout) const
     {

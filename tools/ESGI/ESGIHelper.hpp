@@ -89,6 +89,146 @@ inline bool call_demultiplex(const ESGIConfig& config)
     return true;
 }
 
+inline bool is_digits_then_X(const std::string& s) 
+{
+    if (s.back() != 'X') return false;
+    for (size_t i = 0; i + 1 < s.size(); ++i) 
+    {
+        if (!std::isdigit(static_cast<unsigned char>(s[i]))) return false;
+    }
+    return true;
+}
+
+inline bool match_pattern_element_position(const std::string& a, const std::string& b)
+{
+    // UMI check
+    if (is_digits_then_X(a)) 
+    {
+        return is_digits_then_X(b);
+    }
+
+    // barcode file check
+    if (ends_with(a, ".txt")) 
+    {
+        return ends_with(b, ".txt");
+    }
+
+    // DNA
+    if (a == "DNA")
+    {
+        return b == "DNA";
+    }
+
+    if (a == "-")
+    {
+        return b == "-";
+    }
+
+    if (a == "*")
+    {
+        return b == "*";
+    }
+
+    // constant sequence A/C/G/T (case-insensitive set)
+    if (is_only_bases(a)) {
+        return is_only_bases(b);
+    }
+
+    // Fallback: true
+    return true;
+}
+
+inline void check_pattern_validity(const std::vector<std::pair<std::string, std::vector<std::string>>>& patterns)
+{
+    int pattern_num = -1;
+    std::vector<std::string> first_pattern;
+
+    for(const std::pair<std::string, std::vector<std::string>>& pattern_instance : patterns)
+    {
+        //store the first pattern and compare subsequent ones to this one
+        if(pattern_num == -1)
+        {
+            pattern_num = pattern_instance.second.size();
+            first_pattern = pattern_instance.second;
+        }
+        else
+        {
+            //check the pattern length
+            if(pattern_num != pattern_instance.second.size())
+            {
+                std::cerr << "EXITING ESGI: multiple patterns are provided but they are of different length!\n";
+                std::cerr << "ESGI can handle multiple-patterns only if all patterns have the same length and the same elements (like single-cell barcodes) at the same position!\n";
+                std::cerr << "Otherwise, please run demultiplex and count separately\n";
+                exit(EXIT_FAILURE);
+            }
+
+            //check individual pattern elements
+            for(int position = 0; position < pattern_num; ++position)
+            {
+                if(!match_pattern_element_position(pattern_instance.second.at(position), first_pattern.at(position)))
+                {
+                    std::cerr << "Elements in patterns are not the same!\n";
+                    std::cerr << "The elements " << pattern_instance.second.at(position) << " and " << first_pattern.at(position) << " are not the same elements.\n";
+                    std::cerr << "For multi-pattern mode with ESGI all patterns must follow the same structure, same single-cell barcodes, UMIs, etc. at the same position!\n";
+                    std::cerr << "If this is not the case for your data please run demultiplex and count separately\n";
+                    exit(EXIT_FAILURE);
+                }
+            }
+        }
+    }
+}
+
+inline void copy_barcode_files_into_pattern_dir(
+    const std::vector<std::pair<std::string, std::vector<std::string>>>& patterns,
+    const std::filesystem::path& target_dir)
+{
+    std::error_code ec;
+    // Check existence of pattern directory
+    if (!std::filesystem::exists(target_dir, ec) || ec) 
+    {
+        throw std::filesystem::filesystem_error(
+            "Target directory does not exist",
+            target_dir,
+            ec ? ec : std::make_error_code(std::errc::no_such_file_or_directory)
+        );
+    }
+
+    for (const auto& [patternName, items] : patterns) 
+    {
+        for (const auto& entry : items) 
+        {
+            if (!ends_with(entry, ".txt")) continue;
+            std::filesystem::path filePath(entry);
+
+            std::filesystem::path dest = target_dir / filePath.filename();
+            if (std::filesystem::exists(dest, ec) && !ec) 
+            {
+                continue;
+            }
+            if (ec) 
+            {
+                throw std::filesystem::filesystem_error("Error checking destination existence", dest, ec);
+            }
+
+            // Source must exist to copy
+            if (!std::filesystem::exists(filePath, ec) || ec) 
+            {
+                // You can choose to throw instead.
+                std::cerr << "Warning: source txt not found, cannot copy: " << filePath << "\n";
+                ec.clear();
+                continue;
+            }
+
+            // Copy file
+            ec.clear();
+            std::filesystem::copy_file(filePath, dest, std::filesystem::copy_options::none, ec);
+            if (ec) {
+                throw std::filesystem::filesystem_error("Failed to copy file", filePath, dest, ec);
+            }
+        }
+    }
+}
+
 inline bool run_demultiplex(const ESGIConfig& config)
 {
     //set the arguments of demultiplex from ESGIConfig - what otherwise the parse_arguments function did with the input parameters
@@ -103,6 +243,7 @@ inline bool run_demultiplex(const ESGIConfig& config)
     input.hamming = config.hamming;
     input.writeFailedLines = config.writeFailedLines;
     input.writeStats = config.writeStats;
+    input.combinePatterns = config.combinePatterns;
 
     // optional arguments
     if(config.reverse.has_value()){input.reverseFile = config.reverse.value();}

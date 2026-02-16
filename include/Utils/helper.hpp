@@ -134,6 +134,7 @@ struct input{
     bool hamming = false;
 
     bool precalculateIndels = true;
+    bool combinePatterns = false;
 
     unsigned int fastqReadBucketSize = 10000000;
     int threads = 5;
@@ -632,4 +633,27 @@ inline std::string trim(const std::string& str)
     }
     size_t end = str.find_last_not_of(whitespace);
     return str.substr(start, end - start + 1);
+}
+
+inline bool is_only_bases(const std::string& s) 
+{
+    if (s.empty()) return false; // decide: empty should not count as DNA bases
+    for (unsigned char ch : s) {
+        char c = static_cast<char>(ch);
+        switch (c) {
+            case 'A': case 'C': case 'G': case 'T':
+            case 'a': case 'c': case 'g': case 't':
+                break;
+            default:
+                return false;
+        }
+    }
+    return true;
+}
+
+
+inline bool ends_with(const std::string& s, const std::string& suffix) 
+{
+    if(s.size() < suffix.size()){return false;}
+    return s.compare(s.size() - suffix.size(), suffix.size(), suffix) == 0;
 }

@@ -171,7 +171,15 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper_batch(const s
         //push demultiplexed line into vector for the right pattern, after processing batch it will be written
         if(result)
         {
-            demultiplexedBatch.at(foundPatternName).store_demultiplexed_read(finalDemultiplexedLine);
+            //if all patterns should be combine to one, we use the pattern-element names of the first pattern to store all patterns
+            if(input.combinePatterns)
+            {
+                demultiplexedBatch.at(patternVectorPtr->front()->patternName).store_demultiplexed_read(finalDemultiplexedLine);
+            }
+            else
+            {
+                demultiplexedBatch.at(foundPatternName).store_demultiplexed_read(finalDemultiplexedLine);
+            }
         }
         else if(!result && input.writeFailedLines)
         {
@@ -217,13 +225,22 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper_batch(const s
 
     //NEW BATCH WRITING FUNCTIONS
     //write found lines
-    for(const BarcodePatternPtr& pattern : *patternVectorPtr)
+    if(input.combinePatterns)
     {
-        fileWriter->write_demultiplexed_batch(fileWriter->get_streams_for_threadID(boost::this_thread::get_id(), pattern->patternName), 
-                                              demultiplexedBatch.at( pattern->patternName), 
-                                              boost::this_thread::get_id(), pattern->containsDNA);  
+        fileWriter->write_demultiplexed_batch(fileWriter->get_streams_for_threadID(boost::this_thread::get_id(), patternVectorPtr->front()->patternName), 
+                                            demultiplexedBatch.at( patternVectorPtr->front()->patternName), 
+                                            boost::this_thread::get_id(), patternVectorPtr->front()->containsDNA); 
     }
-    
+    else
+    {
+        for(const BarcodePatternPtr& pattern : *patternVectorPtr)
+        {
+            fileWriter->write_demultiplexed_batch(fileWriter->get_streams_for_threadID(boost::this_thread::get_id(), pattern->patternName), 
+                                                demultiplexedBatch.at( pattern->patternName), 
+                                                boost::this_thread::get_id(), pattern->containsDNA);  
+        }
+    }
+
     //write failed lines   
     if(input.writeFailedLines)
     {

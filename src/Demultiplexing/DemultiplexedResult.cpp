@@ -1,5 +1,39 @@
 #include "DemultiplexedResult.hpp"
 
+std::string make_new_file(const std::vector<std::string>& v)
+{
+    if (v.empty()) return "";
+
+    std::string result = v[0];
+
+    for (size_t i = 1; i < v.size(); ++i) 
+    {
+        result += "&";
+        result += v[i];
+    }
+    result += ".txt";
+
+    return result;
+}
+
+std::string read_file_to_string(const std::filesystem::path& p)
+{
+    std::ifstream in(p, std::ios::binary);
+    if (!in) {
+        throw std::runtime_error("Cannot open file: " + p.string());
+    }
+    std::ostringstream oss;
+    oss << in.rdbuf();
+    return oss.str();
+}
+
+void trim_inplace(std::string& s)
+{
+    auto notspace = [](unsigned char c){ return !std::isspace(c); };
+    s.erase(s.begin(), std::find_if(s.begin(), s.end(), notspace));
+    s.erase(std::find_if(s.rbegin(), s.rend(), notspace).base(), s.end());
+}
+
 void DemultiplexedResult::concatenateFiles(const std::vector<std::string>& tmpFileList,
                                            const std::string& outputFile) 
 {
@@ -89,6 +123,7 @@ void DemultiplexedResult::write_demultiplexed_batch(TmpPatternStream& lineStream
         //local buffer to save the whole batch of demultiplexed lines
         write_barcode_line(lineStream, barcodeLineBuffer, line, threadID);
     }
+
     // Write the full line in one go (one I/O call)
     *(lineStream.barcodeStream) << barcodeLineBuffer.str();
 
@@ -103,6 +138,7 @@ void DemultiplexedResult::write_demultiplexed_batch(TmpPatternStream& lineStream
         }
         *(lineStream.dnaStream) << dnaLineBuffer.str();
     }
+
 }
 
 void DemultiplexedResult::close_and_concatenate_fileStreams(const input& input)
@@ -139,6 +175,7 @@ void DemultiplexedResult::close_and_concatenate_fileStreams(const input& input)
     }
 
     //2.) CONCATENATE all files
+
     //CONCATENATE FAILED LINES
     //FAILED LINES FORWARDS
     std::vector<std::string> failedFileListFW;
@@ -410,6 +447,227 @@ void DemultiplexedResult::initialize_output_for_pattern(const std::string& outpu
     barcodeOutputStream.close();
 }
 
+//overwrite of initialize_output_for_pattern
+// this function is called when patterns are supposed to be combined
+// we combine patterns/ write all possible barcodes into new barcode files that will be used by count
+// (count scanns the barcode files first to map barcodes to an ID like AGCTATCG==SC_ID1)
+// the header will then be a mix like BC1&BC2.txt
+void DemultiplexedResult::initialize_output_for_pattern(const std::string& output, const std::string& prefix, const MultipleBarcodePatternVectorPtr& patterns)
+{
+    //we get the name of the FIRST pattern, also checks on DNA-presence etc are done on this, but ESGI enforces
+    //structures across patterns to be the same, so if PATTERN_1 has DNA so does PATTERN_2
+    const BarcodePatternPtr pattern = patterns->front();
+
+    // 1.) INITIALIZE TWO FILES
+    FinalPatternFiles patternOutputs;
+   
+    //fastq-file with the RNA sequence
+    patternOutputs.dnaFile = "";
+    //if pattern contains DNA we write a tsv and FASTQ file
+    if(pattern->containsDNA)
+    {
+        //tsv-file with barcodes
+        std::string barcodeTsvFileName = stripQuotes(pattern->patternName) + ".tsv";
+        if(prefix != "")
+        {
+            barcodeTsvFileName = prefix + "_" + barcodeTsvFileName;
+        }
+        patternOutputs.barcodeFile = output + "/" + barcodeTsvFileName;
+        std::remove(patternOutputs.barcodeFile.c_str());
+
+        //fastq file
+        std::string fastqFileName = stripQuotes(pattern->patternName) + ".fastq";
+        if(prefix != "")
+        {
+            fastqFileName = prefix + "_" + fastqFileName;
+        }
+        patternOutputs.dnaFile = output + "/" + fastqFileName;
+        std::remove(patternOutputs.dnaFile.c_str());
+
+        //STORE OUTPUT-FILE NAMES IN LIST
+        finalFiles[pattern->patternName] = patternOutputs;
+    }
+    else //otherwise we write ONLY a tsv file of barcodes and initialize the DemultiplexedReads structure to store found reads
+    {
+        std::string barcodeTsvFileName = stripQuotes(pattern->patternName) + ".tsv";
+        if(prefix != "")
+        {
+            barcodeTsvFileName = prefix + "_" + barcodeTsvFileName;
+        }
+        patternOutputs.barcodeFile = output + "/" + barcodeTsvFileName;
+        std::remove(patternOutputs.barcodeFile.c_str());
+
+        //for every pattern create a sharedPtr of DemultiplexedReads
+        //demultiplexedReads.emplace(pattern->patternName, std::make_shared<DemultiplexedReads>());
+        
+        //STORE OUTPUT-FILE NAMES IN LIST
+        finalFiles[pattern->patternName] = patternOutputs;
+    }
+
+    //2) WRITE HEADER OF BARCODE DATA   (if barcodes correspont to a fastq, the first column stores the read names)
+    //write header line for barcode file: e.g.: [ACGGCATG][BC1.txt][15X]
+    std::ofstream barcodeOutputStream;   
+    barcodeOutputStream.open(patternOutputs.barcodeFile, std::ios::out | std::ios::binary);
+
+    //store the read name in the first column
+    barcodeOutputStream << "READNAME";
+    //print header for the general pattern
+    for(size_t bidx = 0; bidx < (pattern->barcodePattern)->size(); ++bidx)
+    {
+        BarcodePtr bptr = (pattern->barcodePattern)->at(bidx);
+        //stop and DNA pattern should not be written
+        if( (bptr->name != "*") && (bptr->name != "DNA") && (bptr->name != "-"))
+        {
+            //iterate over patterns and combine the barcodes to a new barcode file
+            std::vector<std::string> fileNames;
+            std::vector<std::filesystem::path> filePaths;
+            std::string path;
+            bool pathSet = false;
+            std::string newContent;
+            std::string newColName = bptr->name;
+
+            if(ends_with(bptr->name,".txt"))
+            {
+                int currentPattern = 0;
+                for(const BarcodePatternPtr& onePattern : *patterns)
+                {
+                    BarcodePtr oneBarcodePtr = (onePattern->barcodePattern)->at(bidx);
+
+                    std::filesystem::path filePath(oneBarcodePtr->name);
+                    auto it = std::find(filePaths.begin(), filePaths.end(), filePath);
+                    if (it != filePaths.end()) {continue;}
+                    else{filePaths.push_back(filePath);}
+
+                    fileNames.push_back(filePath.stem().string());
+                    if(!pathSet)
+                    {
+                        std::filesystem::path dir = filePath.parent_path();
+                        path = dir.string();
+                        pathSet = true;
+                    }
+
+                    //read content
+                    std::string content = read_file_to_string(filePath);
+                    trim_inplace(content);
+
+                    if(currentPattern == 0)
+                    {
+                        newContent += content;
+                    }
+                    else
+                    {
+                        newContent = newContent + "," + content;
+                    }
+                    ++currentPattern;
+                }
+
+                //create a new file that stores all possible barcodes
+                newColName = make_new_file(fileNames);
+                std::string newFile = path + "/" + newColName;
+
+                std::error_code ec;
+                // Create the file
+                std::ofstream out(newFile);
+                if (!out) {
+                    throw std::runtime_error("Failed to create file");
+                }
+                out << newContent;
+                out.close();
+            }
+
+            //write tabs before next header-col
+            //like this we avoid wrong tabs in the front or back by just checking the for first/last headers since some headers aren t written
+            //like *, -, ...
+            strip_crlf(newColName);
+            barcodeOutputStream << "\t" << newColName;
+        }
+    }
+    //if we are in independent mode (seperate mapping of reverse and forward read, both 5'->3' direction)
+    //the headers are stored in seperate vector
+    // IMPORTANT: the [-] pattern-elemnt is ALWAYS ONLY stored in the forward read
+    if(pattern->independentReversePattern)
+    {
+        for(size_t bidx = 0; bidx < (pattern->independentReversePattern)->size(); ++bidx)
+        {
+
+
+            BarcodePtr bptr = (pattern->independentReversePattern)->at(bidx);
+            //stop and DNA pattern should not be written
+
+            if( (bptr->name != "*") && (bptr->name != "DNA") && (bptr->name != "-"))
+            {
+                //iterate over patterns and combine the barcodes to a new barcode file
+                std::vector<std::string> fileNames;
+                std::string path;
+                bool pathSet = false;
+                std::string newContent;
+                std::vector<std::filesystem::path> filePaths;
+                std::string newColName = bptr->name;
+
+                if(ends_with(bptr->name,".txt"))
+                {
+                    int currentPattern = 0;
+                    for(const BarcodePatternPtr& onePattern : *patterns)
+                    {
+                        BarcodePtr oneBarcodePtr = (onePattern->barcodePattern)->at(bidx);
+
+                        std::filesystem::path filePath(oneBarcodePtr->name);
+                        auto it = std::find(filePaths.begin(), filePaths.end(), filePath);
+                        if (it != filePaths.end()) {continue;}
+                        else{filePaths.push_back(filePath);}
+
+                        fileNames.push_back(filePath.stem().string());
+                        if(!pathSet)
+                        {
+                            std::filesystem::path dir = filePath.parent_path();
+                            path = dir.string();
+                            pathSet = true;
+                        }
+
+                        //read content
+                        std::string content = read_file_to_string(filePath);
+                        trim_inplace(content);
+
+                        if(currentPattern == 0)
+                        {
+                            newContent += content;
+                        }
+                        else
+                        {
+                            newContent = newContent + "," + content;
+                        }
+                        ++currentPattern;
+                    }
+
+                    //create a new file that stores all possible barcodes
+                    newColName = make_new_file(fileNames);
+                    std::string newFile = path + "/" + newColName;
+
+                    std::error_code ec;
+                    // Create the file
+                    std::ofstream out(newFile);
+                    if (!out) {
+                        throw std::runtime_error("Failed to create file");
+                    }
+                    out << newContent;
+                    out.close();
+                }
+
+                //write tabs before next header-col
+                //like this we avoid wrong tabs in the front or back by just checking the for first/last headers since some headers aren t written
+                //like *, -, ...
+                strip_crlf(newColName);
+                barcodeOutputStream << "\t" << newColName;
+
+            }
+
+
+        }
+    }
+    barcodeOutputStream << "\n";
+    barcodeOutputStream.close();
+}
+
 /// calls output initializer functions and gets the barcode mapping structure from Mapping object, since this will the header of the output file
 // create backbone files for barcoding patterns that will be mapped: e.g.: FASTQ for RNA, txt with heads for barcode-files for CI, spatial, other stuff
 //the file will be anmed after pattern name
@@ -417,9 +675,17 @@ void DemultiplexedResult::initialize(const input& input, const MultipleBarcodePa
 {
     //TO DO
     //parse through the barcodePatterns, make file of pattern name
-    for(const BarcodePatternPtr& barcodePattern : *barcodePatternList)
+    if(input.combinePatterns == true)
     {
-        initialize_output_for_pattern(input.outPath, input.prefix, barcodePattern);
+        //initilaize only ONE pattern and write all possible barcodes into shared_pattern barcode files
+        initialize_output_for_pattern(input.outPath, input.prefix, barcodePatternList);
+    }
+    else
+    {
+        for(const BarcodePatternPtr& barcodePattern : *barcodePatternList)
+        {
+            initialize_output_for_pattern(input.outPath, input.prefix, barcodePattern);
+        }
     }
 
     //create universal output files

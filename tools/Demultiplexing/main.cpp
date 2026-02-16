@@ -125,6 +125,10 @@ bool parse_arguments(char** argv, int argc, input& input)
             "More memory-efficient mode: set to 0 to NOT precalculate indel maps. \
             Indels are computed on the fly during mapping, reducing RAM usage at the cost of runtime. \
             For single-cell protocols with many barcodes (like 10X), we recommend to precompute indels\n")
+            ("combinePatterns,c", value<bool>(&(input.combinePatterns))->default_value(false),
+            "Set combinePatterns to true if ALL patterns should be counted together. In this case all demultiplexed reads will be written to the same \
+            output file, with headers taken from the first pattern. This can be useful if we have sevaral patterns with different barcodes, different linkers, etc. \
+            However, the order of pattern elments is the same and they should be counted together. (ESGI can only run in this mode setting combinePatterns always to true) \n")
 
             ("help,h", "help message");
 

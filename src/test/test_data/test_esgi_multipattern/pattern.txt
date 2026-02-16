@@ -1,0 +1,2 @@
+STRUCTURE_1:[src/test/test_data/test_esgi_multipattern/BC_AB.txt][-][src/test/test_data/test_esgi_multipattern/BC1_1.txt][22X][src/test/test_data/test_esgi_multipattern/BC2_3.txt][30X][src/test/test_data/test_esgi_multipattern/BC2_3.txt][10X]
+STRUCTURE_2:[src/test/test_data/test_esgi_multipattern/BC_AB.txt][-][src/test/test_data/test_esgi_multipattern/BC1_2.txt][22X][src/test/test_data/test_esgi_multipattern/BC2_3.txt][30X][src/test/test_data/test_esgi_multipattern/BC2_3.txt][10X]
