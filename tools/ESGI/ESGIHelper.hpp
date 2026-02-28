@@ -32,19 +32,19 @@ inline int get_special_pattern_pos(const std::vector<std::string>& patterns)
         else if (patterns[i] == "[*]" && posDash!=-1){std::cerr << "The pattern [*] can only be used ONCE in a pattern! Everything 'behind' this pattern in reading direction is not considered anymore for demultiplexing\n";}
     }
 
-    // Case 1: neither found
+    // neither found
     if (posDash == -1 && posStar == -1) return-1;
 
-    // Case 2: only one found
-    if (posDash != -1) return posDash;
-    if (posStar != -1) return posStar;
-
-    // Case 3: both found - throw error
+    //both found - throw error
     if (posStar != -1 && posDash != -1)
     {
         std::cerr << "Error: [-] and [*] can not be used together. You can only use one of them! [*] already implicitely denotes the end of the strand, as nothing is demultiplexed beyond this sign\
         making an additional [-] obsolete\n";
     }
+
+    // only one found
+    if (posDash != -1) return posDash;
+    if (posStar != -1) return posStar;
 
     return -1;
 }
@@ -138,7 +138,90 @@ inline bool match_pattern_element_position(const std::string& a, const std::stri
     return true;
 }
 
-inline void check_pattern_validity(const std::vector<std::pair<std::string, std::vector<std::string>>>& patterns)
+double parseNumber(const std::string& s) 
+{
+    std::string str = trim(s);
+    if (str.empty())
+        throw std::invalid_argument("Empty string is not a number.");
+
+    size_t pos = 0;
+    double value;
+
+    try {
+        value = std::stod(str, &pos);
+    } catch (...) {
+        throw std::invalid_argument("Invalid number: " + str);
+    }
+
+    // Ensure entire string was parsed
+    if (pos != str.size())
+        throw std::invalid_argument("Invalid number: " + str);
+
+    return value;
+}
+
+bool checkSingleNumber(const std::string& input, int x) 
+{
+    double value = parseNumber(input);
+
+    if (value >= x) 
+    {
+        return false;
+    }
+    return true;
+}
+// Overload for std::optional<std::string>
+bool checkSingleNumber(const std::optional<std::string>& input, int x)
+{
+    // Decide what to do if there is no value:
+    // Here: if it's empty, we treat it as "no number" → return true
+    if (!input.has_value())
+    {
+        return true;
+    }
+
+    // Forward to the string version
+    return checkSingleNumber(*input, x);
+}
+
+bool checkCommaSeparatedNumbers(const std::string& input, int x) 
+{
+    std::stringstream ss(input);
+    std::string token;
+
+    if (trim(input).empty())
+        throw std::invalid_argument("Input string is empty.");
+
+    while (std::getline(ss, token, ',')) 
+    {
+        double value = parseNumber(token);
+
+        if (value >= x) 
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+void checkIfUMIContainsComma(const std::optional<std::string>& umiOpt) 
+{
+    if (!umiOpt.has_value()) {
+        // No UMI specified → nothing to check
+        return;
+    }
+
+    const std::string& umi = *umiOpt;  // or umiOpt.value()
+
+    if (umi.find(',') != std::string::npos) 
+    {
+        std::cerr << "Error: ESGI does not support multi UMIs right now. The standalone tool count does. Please use a single UMI or run count seperately\n.";
+        exit(EXIT_FAILURE);
+    }
+}
+
+inline void check_pattern_validity(const std::vector<std::pair<std::string, std::vector<std::string>>>& patterns,
+                                   const ESGIConfig& config)
 {
     int pattern_num = -1;
     std::vector<std::string> first_pattern;
@@ -176,6 +259,28 @@ inline void check_pattern_validity(const std::vector<std::pair<std::string, std:
             }
         }
     }
+
+    //ESGI can run only with one UMI for now, as we parse the UMI-mismatch number from mismatches and do not add them
+    //if we have several UMIs
+    checkIfUMIContainsComma(config.UMI_ID);
+    //check that pattern size is > UMI_ID, SC_ID and FEATURE_ID
+    // (checks for pattern.size == mismatch.size exist)
+    if(!checkSingleNumber(config.UMI_ID, patterns.at(0).second.size()))
+    {
+        std::cerr << "Error: UMI index is larger than the number of pattern elements. Remember indexing start from 0.\n";
+        exit(EXIT_FAILURE);
+    }
+    if(!checkCommaSeparatedNumbers( config.SC_ID, patterns.at(0).second.size()))
+    {
+        std::cerr << "Error: The single-cell indices contain a number larger than the number of pattern elements. Remember indexing start from 0.\n";
+        exit(EXIT_FAILURE);
+    }
+    if(!checkSingleNumber(config.FEATURE_ID, patterns.at(0).second.size()))
+    {
+        std::cerr << "Error: Feature index is larger than the number of pattern elements. Remember indexing start from 0.\n";
+        exit(EXIT_FAILURE);
+    } 
+
 }
 
 inline void copy_barcode_files_into_pattern_dir(
@@ -517,7 +622,7 @@ std::string adjust_position_due_to_special_patterns(const std::string& indexList
         int dnaShift = 0;
         if(intermediateFiles.dnaPatternPos >= 0 && v > intermediateFiles.dnaPatternPos){dnaShift = -1;}
         //if the index is behind a -,* we need to substract one bcs this poattern is not in the demultiplex output
-        if (v > intermediateFiles.specialPatternPos) v -= 1;
+        if (intermediateFiles.specialPatternPos != -1 && v > intermediateFiles.specialPatternPos) v -= 1;
         //also we need to add 1 to every column, bcs we will ahve the additional READNAME column
         v += 1;
         //and finally add the dna shift
@@ -544,25 +649,24 @@ inline bool call_count(ESGIConfig& config, const ESGIIntermediateFiles& intermed
     std::filesystem::path dir = patternPath.parent_path();
 
     //index re-assignment due to -,*
-    if(intermediateFiles.specialPatternPos!= -1 || dnaPatternPresent)
+    std::cout << "adjusting pos due to special patt\n";
+    config.SC_ID = adjust_position_due_to_special_patterns(config.SC_ID, intermediateFiles);
+    if(intermediateFiles.dnaPatternPos >=0)
     {
-        config.SC_ID = adjust_position_due_to_special_patterns(config.SC_ID, intermediateFiles);
-        if(intermediateFiles.dnaPatternPos >=0)
-        {
-            // if we have a DNA pattern, we firstly set the FEATURE column index to patternlength
-            // as the DNA is added as a last column, o-indexed it is at position patternlength
-            config.FEATURE_ID = std::to_string(intermediateFiles.patternLength);            
-            //however, if there were special patterns (like -,*) that are not in the demultiplexed output we need to adust the FEATURE column index
-            //basically: -1 for removing the DNA pattern, -1 if there is a -,* and +1 for READNAME col
-            config.FEATURE_ID = adjust_position_due_to_special_patterns(config.FEATURE_ID, intermediateFiles);
-        }
-        else
-        {
-            config.FEATURE_ID = adjust_position_due_to_special_patterns(config.FEATURE_ID, intermediateFiles);
-        }
-        if(config.UMI_ID.has_value()){config.UMI_ID = adjust_position_due_to_special_patterns(config.UMI_ID.value(), intermediateFiles);}
-        if(config.ANNOTATION_IDs.has_value()){config.ANNOTATION_IDs = adjust_position_due_to_special_patterns(config.ANNOTATION_IDs.value(), intermediateFiles);}
+        // if we have a DNA pattern, we firstly set the FEATURE column index to patternlength
+        // as the DNA is added as a last column, o-indexed it is at position patternlength
+        config.FEATURE_ID = std::to_string(intermediateFiles.patternLength);            
+        //however, if there were special patterns (like -,*) that are not in the demultiplexed output we need to adust the FEATURE column index
+        //basically: -1 for removing the DNA pattern, -1 if there is a -,* and +1 for READNAME col
+        config.FEATURE_ID = adjust_position_due_to_special_patterns(config.FEATURE_ID, intermediateFiles);
     }
+    else
+    {
+        config.FEATURE_ID = adjust_position_due_to_special_patterns(config.FEATURE_ID, intermediateFiles);
+    }
+    if(config.UMI_ID.has_value()){config.UMI_ID = adjust_position_due_to_special_patterns(config.UMI_ID.value(), intermediateFiles);}
+    if(config.ANNOTATION_IDs.has_value()){config.ANNOTATION_IDs = adjust_position_due_to_special_patterns(config.ANNOTATION_IDs.value(), intermediateFiles);}
+
 
     // Build command string with parameters
     std::string cmd = toolPath.string() +
@@ -722,32 +826,30 @@ std::unordered_map<int, std::unordered_map<std::string, std::string >> generateA
 }
 
 
-inline bool run_count(ESGIConfig& config, const ESGIIntermediateFiles& intermediateFiles, const bool dnaPatternPresent)
+inline bool run_count(ESGIConfig& config, const ESGIIntermediateFiles& intermediateFiles)
 {
     std::filesystem::path toolPath = std::filesystem::path("bin") / "count";
     std::filesystem::path patternPath(config.patternFile);
     std::filesystem::path dir = patternPath.parent_path();
 
     //index re-assignment due to -,*
-    if(intermediateFiles.specialPatternPos!= -1 || dnaPatternPresent)
+    config.SC_ID = adjust_position_due_to_special_patterns(config.SC_ID, intermediateFiles);
+
+    if(intermediateFiles.dnaPatternPos >=0)
     {
-        config.SC_ID = adjust_position_due_to_special_patterns(config.SC_ID, intermediateFiles);
-        if(intermediateFiles.dnaPatternPos >=0)
-        {
-            // if we have a DNA pattern, we firstly set the FEATURE column index to patternlength
-            // as the DNA is added as a last column, o-indexed it is at position patternlength
-            config.FEATURE_ID = std::to_string(intermediateFiles.patternLength);            
-            //however, if there were special patterns (like -,*) that are not in the demultiplexed output we need to adust the FEATURE column index
-            //basically: -1 for removing the DNA pattern, -1 if there is a -,* and +1 for READNAME col
-            config.FEATURE_ID = adjust_position_due_to_special_patterns(config.FEATURE_ID, intermediateFiles);
-        }
-        else
-        {
-            config.FEATURE_ID = adjust_position_due_to_special_patterns(config.FEATURE_ID, intermediateFiles);
-        }
-        if(config.UMI_ID.has_value()){config.UMI_ID = adjust_position_due_to_special_patterns(config.UMI_ID.value(), intermediateFiles);}
-        if(config.ANNOTATION_IDs.has_value()){config.ANNOTATION_IDs = adjust_position_due_to_special_patterns(config.ANNOTATION_IDs.value(), intermediateFiles);}
+        // if we have a DNA pattern, we firstly set the FEATURE column index to patternlength
+        // as the DNA is added as a last column, o-indexed it is at position patternlength
+        config.FEATURE_ID = std::to_string(intermediateFiles.patternLength);            
+        //however, if there were special patterns (like -,*) that are not in the demultiplexed output we need to adust the FEATURE column index
+        //basically: -1 for removing the DNA pattern, -1 if there is a -,* and +1 for READNAME col
+        config.FEATURE_ID = adjust_position_due_to_special_patterns(config.FEATURE_ID, intermediateFiles);
     }
+    else
+    {
+        config.FEATURE_ID = adjust_position_due_to_special_patterns(config.FEATURE_ID, intermediateFiles);
+    }
+    if(config.UMI_ID.has_value()){config.UMI_ID = adjust_position_due_to_special_patterns(config.UMI_ID.value(), intermediateFiles);}
+    if(config.ANNOTATION_IDs.has_value()){config.ANNOTATION_IDs = adjust_position_due_to_special_patterns(config.ANNOTATION_IDs.value(), intermediateFiles);}
 
     //below running the code of count main
     try

@@ -143,7 +143,7 @@ int main(int argc, char** argv)
 
     //check validity of pattern file: the number of patterns must be the same, UMIs and barcode files must be at same positions
     std::vector<std::pair<std::string, std::vector<std::string>>> patterns = parse_pattern_file(config.patternFile);
-    check_pattern_validity(patterns);
+    check_pattern_validity(patterns, config);
     if(patterns.size() > 1){config.combinePatterns = 1;}
     //if the barcode files in patterns are not in the same path as pattern copy them there
     //because count will later use the path of pattern as the directory where to expect all barcode files
@@ -242,7 +242,7 @@ int main(int argc, char** argv)
         intermediateFiles.countingInput = countingOutputPath.string();
     }
     
-    if(!run_count(config, intermediateFiles, dnaPatternPresent))
+    if(!run_count(config, intermediateFiles))
     {
         std::cerr << "EXITING ESGI: counting failed!\n";
     }

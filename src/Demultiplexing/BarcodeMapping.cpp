@@ -220,6 +220,12 @@ std::vector<std::pair<std::string, std::vector<std::string>>> parse_pattern_file
         }
     }
 
+    if(patternList.size()==0)
+    {
+        std::cerr << "Reading the pattern file was not successful and seems empty. Please double check that the file contains pattern information\n";
+        exit(EXIT_FAILURE);
+    }
+
     return(patternList);
 }
 
@@ -268,6 +274,12 @@ std::vector<std::vector<int>> parse_mismatch_file(const std::string& mismatchFil
         //push the vector of mismatches into the mismatchList which stores all vectors of mismatches
         //for every pattern line
         mismatchList.push_back(mismatches);
+    }
+
+    if(mismatchList.size()==0)
+    {
+        std::cerr << "Reading the mismatch file was not successful. Please double check that the file contains mismatch information\n";
+        exit(EXIT_FAILURE);
     }
 
     return(mismatchList);

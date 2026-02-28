@@ -553,6 +553,7 @@ endif
 test_esgi:
 	./bin/esgi src/test/test_data/test_esgi/esgi_example.ini
 	./bin/esgi src/test/test_data/test_esgi_multipattern/esgi_example_multipattern.ini
+	./bin/esgi src/test/test_data/test_esgi_multipattern_2/esgi_example_multipattern_2.ini
 
 # mini test example, using a tiny index-example from chr21 only
 test_esgi_RNA:
