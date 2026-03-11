@@ -76,6 +76,12 @@ You can run ESGI with an initialization-file (file-ending=.ini) that contains al
 ```
 
 The myExperiment.ini could look like this:
+
+Next to the input files the ini needs to state at least:
+- the pattern-file: a txt file that contains the pattern(s) that should be matched to the input sequences 
+- the mismatch-file: a txt file with comma-seperated mismatched for every element in the pattern-file
+- the IDs for single-cells, features, UMIs if present (these are the positions of elements in the pattern-file, where indexing starts from 0)
+  
 ```ini
   # THIS IS A MINIMAL EXAMPLE FOR THE .INI FILE
   # THE FILE IS NOT WHITESPACE SENSITIVE
@@ -112,19 +118,36 @@ The myExperiment.ini could look like this:
 
 ```
 
-with additional files looking like this:
+Below are examples of the additional files given in the ini:
 
-pattern.txt
-(barcodes are defined in .txt files, UMIs are defined by [<base-number>X] - for more detail look into the documentation)
+The pattern that should be mapped to the sequences is written into the pattern.txt file.
+The file can contain one or several patterns, every additional pattern must be written in a new row.
+This file lists all pattern-elements like barcodes, UMIs, etc. and those elements are enclosed by squared brackets.
+The pattern can have a name (e.g., PATTERN_NAME:). This is not required, but can be handy if several patterns are provided, as ESGI creates one file of demultiplexed reads for every pattern.
+Possible elements inlude:
+  - a constant nucleotide sequence given as string of A,G,C,Ts, e.g. [GCATTACG] 
+  - barcode sequences, that are given by the path to a txt file. This file contains a comma-seperated list of all possible barcodes at this position.
+  - UMI stated as <number>X, e.g. [15X]
+  - genomic sequences like RNA/DNA, that need to be aligned to a reference genome with STAR, are listed as [DNA].
+ESGI makes use of two additional elements for special barcoding cases:
+  - [-] seperates forward/reverse read strictly. The pattern generally covers the forward and reverse read (assuming reverse complements of the reverse read).
+    Sometimes the user might not have an overlap and wants to strictly seperate the pattern for the forward and reverse read. In that case [-] can be used. Be aware
+    that ESGI expects per default an overlap of forward and reverse read, therefore, even when supplying the [-] element, the elements after [-] would map to the end of the           reverse complement of the reverse read. If this is not wanted the user can set the indepent-parameter (run esgi --help for more info).
+    Example: [ACCAGT][-][BC_reverse.txt][AAA]. We would expect in the reverse-reads following sequence: TTT followed by the reverse complement of a sequence in BC_reverse.
+    If we add a line independent=1 in the ini we expect the reverse-read to start with a barcode from BC_reverse (NOT the reverse complement of the barcode) followed by AAA.
+ - [*] says we simply stop mapping when encountering this element from the forward or reverse read. Can be handy if there is a sequqence in the middle of the read that we are not    interested in.
+
 ```txt
 PATTERN_NAME:[GCATTACG][/USER/DATA/MYEXPERIMENT/BC1.txt][CAGTACCG][/USER/DATA/MYEXPERIMENT/ANTIBODY_BC.txt][10X][/USER/DATA/MYEXPERIMENT/BC2.txt]
 ```
 mismatches.txt
+This file states the allowed number of mismatches in every pattern and for the UMI with how many mismatches UMIs are corrected.
 (2 MM in constant elements, 1MM in barcode elements and aligning UMIs with 1MM)
 ```txt
 2,1,2,1,1,1
 ```
 
+Finally, some examples for the files containing the barcodes, or names for features, conditions, that can be additionally assigned if needed.
 BC1.txt
 ```txt
 AC,CACA,GACTGA,GAACTGAA
