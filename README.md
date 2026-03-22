@@ -6,7 +6,7 @@
 [![WINDOWS BUILD](https://github.com/tstohn/CombinatorialIndexingPipeline/actions/workflows/windows.yml/badge.svg)](https://github.com/tstohn/CombinatorialIndexingPipeline/actions/workflows/windows.yml)
 
 
-<img src=https://github.com/tstohn/CombinatorialIndexingPipeline/blob/master/docs/media/DemultiplexingLogo.png width="200" />
+<img src=https://github.com/tstohn/CombinatorialIndexingPipeline/blob/master/docs/media/SYMBOL.png width="200" />
 
 Pipeline for demultiplexing and counting generic barcoded sequencing data. Examples of technologies that can be demultiplexed are SPLiT-seq, Phospho-seq, SIGNAL-seq, scID-seq, spatial sequencing data and many,many more single-cell sequencing technologies. After demultiplexing ESGI runs UMI collapsing and creates a single-cell * feature matrix and can count any barcoded modality like RNA, antibody-tagged sequences, etc. 
 Any arbitrary barcode pattern can be mapped to the reads, where the pattern can include: 
