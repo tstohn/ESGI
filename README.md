@@ -186,7 +186,7 @@ stagger_barcodes.txt
 AGGGG,ACGGGG,ACGGGGG,ACGTGGGG
 ```
 
-2.) The second option would be to describe an individual pattern for every stagger, and allow only for no or very little mismatches in the staggers with very few nucleotides. This way we prevent to map a wrong barcode with insertions/deletions to a stagger. Additionally, you could map with hamming distance only in the barcodes with the -H flag.
+2.) The second option would be to describe an individual pattern for every stagger, and allow only for no or very little mismatches in the staggers with very few nucleotides. This way we prevent to map a wrong barcode with insertions/deletions to a stagger. Additionally, you could map with hamming distance only in the barcodes with the '-H' flag when you run demultiplex or by adding this line to the ESGI ini-file 'hamming=1'.
 
 pattern.txt
 ```txt
