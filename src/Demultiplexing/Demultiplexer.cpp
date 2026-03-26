@@ -151,6 +151,13 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper_batch(const s
             //write demultiplexed information into demultiplexedLine, this is passed by reference and can be accessed here
             if(this->demultiplex_read(line, tmpDemultiplexedLine, pattern, input, lineCount, totalReadCount, tmpPatternScore, lineStatsPtr) && tmpPatternScore < bestPatternScore)
             {
+                if(bestPatternScore != std::numeric_limits<int>::max())
+                {
+                    std::cout << "Warning: We previously found a matching pattern (" << foundPatternName << ") with " << bestPatternScore << " mismatches\n";
+                    std::cout << "Now we found a better matching pattern: " << pattern->patternName << " with " << tmpPatternScore << " mismatches.\n";
+                    std::cout << "This can happen when patterns are VERY similar (e.g., only difference is staggers). In that case do not worry. But maybe \
+                    you want to allow less mismatches inside the stagger element or the element following the stagger to get more unique matches\n.";
+                }
                 foundPatternName = pattern->patternName;
                 result = true;
                 finalDemultiplexedLine = tmpDemultiplexedLine;
