@@ -184,7 +184,7 @@ void DemultiplexedResult::close_and_concatenate_fileStreams(const input& input)
     std::string failedLinesTmpFileNameFW;
     for(int i = 0; i < input.threads; ++i)
     {
-        failedLinesTmpFileNameFW = failedLines.first.substr(0, dotPos) + std::to_string(i) + failedLines.first.substr(dotPos);
+        failedLinesTmpFileNameFW = failedLines.first.substr(0, dotPos) + "_T" + std::to_string(i) + failedLines.first.substr(dotPos);
         failedFileListFW.push_back(failedLinesTmpFileNameFW);
     }
     concatenateFiles(failedFileListFW, failedLines.first);
@@ -196,7 +196,7 @@ void DemultiplexedResult::close_and_concatenate_fileStreams(const input& input)
         std::string failedLinesTmpFileNameRV;
         for(int i = 0; i < input.threads; ++i)
         {
-            failedLinesTmpFileNameRV = failedLines.second.substr(0, dotPos) + std::to_string(i) + failedLines.second.substr(dotPos);
+            failedLinesTmpFileNameRV = failedLines.second.substr(0, dotPos) + "_T" + std::to_string(i) + failedLines.second.substr(dotPos);
             failedFileListRV.push_back(failedLinesTmpFileNameRV);
         }
         concatenateFiles(failedFileListRV, failedLines.second);
@@ -217,12 +217,12 @@ void DemultiplexedResult::close_and_concatenate_fileStreams(const input& input)
             {
                 //pattern and thread specific DNA file
                 size_t dotPos = fileIt->second.dnaFile.find_last_of('.');  // Find the last dot
-                std::string dnaTmpFileName = fileIt->second.dnaFile.substr(0, dotPos) + std::to_string(i) + fileIt->second.dnaFile.substr(dotPos);
+                std::string dnaTmpFileName = fileIt->second.dnaFile.substr(0, dotPos) + "_T" + std::to_string(i) + fileIt->second.dnaFile.substr(dotPos);
                 dnaFileList.push_back(dnaTmpFileName);
 
                 //pattern and thread specific barcode file
                 dotPos = fileIt->second.barcodeFile.find_last_of('.');  // Find the last dot
-                std::string barcodeTmpFileName = fileIt->second.barcodeFile.substr(0, dotPos) + std::to_string(i) + fileIt->second.barcodeFile.substr(dotPos);
+                std::string barcodeTmpFileName = fileIt->second.barcodeFile.substr(0, dotPos) + "_T" + std::to_string(i) + fileIt->second.barcodeFile.substr(dotPos);
                 barcodeFileList.push_back(barcodeTmpFileName);
             }
 
@@ -238,7 +238,7 @@ void DemultiplexedResult::close_and_concatenate_fileStreams(const input& input)
             {
                 //pattern and thread specific barcode file
                 dotPos = fileIt->second.barcodeFile.find_last_of('.');  // Find the last dot
-                std::string barcodeTmpFileName = fileIt->second.barcodeFile.substr(0, dotPos) + std::to_string(i) + fileIt->second.barcodeFile.substr(dotPos);
+                std::string barcodeTmpFileName = fileIt->second.barcodeFile.substr(0, dotPos) + "_T" + std::to_string(i) + fileIt->second.barcodeFile.substr(dotPos);
                 barcodeFileList.push_back(barcodeTmpFileName);
             }
             concatenateFiles(barcodeFileList, fileIt->second.barcodeFile);
@@ -727,7 +727,7 @@ void DemultiplexedResult::initialize_tmp_file(const int i)
             TmpPatternStream tmpStream; // struct storing a stream for barcode(tsv) and DNA(FASTQ)
             //TEMPORARY BARCODE-tsv STREAM
             dotPos = fileIt->second.barcodeFile.find_last_of('.');  // Find the last dot
-            std::string barcodeTmpFileName = fileIt->second.barcodeFile.substr(0, dotPos) + std::to_string(i) + fileIt->second.barcodeFile.substr(dotPos);
+            std::string barcodeTmpFileName = fileIt->second.barcodeFile.substr(0, dotPos) + "_T" + std::to_string(i) + fileIt->second.barcodeFile.substr(dotPos);
             std::shared_ptr<std::ofstream> outFileBarcode = std::make_shared<std::ofstream>(barcodeTmpFileName);
             increase_buffer_for_stream(outFileBarcode);
             if (!outFileBarcode->is_open()) 
@@ -740,7 +740,7 @@ void DemultiplexedResult::initialize_tmp_file(const int i)
             //TEMPORARY DNA STREAM
             //tmp-file name is final name + threadID
             dotPos = fileIt->second.dnaFile.find_last_of('.');  // Find the last dot
-            std::string dnaTmpFileName = fileIt->second.dnaFile.substr(0, dotPos) + std::to_string(i) + fileIt->second.dnaFile.substr(dotPos);
+            std::string dnaTmpFileName = fileIt->second.dnaFile.substr(0, dotPos) + "_T"+ std::to_string(i) + fileIt->second.dnaFile.substr(dotPos);
             std::shared_ptr<std::ofstream> outFileDna = std::make_shared<std::ofstream>(dnaTmpFileName);
             increase_buffer_for_stream(outFileDna);
             if (!outFileDna->is_open()) 
@@ -756,7 +756,7 @@ void DemultiplexedResult::initialize_tmp_file(const int i)
             TmpPatternStream tmpStream; // struct storing a stream for barcode(tsv) and DNA(FASTQ)
             //TEMPORARY BARCODE-tsv STREAM
             dotPos = fileIt->second.barcodeFile.find_last_of('.');  // Find the last dot
-            std::string barcodeTmpFileName = fileIt->second.barcodeFile.substr(0, dotPos) + std::to_string(i) + fileIt->second.barcodeFile.substr(dotPos);
+            std::string barcodeTmpFileName = fileIt->second.barcodeFile.substr(0, dotPos) + "_T" + std::to_string(i) + fileIt->second.barcodeFile.substr(dotPos);
             std::shared_ptr<std::ofstream> outFileBarcode = std::make_shared<std::ofstream>(barcodeTmpFileName);
             increase_buffer_for_stream(outFileBarcode);
             if (!outFileBarcode->is_open()) 
@@ -771,7 +771,7 @@ void DemultiplexedResult::initialize_tmp_file(const int i)
 
     //TEMPORARY FAILED LINE STREAM
     dotPos = failedLines.first.find_last_of('.');  // Find the last dot
-    std::string failedLinesTmpFileName = failedLines.first.substr(0, dotPos) + std::to_string(i) + failedLines.first.substr(dotPos);
+    std::string failedLinesTmpFileName = failedLines.first.substr(0, dotPos) + "_T" + std::to_string(i) + failedLines.first.substr(dotPos);
     
     std::shared_ptr<std::ofstream> outFileFailedLineFW = std::make_shared<std::ofstream>(failedLinesTmpFileName);
     increase_buffer_for_stream(outFileFailedLineFW);
@@ -786,7 +786,7 @@ void DemultiplexedResult::initialize_tmp_file(const int i)
     if(failedLines.second != "")
     {
         dotPos = failedLines.second.find_last_of('.');  // Find the last dot
-        std::string failedLinesTmpFileNameRv = failedLines.second.substr(0, dotPos) + std::to_string(i) + failedLines.second.substr(dotPos);
+        std::string failedLinesTmpFileNameRv = failedLines.second.substr(0, dotPos) + "_T" + std::to_string(i) + failedLines.second.substr(dotPos);
         
         outFileFailedLineRV = std::make_shared<std::ofstream>(failedLinesTmpFileNameRv);
         increase_buffer_for_stream(outFileFailedLineRV);

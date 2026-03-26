@@ -413,7 +413,6 @@ test_multipattern:
 	diff --strip-trailing-cr ./bin/MULTI_PATTERN3_cut.tsv src/test/test_data/test_multipatterns/MULTI_PATTERN3.tsv
 
 	#test ESGI with multipattern and the combine-flag to write all patterns to the same output
-	
 
 test_demultiplex:
 

@@ -102,7 +102,10 @@ bool parse_arguments(char** argv, int argc, input& input)
                [-] defines the end of the fw/rv reads and can be useful to cut out DNA parts between a barcode and the end of the read.\
             \n[DNA]: DNA can only be at the end of a read (we map the FW and RV read from the 5' to the 3' end), this mean that we can have any barcodes before a DNA pattern, but we can not have barcodes after. In other words the DNA pattern must always be at the end of a read and valid patterns must look like this (where ... can be any pattern except [*],[-]): ...[DNA][-][DNA]... \
             \nvalid structures: [BC1.txt][DNA][-][15X][BC1.txt], [BC1.txt][-][DNA][15X][BC1.txt], [DNA][-][15X][BC1.txt], [15X][BC1.txt][-][DNA], [BC1.txt][15X][BC1.txt][DNA] \
-            \nNOT valid structures: [BC1.txt][DNA][BC2.txt][-][15X][BC1.txt], [BC1.txt][DNA][15X][BC1.txt]")
+            \nNOT valid structures: [BC1.txt][DNA][BC2.txt][-][15X][BC1.txt], [BC1.txt][DNA][15X][BC1.txt].\n \
+            When providing multiple patterns ESGI always maps ALL patterns, counts the total number of edits in the read and reports the pattern that maps best.\
+            Therefore, if patterns are very similar, be careful to not provide too many mismatches as patterns could be converted into toher ones. Nevertheless, \
+            even when this happens ESGI reports the pattern with less mismatches and thereby the more likely result.")
 
             ("mismatchFile,m", value<std::string>(&(input.mismatchFile))->default_value(""), "File with lists of mismatches allowed for each bracket enclosed sequence substring. \
             This should be a comma seperated list of numbers for each substring of the sequence enclosed in squared brackets. E.g.: 2,1,2,1,2. (Also add mismatches for the STOP[*], UMI[X], READSEPERATOR[-] -  \
@@ -119,8 +122,11 @@ bool parse_arguments(char** argv, int argc, input& input)
             ..._Quality_numberMM.txt stores how many mismatches we observed in which barcodes \n")
             ("writeFailedLines,f", value<bool>(&(input.writeFailedLines))->default_value(false), "write failed lines to an extra file.\n")
             ("hamming,H", value<bool>(&(input.hamming))->default_value(false), "Use hamming distance of 1 for all variable barcodes. \
-            This way only 1 substitution per barcode is allowed. It is useful for, e.g. 10X data where barcodes can be easily converted and reducing errors \
-            to substitutions reduces runtime. \n")
+            This way only 1 substitution per barcode is allowed. It is useful for, e.g. 10X data where barcodes can be easily converted into other ones and reducing errors \
+            to substitutions reduces runtime. Be aware: This ONLY uses hamming distance for the variable barcodes (barcodes from txt-files).\
+            Constant sequences are still mapped with Indels since we assume that these sequences are often quite long regions that cna not easily be converted into \
+            wrong sequences (as it might be the case with variable barcodes). If you are worried about shifting mapping frames with Indels constant linker regions \
+            can always be omitted by replacing them with random elements: e.g., [10X] instead of [AGTCGTACGT]. \n")
             ("precalculateIndels,l", value<bool>(&(input.precalculateIndels))->default_value(true),
             "More memory-efficient mode: set to 0 to NOT precalculate indel maps. \
             Indels are computed on the fly during mapping, reducing RAM usage at the cost of runtime. \
