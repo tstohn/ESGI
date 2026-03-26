@@ -169,6 +169,36 @@ TREATMENTS.txt
 ```txt
 CONTROL,EGFRi,CONTROL,EGFRi
 ```
+# Running ESGI with staggers
+
+ESGI can demultiplex patterns with staggers, where for a abrcode at a certain position the length of the barcode can vary. One example pattern would be [A|AC|ACG|ACGT][GGGG] where we expect first a barcode of length 1 to 4 followed by a constant element GGGG. ESGI has two features that makes it possible to match staggers. 1.) Barcodes in barcode-elements (elements described by a txt file that contains all possible barcodes) can have variable length and 2.) ESGI can demultiplex several patterns simultaneously. In this scenario we would recommend to set ESGI up in ether of two ways: 
+1.) use a single pattern and merge the stagger with the constant sequence. If we would not merge them and have a pattern with the stagger and the constant element many reads would be discarded because of ambiguous mapping, since if a read contains barcode 'ACG' also barcode 'A' and 'AC' would map and ESGI would discard the read (ESGI does not look ahead, but at every barcode position tries to find the best match, if there are several matches the read is discarded). But we can merge the stagger with the constant sequence and even allow for a mismatch, ESGI would still find the pattern that at least matches best.
+
+pattern.txt
+```txt
+[stagger_barcodes.txt]
+```
+stagger_barcodes.txt
+```txt
+AGGGG,ACGGGG,ACGGGGG,ACGTGGGG
+```
+2.) The second option would be to describe an individual pattern for every stagger, and allow only for no or very little mismatches in the staggers with very few nucleotides. This way we prevent to map a wrong barcode with insertions/deletions to a stagger. Additionally, you might want to map with hamming distance only.
+
+pattern.txt
+```txt
+PATTERN_1:[A][GGGG]
+PATTERN_2:[AC][GGGG]
+PATTERN_3:[ACG][GGGG]
+PATTERN_4:[ACGT][GGGG]
+```
+mismatches.txt
+```txt
+0,1
+0,1
+1,1
+1,1
+```
+
 
 # Points to consider
 
