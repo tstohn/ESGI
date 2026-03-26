@@ -125,9 +125,9 @@ The file can contain one or several patterns, every additional pattern must be w
 This file lists all pattern-elements like barcodes, UMIs, etc. and those elements are enclosed by squared brackets.
 The pattern can have a name (e.g., PATTERN_NAME:). This is not required, but can be handy if several patterns are provided, as ESGI creates one file of demultiplexed reads for every pattern.
 Possible elements inlude:
-  - a constant nucleotide sequence given as string of A,G,C,Ts, e.g. [GCATTACG] 
+  - a constant nucleotide sequence given as string of A,G,C,Ts, e.g. [GCATTACG].
   - barcode sequences, that are given by the path to a txt file. This file contains a comma-seperated list of all possible barcodes at this position.
-  - UMI stated as <number>X, e.g. [15X]
+  - UMI stated as <number>X, e.g. [15X]. You can also use this if you do not care about constant sequences. E.g., imagine we have the pattern [barcodes.txt][AAAA][barcodes.txt] but we do not care about the [AAAA] at all, we can simply use [barcodes.txt][4X][barcodes.txt]. This pattern element [4X] does not have to be used as UMI. When running ESGI or count we state the index in the pattern that we want to be used as UMI, this pattern element has to be a <number>X, but not every <number>X must be used as UMI. You can also ahve several <number>X elements and use them all as UMI, then ESGI/ count concatenates all the <number>X elements that are used as UMI and uses them as one long UMI.
   - genomic sequences like RNA/DNA, that need to be aligned to a reference genome with STAR, are listed as [DNA].
 ESGI makes use of two additional elements for special barcoding cases:
   - [-] seperates forward/reverse read strictly. The pattern generally covers the forward and reverse read (assuming reverse complements of the reverse read).
@@ -171,7 +171,10 @@ CONTROL,EGFRi,CONTROL,EGFRi
 ```
 # Running ESGI with staggers
 
-ESGI can demultiplex patterns with staggers, where for a abrcode at a certain position the length of the barcode can vary. One example pattern would be [A|AC|ACG|ACGT][GGGG] where we expect first a barcode of length 1 to 4 followed by a constant element GGGG. ESGI has two features that makes it possible to match staggers. 1.) Barcodes in barcode-elements (elements described by a txt file that contains all possible barcodes) can have variable length and 2.) ESGI can demultiplex several patterns simultaneously. In this scenario we would recommend to set ESGI up in ether of two ways: 
+ESGI can demultiplex patterns with staggers (barcodes of variable length). One example pattern would be [A|AC|ACG|ACGT][GGGG] where we expect first a barcode of length 1 to 4 followed by a constant element GGGG. The problem of staggers is that several barcodes might map equally well: imagine we have the read ACGGGG. Now we first map the stagger barcode and A,AC,ACG all would map equally well (when mapping barcodes of different length ESGI does not punish deletions at the end of the barcode). Therefore, we would ether have to map the whole pattern first to see that actually AC and GGGG would be the best split, or at least map the stagger sequence together with the barcode that follows the stagger!!
+
+ESGI has two features that makes it possible to match staggers: (1) Barcodes in barcode-elements (elements described by a txt file that contains all possible barcodes) can have variable length and (2) ESGI can demultiplex several patterns simultaneously.
+
 1.) use a single pattern and merge the stagger with the constant sequence. If we would not merge them and have a pattern with the stagger and the constant element many reads would be discarded because of ambiguous mapping, since if a read contains barcode 'ACG' also barcode 'A' and 'AC' would map and ESGI would discard the read (ESGI does not look ahead, but at every barcode position tries to find the best match, if there are several matches the read is discarded). But we can merge the stagger with the constant sequence and even allow for a mismatch, ESGI would still find the pattern that at least matches best.
 
 pattern.txt
@@ -182,7 +185,8 @@ stagger_barcodes.txt
 ```txt
 AGGGG,ACGGGG,ACGGGGG,ACGTGGGG
 ```
-2.) The second option would be to describe an individual pattern for every stagger, and allow only for no or very little mismatches in the staggers with very few nucleotides. This way we prevent to map a wrong barcode with insertions/deletions to a stagger. Additionally, you might want to map with hamming distance only.
+
+2.) The second option would be to describe an individual pattern for every stagger, and allow only for no or very little mismatches in the staggers with very few nucleotides. This way we prevent to map a wrong barcode with insertions/deletions to a stagger. Additionally, you could map with hamming distance only in the barcodes with the -H flag.
 
 pattern.txt
 ```txt
