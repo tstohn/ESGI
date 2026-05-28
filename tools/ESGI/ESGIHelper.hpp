@@ -904,7 +904,7 @@ inline bool run_count(ESGIConfig& config, const ESGIIntermediateFiles& intermedi
         barcodeIndices = config.SC_ID;
         try 
         {
-            featureIdx = std::stoi(config.FEATURE_ID);
+            featureIdx = parsing::parse_int(parsing::trim(config.FEATURE_ID));
         }
         catch (const std::exception& e) 
         {
@@ -931,11 +931,11 @@ inline bool run_count(ESGIConfig& config, const ESGIIntermediateFiles& intermedi
             {
                 try 
                 {
-                    intVec.push_back(std::stoi(s));
+                    intVec.push_back(parsing::parse_int(parsing::trim(s)));
                 }
                 catch (...) 
                 {
-                    std::cerr << "Invalid integer: " << s << "\n";
+                    std::cerr << "Invalid integer for the annotation indices: " << s << "\n";
                 }
             }
             annotationIdxs = intVec;

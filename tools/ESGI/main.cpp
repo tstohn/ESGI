@@ -212,7 +212,21 @@ int main(int argc, char** argv)
     intermediateFiles.patternLength = static_cast<int>(patterns.at(0).second.size());
            
     //set the number of MM for the UMI
-    if(config.UMI_ID.has_value()){intermediateFiles.umiMismatches = mismatches.at(0).at(std::stoi(config.UMI_ID.value()));}
+    // we already check in code before if UMIs have no comma, therefore it should not happen but we still catch an error here
+    try
+    {
+        if(config.UMI_ID.has_value())
+        {
+            intermediateFiles.umiMismatches = mismatches.at(0).at(parsing::parse_int(parsing::trim(config.UMI_ID.value())));
+        }
+    }
+    catch (const std::exception& e) 
+    {
+        std::cerr << "Error setting UMI mismatches: " << e.what() << "\n";
+        std::cerr << "Error reading the number of mismatches for UMI-correction. \n";
+        std::cerr << "ESGI supports only one UMI-position. If you ahve several UMIs please run demultiplex and count separately\n";
+        exit(EXIT_FAILURE);
+    }
 
     // output file for count is basically just the output file of demultiplex, count will then add a COUNTDATA prefix
     std::string demultiplexOutputPatternFile = demultiplexOutput + ".tsv";
