@@ -958,18 +958,21 @@ bool BarcodeProcessingHandler::checkIfLineIsDeleted(const dataLinePtr& line, con
 
 void BarcodeProcessingHandler::writeLog(std::string output)
 {
-    //WRITE INTO FILE
-    std::ofstream outputFile;
-    std::size_t found = output.find_last_of("/");
-    if(found == std::string::npos)
+    // WRITE INTO FILE
+    std::filesystem::path outputPath(output);
+    std::filesystem::path dir = outputPath.parent_path();
+    std::string filename = outputPath.filename().string();
+    std::filesystem::path logOutput;
+    if (dir.empty()) 
     {
-        output = "LOG" + output;
-    }
-    else
+        logOutput = "LOG_" + filename;
+    } 
+    else 
     {
-        output = output.substr(0,found) + "/" + "LOG" + output.substr(found+1);
+        // The '/' operator safely handles separators for whatever OS you are on
+        logOutput = dir / ("LOG_" + filename); 
     }
-    outputFile.open (output);
+    std::ofstream outputFile(logOutput.string());
 
     outputFile << "TOTAL READS:\t" << result.get_log_data().totalReads << "\n";
     outputFile << "TOTAL GUIDE-READS:\t" << result.get_log_data().totalGuideReads << "\n";
@@ -986,20 +989,23 @@ void BarcodeProcessingHandler::writeLog(std::string output)
 
 void BarcodeProcessingHandler::writeAbCountsPerSc(const std::string& output)
 {
+    std::filesystem::path outputPath(output);
     std::ofstream outputFile;
-    std::size_t found = output.find_last_of("/");
 
-    //STORE RAW UMI CORRECTED DATA
-    std::string umiOutput = output;
-    if(found == std::string::npos)
+    // STORE RAW UMI CORRECTED DATA
+    // Extract the directory and filename separately
+    std::filesystem::path dir = outputPath.parent_path();
+    std::string filename = outputPath.filename().string();
+    std::filesystem::path umiOutput;
+    if (dir.empty()) 
     {
-        umiOutput = "UMIDATA_" + output;
-    }
-    else
+        umiOutput = "UMIDATA_" + filename;
+    } 
+    else 
     {
-        umiOutput = output.substr(0,found) + "/" + "UMIDATA_" + output.substr(found+1);
+        umiOutput = dir / ("UMIDATA_" + filename); // The '/' operator automatically handles OS separators
     }
-    outputFile.open (umiOutput);
+    outputFile.open(umiOutput.string());
 
     //write headers
     outputFile << "UMI" << "\t" << "FEATURE_ID" << "\t" << "SC_ID" << "\t";
@@ -1022,16 +1028,19 @@ void BarcodeProcessingHandler::writeAbCountsPerSc(const std::string& output)
     outputFile.close();
 
     //STORE AB COUNT DATA
-    std::string abOutput = output;
-    if(found == std::string::npos)
+
+    std::filesystem::path abOutput;
+    if (dir.empty()) 
     {
-        abOutput = "COUNTDATA_" + output;
-    }
-    else
+        abOutput = "COUNTDATA_" + filename;
+    } 
+    else 
     {
-        abOutput = output.substr(0,found) + "/" + "COUNTDATA_" + output.substr(found+1);
+        abOutput = dir / ("COUNTDATA_" + filename); 
     }
-    outputFile.open (abOutput);
+
+    outputFile.open(abOutput.string());
+
     bool writeClassLabels = rawData.check_class();
     if(writeClassLabels)
     {
@@ -1109,16 +1118,18 @@ void BarcodeProcessingHandler::writeAbCountsPerSc(const std::string& output)
     outputFile.close();
     
     //store statistics like UMI counts
-    std::string umiStatOutput = output;
-    if(found == std::string::npos)
+    std::filesystem::path umiStatOutput;
+    if (dir.empty()) 
     {
-        umiOutput = "UMISTAT" + output;
-    }
-    else
+        umiStatOutput = "UMISTAT_" + filename;
+    } 
+    else 
     {
-        umiOutput = output.substr(0,found) + "/" + "UMISTAT" + output.substr(found+1);
+        umiStatOutput = dir / ("UMISTAT_" + filename); 
     }
-    outputFile.open (umiOutput);
+    outputFile.open(umiStatOutput.string());
+
+
     outputFile << "UMI_AMPLIFICATION" << "\t" << "AB" << "\t" << "OCCURENCE" << "\n"; 
     umiDist stats = result.get_umi_stats();
     for (auto it : (stats.abs))
