@@ -614,7 +614,7 @@ std::string adjust_position_due_to_special_patterns(const std::string& indexList
     {
         try 
         {
-            values.push_back(std::stoi(index));
+            values.push_back(parsing::parse_int(parsing::trim(index)));
         }
         catch (const std::exception& e) 
         {
