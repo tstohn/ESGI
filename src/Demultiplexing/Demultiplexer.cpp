@@ -153,10 +153,18 @@ void Demultiplexer<MappingPolicy, FilePolicy>::demultiplex_wrapper_batch(const s
             {
                 if(bestPatternScore != std::numeric_limits<int>::max())
                 {
-                    std::cout << "Warning: We previously found a matching pattern (" << foundPatternName << ") with " << bestPatternScore << " mismatches\n";
-                    std::cout << "Now we found a better matching pattern: " << pattern->patternName << " with " << tmpPatternScore << " mismatches.\n";
-                    std::cout << "This can happen when patterns are VERY similar (e.g., only difference is staggers). In that case do not worry. But maybe \
-                    you want to allow less mismatches inside the stagger element or the element following the stagger to get more unique matches\n.";
+                    int warning_count_tmp = warning_count.fetch_add(1);  // increment and get new value
+                    if (warning_count_tmp < 10) 
+                    {
+                        std::cout << "Warning: We previously found a matching pattern (" << foundPatternName << ") with " << bestPatternScore << " mismatches\n";
+                        std::cout << "Now we found a better matching pattern: " << pattern->patternName << " with " << tmpPatternScore << " mismatches.\n";
+                        std::cout << "This can happen when patterns are VERY similar (e.g., only difference is staggers). In that case do not worry. But maybe \
+                        you want to allow less mismatches inside the stagger element or the element following the stagger to get more unique matches\n.";
+                    }
+                    else if(warning_count_tmp == 10)
+                    {
+                        std::cout << "Stopped writing warning: We often can match several patterns with the given number of mismatches, maybe reevaluate the number of mismatches\n";
+                    }
                 }
                 foundPatternName = pattern->patternName;
                 result = true;

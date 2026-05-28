@@ -2,6 +2,7 @@
 
 #include "DemultiplexedResult.hpp"
 #include <limits>
+#include <atomic>
 
 /** @brief class to map several barcode Patterns simultaneously, 
  * and handles writing of results/ or storage in RAM
@@ -99,5 +100,6 @@ class Demultiplexer : private Mapping<MappingPolicy, FilePolicy>
         std::atomic<long> elementsInQueue{0};   // number of lines currently processed
         std::mutex queueMutex;
         std::condition_variable queueCV;
+        std::atomic<int> warning_count{0};
 
 };

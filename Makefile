@@ -650,3 +650,9 @@ testUmiqual:
 
 debug_test:
 	./bin/demultiplex -i ./src/test/test_data/inFastqTest.fastq -o ./bin -p ./src/test/test_data/pattern.txt -m ./src/test/test_data/mismatches.txt -t 20 -q 1
+
+test_threads:
+	./bin/demultiplex -i ./src/test/test_data/test_multipatterns/input_big.txt -o ./bin/ -p ./src/test/test_data/test_multipatterns/patterns.txt -m ./src/test/test_data/test_multipatterns/mismatches.txt -t 3 -n MULTI -s 33
+	wc -l ./bin/MULTI_PATTERN1.tsv
+	wc -l ./bin/MULTI_PATTERN2.tsv
+	wc -l ./bin/MULTI_PATTERN3.tsv
