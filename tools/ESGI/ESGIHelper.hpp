@@ -27,9 +27,9 @@ inline int get_special_pattern_pos(const std::vector<std::string>& patterns)
     for (size_t i = 0; i < patterns.size(); ++i) 
     {
         if (patterns[i] == "-" && posDash==-1) {posDash = static_cast<int>(i);}
-        else if (patterns[i] == "[-]" && posDash!=-1){std::cerr << "The pattern [-] can only be used ONCE in a pattern! (It denotes the end of fw/rv reads, e.g., for cases where there is no overlap between reads\n";}
+        else if (patterns[i] == "-" && posDash!=-1){std::cerr << "The pattern [-] can only be used ONCE in a pattern! (It denotes the end of fw/rv reads, e.g., for cases where there is no overlap between reads\n";}
         if (patterns[i] == "*" && posStar==-1) {posStar = static_cast<int>(i);}
-        else if (patterns[i] == "[*]" && posDash!=-1){std::cerr << "The pattern [*] can only be used ONCE in a pattern! Everything 'behind' this pattern in reading direction is not considered anymore for demultiplexing\n";}
+        else if (patterns[i] == "*" && posDash!=-1){std::cerr << "The pattern [*] can only be used ONCE in a pattern! Everything 'behind' this pattern in reading direction is not considered anymore for demultiplexing\n";}
     }
 
     // neither found
@@ -479,11 +479,11 @@ static int check_star_version(const std::string& minimumVersion, std::string& cu
     int a,b,c,s, ra,rb,rc, rs;
     if (!parse_version_triplet(out, a,b,c,s)) {
         std::cerr << "Could not parse STAR version from output: " << out << "\n";
-        return 1;
+        return 0;
     }
     if (!parse_version_triplet(minimumVersion, ra,rb,rc, rs)) {
         std::cerr << "Invalid required version string: " << minimumVersion << "\n";
-        return 1;
+        return 0;
     }
 
     int cmp = compare_versions(a,b,c,s, ra,rb,rc,rs);
@@ -612,7 +612,14 @@ std::string adjust_position_due_to_special_patterns(const std::string& indexList
     // Split by commas
     while (std::getline(ss, index, ',')) 
     {
-        values.push_back(std::stoi(index));
+        try 
+        {
+            values.push_back(std::stoi(index));
+        }
+        catch (const std::exception& e) 
+        {
+            std::cerr << " Invalid index: '" << index << "'\n" << " Please double check your ini-file to provide a valid index\n";
+        }
     }
 
     // Modify values
@@ -623,7 +630,7 @@ std::string adjust_position_due_to_special_patterns(const std::string& indexList
         if(intermediateFiles.dnaPatternPos >= 0 && v > intermediateFiles.dnaPatternPos){dnaShift = -1;}
         //if the index is behind a -,* we need to substract one bcs this poattern is not in the demultiplex output
         if (intermediateFiles.specialPatternPos != -1 && v > intermediateFiles.specialPatternPos) v -= 1;
-        //also we need to add 1 to every column, bcs we will ahve the additional READNAME column
+        //also we need to add 1 to every column, bcs we will have the additional READNAME column
         v += 1;
         //and finally add the dna shift
         v += dnaShift;
@@ -833,6 +840,7 @@ inline bool run_count(ESGIConfig& config, const ESGIIntermediateFiles& intermedi
     std::filesystem::path dir = patternPath.parent_path();
 
     //index re-assignment due to -,*
+    std::cout << " Assigning indices for single-cell IDs\n";
     config.SC_ID = adjust_position_due_to_special_patterns(config.SC_ID, intermediateFiles);
 
     if(intermediateFiles.dnaPatternPos >=0)
@@ -842,14 +850,24 @@ inline bool run_count(ESGIConfig& config, const ESGIIntermediateFiles& intermedi
         config.FEATURE_ID = std::to_string(intermediateFiles.patternLength);            
         //however, if there were special patterns (like -,*) that are not in the demultiplexed output we need to adust the FEATURE column index
         //basically: -1 for removing the DNA pattern, -1 if there is a -,* and +1 for READNAME col
+        std::cout << " Assigning indices for feature ID\n";
         config.FEATURE_ID = adjust_position_due_to_special_patterns(config.FEATURE_ID, intermediateFiles);
     }
     else
     {
+        std::cout << " Assigning indices for feature ID\n";
         config.FEATURE_ID = adjust_position_due_to_special_patterns(config.FEATURE_ID, intermediateFiles);
     }
-    if(config.UMI_ID.has_value()){config.UMI_ID = adjust_position_due_to_special_patterns(config.UMI_ID.value(), intermediateFiles);}
-    if(config.ANNOTATION_IDs.has_value()){config.ANNOTATION_IDs = adjust_position_due_to_special_patterns(config.ANNOTATION_IDs.value(), intermediateFiles);}
+    if(config.UMI_ID.has_value())
+    {
+        std::cout << " Assigning indices for UMI IDs\n";
+        config.UMI_ID = adjust_position_due_to_special_patterns(config.UMI_ID.value(), intermediateFiles);
+    }
+    if(config.ANNOTATION_IDs.has_value())
+    {
+        std::cout << " Assigning indices for annotation IDs\n";
+        config.ANNOTATION_IDs = adjust_position_due_to_special_patterns(config.ANNOTATION_IDs.value(), intermediateFiles);
+    }
 
     //below running the code of count main
     try
