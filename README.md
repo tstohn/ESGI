@@ -212,5 +212,6 @@ mismatches.txt
   make test_esgi_RNA
 ```
 - at the moment the multi-pattern option is supported by ESGI only if all patterns belong to the same modality (this is because *count* is called only once in ESGI for all patterns together) and the number of columns, positions of single-cell barcodes, etc. is the same in all patterns. An example for this could be if the data contains reads with different barcodes at the barcode elements positions, different barcodes have different constant linkers attached, or certain barcodes at one positions were only combined with certain other barcodes at a later position etc. and the user wants to explicitely state these different patterns (for more details see website). Still all barcodes are at the same position and can all be counted together. If you have a FASTQ with several modalities/ a hierachical pattern we recommend to run ESGIs tools individually: 1.) run *demultiplex* in multi-pattern mode (see demultiplex --help) and for the individual outputs of *demultiplex* (one for every pattern) run *count*.
+-  ESGI can be run only with one UMI-barcode at the moment. If you have several UMIs in a pattern you can run demultiplex and count separately.
 
 
