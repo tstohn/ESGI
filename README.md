@@ -129,7 +129,7 @@ The pattern can have a name (e.g., PATTERN_NAME:). This is not required, but can
 Possible elements inlude:
   - a constant nucleotide sequence given as string of A,G,C,Ts, e.g. [GCATTACG].
   - barcode sequences, that are given by the path to a txt file. This file contains a comma-seperated list of all possible barcodes at this position.
-  - UMI stated as <number>X, e.g. [15X]. You can also use this if you do not care about constant sequences. E.g., imagine we have the pattern [barcodes.txt][AAAA][barcodes.txt] but we do not care about the [AAAA] at all, we can simply use [barcodes.txt][4X][barcodes.txt]. This pattern element [4X] does not have to be used as UMI. When running ESGI or count we state the index in the pattern that we want to be used as UMI, this pattern element has to be a <number>X, but not every <number>X must be used as UMI. You can also ahve several <number>X elements and use them all as UMI, then ESGI/ count concatenates all the <number>X elements that are used as UMI and uses them as one long UMI.
+  - UMI stated as <number>X, e.g. [15X]. You can also use this if you do not care about constant sequences. E.g., imagine we have the pattern [barcodes.txt][AAAA][barcodes.txt] but we do not care about the [AAAA] at all, we can simply use [barcodes.txt][4X][barcodes.txt]. This pattern element [4X] does not have to be used as UMI. When running ESGI or count we state the index in the pattern that we want to be used as UMI, this pattern element has to be a <number>X, but not every <number>X must be used as UMI. You can also have several <number>X elements and use them all as UMI, then ESGI/ count concatenates all the <number>X elements that are used as UMI and uses them as one long UMI.
   - genomic sequences like RNA/DNA, that need to be aligned to a reference genome with STAR, are listed as [DNA].
 ESGI makes use of two additional elements for special barcoding cases:
   - [-] seperates forward/reverse read strictly. The pattern generally covers the forward and reverse read (assuming reverse complements of the reverse read).
@@ -188,7 +188,7 @@ stagger_barcodes.txt
 AGGGG,ACGGGG,ACGGGGG,ACGTGGGG
 ```
 
-2.) The second option would be to describe an individual pattern for every stagger, and allow only for no or very little mismatches in the staggers with very few nucleotides. This way we prevent to map a wrong barcode with insertions/deletions to a stagger. Additionally, you could map with hamming distance only in the barcodes with the '-H' flag when you run demultiplex or by adding this line to the ESGI ini-file 'hamming=1'.
+2.) The second option would be to describe an individual pattern for every stagger. ESGI will test every pattern and only if one-and-only-one pattern matches within the given number of mismatches ESGI will report the matched pattern. To be even more on the safe side we can allow only for no or very little mismatches in the staggers with very few nucleotides. This way we prevent to map a wrong barcode with insertions/deletions to a stagger. Additionally, you could map with hamming distance only in the barcodes with the '-H' flag when you run demultiplex or by adding this line to the ESGI ini-file 'hamming=1'.
 
 pattern.txt
 ```txt
