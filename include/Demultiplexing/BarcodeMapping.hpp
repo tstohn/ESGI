@@ -61,8 +61,10 @@ class MapEachBarcodeSequentiallyPolicyPairwise
         bool combine_mapping(const BarcodePatternPtr& barcodePatterns,
                              DemultiplexedLine& demultiplexedLineFw, //this list is extended to real list
                              const unsigned int& barcodePositionFw,
+                             bool fwMappedAll,
                              const DemultiplexedLine& demultiplexedLineRv,
                              const unsigned int& barcodePositionRv,
+                             bool rvMappedAll,
                              OneLineDemultiplexingStatsPtr stats,
                              OneLineDemultiplexingStatsPtr statsRv,
                              int& score_sum);

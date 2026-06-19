@@ -683,8 +683,10 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const fastqLine& seq,
         int targetEnd = 0;
         ++position;
 
-        //if we have mapped to the end of the sequence (but barcodes of the pattern are still missing)
-        if( (seq.line.size() <= positionInFastqLine) && !(*patternItr)->is_stop() && !(*patternItr)->is_read_end()){return false;}
+        // Sequence exhausted before this barcode position — not a mapping failure, the read
+        // simply did not cover this far. Return true so combine_mapping knows no alignment
+        // error occurred and can invent constant barcodes in the gap if applicable.
+        if( (seq.line.size() <= positionInFastqLine) && !(*patternItr)->is_stop() && !(*patternItr)->is_read_end()){return true;}
 
         //if we have a wildcard skip this matching, we match again the next sequence
         if((*patternItr)->is_wildcard())
@@ -695,7 +697,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const fastqLine& seq,
             demultiplexedLine.barcodeList.push_back(barcode);
 
             if(stats != nullptr)
-            {       
+            {
                 stats->insertions.push_back(0);
                 stats->deletions.push_back(0);
                 stats->substitutions.push_back(0);
@@ -736,11 +738,11 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const fastqLine& seq,
             return true;
         }
 
-        // in case the sequence ends in the middle of the next barcode
+        // Sequence ends in the middle of the next barcode — not a mapping failure.
         bool seqToShort = check_if_seq_too_short(positionInFastqLine, seq.line);
         if(seqToShort)
         {
-            return false;
+            return true;
         }
 
         //IF NON OF THE ABOVE - TRY TO MAP PATTERN
@@ -748,6 +750,20 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const fastqLine& seq,
         //if we did not match a pattern
         if(!(*patternItr)->align(barcode,seq.line, positionInFastqLine, targetEnd, del, ins, subst))
         {
+            // If the remaining sequence is shorter than the barcode's expected length the read
+            // simply ran out within this barcode — not a genuine mismatch. Return true so that
+            // combine_mapping can still invent this constant barcode in the gap.
+            auto barcodeSeqs = (*patternItr)->get_patterns();
+            if(!barcodeSeqs.empty())
+            {
+                size_t minBarcodeLen = barcodeSeqs.front()->size();
+                //At the moment we check the first pattern; theoretically this should be done better
+                //since we could have variable length patterns!!
+                if(minBarcodeLen > 0 && (seq.line.length() - positionInFastqLine < minBarcodeLen))
+                {
+                    return true;
+                }
+            }
             //save until where we mapped
             if(stats != nullptr)
             {
@@ -756,7 +772,7 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_forward(const fastqLine& seq,
             }
             return false;
         }
-        
+
         //std::cout << "ALIGN FW: found " << barcode << " at start " << positionInFastqLine << " with new end " << targetEnd << "\n";
 
         totalEdits = totalEdits + del + ins + subst;
@@ -805,8 +821,10 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const fastqLine& seq,
         int targetEnd = 0;
         ++position;
 
-        //if we have mapped to the end of the sequence (but barcodes of the pattern are still missing)
-        if( (seq.line.size() <= positionInFastqLine) && !(*patternItr)->is_stop() && !(*patternItr)->is_read_end()){return false;}
+        // Sequence exhausted before this barcode position — not a mapping failure, the read
+        // simply did not cover this far. Return true so combine_mapping knows no alignment
+        // error occurred and can invent constant barcodes in the gap if applicable.
+        if( (seq.line.size() <= positionInFastqLine) && !(*patternItr)->is_stop() && !(*patternItr)->is_read_end()){return true;}
 
         //if we have a wildcard skip this matching, we match again the next sequence
         if((*patternItr)->is_wildcard())
@@ -851,22 +869,32 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const fastqLine& seq,
         }
         else if((*patternItr)->is_read_end())
         {
-            // DO NOT increase the count of found positions (++barcodePosition;), 
+            // DO NOT increase the count of found positions (++barcodePosition;),
             //it is ONLY counted in the forward read
             //stop here: we do not continue mapping when the read ends
             return true;
         }
 
-        // in case the sequence ends in the middle of the next barcode
+        // Sequence ends in the middle of the next barcode — not a mapping failure.
         bool seqToShort = check_if_seq_too_short(positionInFastqLine, seq.line);
         if(seqToShort)
         {
-            return false;
+            return true;
         }
 
         //map each pattern with reverse complement
         if(!(*patternItr)->align(barcode,seq.line, positionInFastqLine, targetEnd, del, ins, subst, true))
         {
+            // Same short-seq check as in map_forward.
+            auto barcodeSeqs = (*patternItr)->get_patterns();
+            if(!barcodeSeqs.empty())
+            {
+                size_t minBarcodeLen = barcodeSeqs.front()->size();
+                if(minBarcodeLen > 0 && (seq.line.length() - positionInFastqLine < minBarcodeLen))
+                {
+                    return true;
+                }
+            }
             //save until where we mapped
             if(stats != nullptr)
             {
@@ -904,8 +932,10 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::map_reverse(const fastqLine& seq,
 bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(const BarcodePatternPtr& barcodePatterns,
                                                                DemultiplexedLine& demultiplexedLineFw,
                                                                const unsigned int& barcodePositionFw,
+                                                               bool fwMappedAll,
                                                                const DemultiplexedLine& demultiplexedLineRv,
                                                                const unsigned int& barcodePositionRv,
+                                                               bool rvMappedAll,
                                                                OneLineDemultiplexingStatsPtr stats,
                                                                OneLineDemultiplexingStatsPtr statsRv,
                                                                int& score_sum)
@@ -989,6 +1019,14 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::combine_mapping(const BarcodePatt
     //non-found-constant barcode
     if(patternNum > (barcodePositionFw + barcodePositionRv))
     {
+        // Only invent missing constant barcodes when both reads reached their natural boundary
+        // (stop/read-end/seq-too-short). If either returned false due to an alignment failure the
+        // missing barcodes genuinely did not map and must not be fabricated.
+        if(!fwMappedAll || !rvMappedAll)
+        {
+            return false;
+        }
+
         //check if missing barcodes are only constant
         size_t start = barcodePositionFw; // index of first missing barcode
         size_t end = (patternNum - barcodePositionRv) - 1; //last idnex that can be missing
@@ -1081,7 +1119,12 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::split_line_into_barcode_patterns(
 
         bool reverseSuccess = map_forward(seq.second, barcodePatterns, statsRvPtr, demultiplexedLineRv,barcodePositionRv, tmpMMScore, PatternType::Reverse);
 
-        if(forwardSuccess && reverseSuccess)
+        // In independent mode every read must cover ALL its own barcodes — no gap-filling is
+        // applied. map_forward now returns true for short-seq exits too, so we additionally
+        // require that barcodePosition reached the full pattern size for each read.
+        bool fwComplete = barcodePositionFw == barcodePatterns->size(PatternType::Forward);
+        bool rvComplete = barcodePositionRv == barcodePatterns->size(PatternType::Reverse);
+        if(forwardSuccess && reverseSuccess && fwComplete && rvComplete)
         {
             mmScore = tmpMMScore;
             pairwiseMappingSuccess = true;
@@ -1119,12 +1162,12 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::split_line_into_barcode_patterns(
     }
     else 
     {
-        //map forward reads barcodeList contains the stored barcodes, 
+        //map forward reads barcodeList contains the stored barcodes,
         //barcodePosition is the psoiton of the last mapped barcode
         unsigned int barcodePositionFw = 0;
         int tmpMMScore = 0;
         //for forward read we immediately add barcodes to demultiplexedLine.barcodeList, which is then extended in combine pattern, IF we find all patterns
-        map_forward(seq.first, barcodePatterns, stats, demultiplexedLine, barcodePositionFw, tmpMMScore);
+        bool fwMappedAll = map_forward(seq.first, barcodePatterns, stats, demultiplexedLine, barcodePositionFw, tmpMMScore);
         DemultiplexedLine demultiplexedLineRv;
         unsigned int barcodePositionRv = 0;
 
@@ -1135,11 +1178,10 @@ bool MapEachBarcodeSequentiallyPolicyPairwise::split_line_into_barcode_patterns(
         //if we save stats initialize the temporary one here
         if(stats != nullptr){statsRvPtr = std::make_shared<OneLineDemultiplexingStats>();}
         else{statsRvPtr = nullptr;}
-        
-        map_reverse(seq.second, barcodePatterns, statsRvPtr, demultiplexedLineRv,barcodePositionRv, tmpMMScore);
 
-        //todo: better check if fw and rv mapped: at the moment they returna  fail if e.g. a half-constant barcode does not map
-        pairwiseMappingSuccess = combine_mapping(barcodePatterns, demultiplexedLine, barcodePositionFw, demultiplexedLineRv, barcodePositionRv, stats, statsRvPtr, tmpMMScore);
+        bool rvMappedAll = map_reverse(seq.second, barcodePatterns, statsRvPtr, demultiplexedLineRv,barcodePositionRv, tmpMMScore);
+
+        pairwiseMappingSuccess = combine_mapping(barcodePatterns, demultiplexedLine, barcodePositionFw, fwMappedAll, demultiplexedLineRv, barcodePositionRv, rvMappedAll, stats, statsRvPtr, tmpMMScore);
         if(pairwiseMappingSuccess){mmScore = tmpMMScore;}
     }
 
